@@ -1,22 +1,23 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Users, Plus, Cpu, Search, Database, Code } from 'lucide-react';
+import { Users, Plus, Cpu, Search, Database, Code, ShieldCheck, Terminal, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Agent, AgentType } from '@/types';
+import { Agent, AgentRole } from '@/types';
 
-const agentTypeIcons = {
-  research: <Search className="w-4 h-4" />,
-  analyzer: <Database className="w-4 h-4" />,
-  compute: <Cpu className="w-4 h-4" />,
-  orchestrator: <Code className="w-4 h-4" />,
+const agentRoleIcons: Record<string, React.ReactNode> = {
+  'research-agent': <Search className="w-3.5 h-3.5" />,
+  'planning-agent': <Database className="w-3.5 h-3.5" />,
+  'execution-agent': <Terminal className="w-3.5 h-3.5" />,
+  'validation-agent': <ShieldCheck className="w-3.5 h-3.5" />,
+  'orchestrator': <Cpu className="w-3.5 h-3.5" />,
 };
 
 export const AgentManager: React.FC = () => {
   const [agents, setAgents] = useState<Agent[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [name, setName] = useState('');
-  const [type, setType] = useState<AgentType>('research');
+  const [role, setRole] = useState<AgentRole>('research-agent');
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -42,7 +43,7 @@ export const AgentManager: React.FC = () => {
       const res = await fetch('/api/agents', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name, type }),
+        body: JSON.stringify({ name, role }),
       });
       if (res.ok) {
         const newAgent = await res.json();
@@ -56,15 +57,15 @@ export const AgentManager: React.FC = () => {
   };
 
   return (
-    <div className="bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-xl w-full max-w-4xl mx-auto mt-8">
-      <div className="flex items-center justify-between mb-6">
-        <div className="flex items-center gap-2 text-white font-semibold">
-          <Users className="w-5 h-5 text-blue-400" />
-          <h2>Agent Registry</h2>
+    <div className="w-full">
+      <div className="flex items-center justify-between mb-8">
+        <div className="flex flex-col">
+           <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Active Fleet</span>
+           <span className="text-xl font-bold text-slate-200">{agents.length} Qualified Agents</span>
         </div>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
-          className="p-2 bg-blue-600/20 text-blue-400 hover:bg-blue-600/30 rounded-lg transition-colors border border-blue-500/20"
+          className="w-10 h-10 flex items-center justify-center bg-blue-600/10 text-blue-400 hover:bg-blue-600 hover:text-white rounded-xl transition-all border border-blue-500/20"
         >
           <Plus className="w-5 h-5" />
         </button>
@@ -73,65 +74,92 @@ export const AgentManager: React.FC = () => {
       <AnimatePresence>
         {showAddForm && (
           <motion.div
-            initial={{ opacity: 0, height: 0 }}
-            animate={{ opacity: 1, height: 'auto' }}
-            exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden mb-8"
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className="mb-8"
           >
-            <form onSubmit={handleAddAgent} className="p-4 bg-slate-950 border border-slate-800 rounded-xl space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <input
-                  type="text"
-                  placeholder="Agent Name (e.g. Research-Alpha)"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  className="bg-slate-900 border border-slate-800 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500"
-                  required
-                />
-                <select
-                  value={type}
-                  onChange={(e) => setType(e.target.value as AgentType)}
-                  className="bg-slate-900 border border-slate-800 text-white rounded-lg px-4 py-2 focus:outline-none focus:ring-1 focus:ring-blue-500 capitalize"
-                >
-                  <option value="research">Research</option>
-                  <option value="analyzer">Analyzer</option>
-                  <option value="compute">Compute</option>
-                  <option value="orchestrator">Orchestrator</option>
-                </select>
+            <form onSubmit={handleAddAgent} className="p-6 bg-slate-950/80 border border-white/5 rounded-[1.5rem] space-y-4 shadow-2xl">
+              <div className="grid grid-cols-1 gap-4">
+                <div className="space-y-1">
+                   <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Agent Designation</label>
+                   <input
+                     type="text"
+                     placeholder="e.g. Sentinel-01"
+                     value={name}
+                     onChange={(e) => setName(e.target.value)}
+                     className="w-full bg-slate-900/50 border border-white/5 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500/50 text-sm"
+                     required
+                   />
+                </div>
+                <div className="space-y-1">
+                   <label className="text-[10px] font-black text-slate-500 uppercase ml-1">Specialized Role</label>
+                   <select
+                     value={role}
+                     onChange={(e) => setRole(e.target.value as AgentRole)}
+                     className="w-full bg-slate-900/50 border border-white/5 text-white rounded-xl px-4 py-3 focus:outline-none focus:border-blue-500/50 text-sm capitalize"
+                   >
+                     <option value="research-agent">Research</option>
+                     <option value="planning-agent">Planning</option>
+                     <option value="execution-agent">Execution</option>
+                     <option value="validation-agent">Validation</option>
+                     <option value="orchestrator">Orchestrator</option>
+                   </select>
+                </div>
               </div>
               <button
                 type="submit"
-                className="w-full py-2 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-lg transition-colors"
+                className="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white text-xs font-black uppercase tracking-widest rounded-xl transition-all shadow-lg shadow-blue-900/20"
               >
-                Register Agent
+                Onboard Agent
               </button>
             </form>
           </motion.div>
         )}
       </AnimatePresence>
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 gap-3">
         {isLoading ? (
-          <div className="col-span-full h-24 flex items-center justify-center text-slate-500">Loading agents...</div>
+          <div className="h-40 flex items-center justify-center text-[10px] font-black uppercase tracking-widest text-slate-600">Initializing registry...</div>
         ) : agents.length === 0 ? (
-          <div className="col-span-full h-24 flex items-center justify-center text-slate-500">No agents registered.</div>
+          <div className="h-40 flex items-center justify-center text-[10px] font-black uppercase tracking-widest text-slate-700">No agents on deck.</div>
         ) : (
           agents.map((agent) => (
-            <div
+            <motion.div
+              layout
               key={agent.id}
-              className="p-4 bg-slate-950 border border-slate-800 rounded-xl hover:border-slate-700 transition-colors"
+              className="p-4 bg-white/[0.03] border border-white/5 rounded-2xl hover:bg-white/[0.05] hover:border-white/10 transition-all group relative overflow-hidden"
             >
-              <div className="flex items-center gap-2 mb-2">
-                <div className="p-1.5 bg-slate-900 text-blue-400 rounded-md">
-                  {agentTypeIcons[agent.type]}
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
+                  {agentRoleIcons[agent.role] || <Cpu className="w-4 h-4" />}
                 </div>
-                <span className="text-white font-medium text-sm truncate">{agent.name}</span>
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-black text-slate-500 uppercase tracking-tighter">
+                      {agent.role.replace('-agent', '')}
+                    </span>
+                    <div className="flex items-center gap-1">
+                       <Award className="w-2.5 h-2.5 text-blue-500" />
+                       <span className="text-[10px] font-mono font-bold text-slate-400">{agent.reputation}</span>
+                    </div>
+                  </div>
+                  <h4 className="text-sm font-bold text-slate-100 truncate group-hover:text-blue-400 transition-colors">
+                    {agent.name}
+                  </h4>
+                </div>
               </div>
-              <div className="flex justify-between items-center mt-3">
-                <span className="text-[10px] uppercase text-slate-500 font-bold tracking-wider">{agent.type}</span>
-                <span className="text-xs text-blue-400 font-mono tracking-tighter">Rep: {agent.reputation}</span>
+              
+              <div className="mt-4 flex items-center justify-between pt-3 border-t border-white/[0.03]">
+                 <div className="flex items-center gap-1.5">
+                    <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />
+                    <span className="text-[9px] font-bold text-slate-500 uppercase">Available</span>
+                 </div>
+                 <div className="text-[9px] font-mono font-black text-slate-400">
+                    BAL: ${agent.wallet.toFixed(2)}
+                 </div>
               </div>
-            </div>
+            </motion.div>
           ))
         )}
       </div>
