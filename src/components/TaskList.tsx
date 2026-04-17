@@ -1,40 +1,51 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Task, Bid } from '@/types';
+import { Task, Bid, SubTask, SubBid } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, CheckCircle2, AlertCircle, Loader2, Gavel, TrendingUp } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, Loader2, Gavel, TrendingUp, Play, Code, Hash, Layers, Zap } from 'lucide-react';
 import { BidForm } from './BidForm';
+import { ExecutionGraph } from './ExecutionGraph';
 
 interface TaskListProps {
   tasks: Task[];
 }
 
 const statusIcons = {
-  pending: <Clock className="w-4 h-4 text-slate-400" />,
-  bidding: <TrendingUp className="w-4 h-4 text-blue-400 animate-pulse" />,
-  assigned: <Gavel className="w-4 h-4 text-purple-400" />,
-  executing: <Loader2 className="w-4 h-4 text-yellow-400 animate-spin" />,
-  completed: <CheckCircle2 className="w-4 h-4 text-green-400" />,
-  failed: <AlertCircle className="w-4 h-4 text-red-400" />,
+  pending: <Clock className="w-3.5 h-3.5 text-slate-400" />,
+  bidding: <TrendingUp className="w-3.5 h-3.5 text-blue-400 animate-pulse" />,
+  assigned: <Gavel className="w-3.5 h-3.5 text-purple-400" />,
+  executing: <Loader2 className="w-3.5 h-3.5 text-yellow-400 animate-spin" />,
+  completed: <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />,
+  failed: <AlertCircle className="w-3.5 h-3.5 text-red-400" />,
+  open: <Hash className="w-3.5 h-3.5 text-slate-500" />,
 };
 
 export const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
   const [bids, setBids] = useState<(Bid & { agentName?: string })[]>([]);
+  const [subTasks, setSubTasks] = useState<(SubTask & { bids?: SubBid[] })[]>([]);
   const [showBidForm, setShowBidForm] = useState(false);
   const [isSelecting, setIsSelecting] = useState(false);
+  const [isDecomposing, setIsDecomposing] = useState(false);
+  const [showGraph, setShowGraph] = useState(false);
 
   useEffect(() => {
-    if (task.status === 'bidding' || task.status === 'assigned' || task.status === 'completed' || task.status === 'executing') {
+    if (['bidding', 'assigned', 'completed', 'executing'].includes(task.status)) {
       fetch(`/api/tasks/${task.id}/bids`)
         .then(res => res.json())
         .then(setBids)
         .catch(err => console.error('Failed to fetch bids:', err));
     }
-  }, [task.id, task.status]);
+    
+    if (task.status === 'executing' || task.status === 'completed' || (task.subTaskIds && task.subTaskIds.length > 0)) {
+      fetch(`/api/tasks/${task.id}/subtasks`)
+        .then(res => res.json())
+        .then(setSubTasks)
+        .catch(err => console.error('Failed to fetch subtasks:', err));
+    }
+  }, [task.id, task.status, task.subTaskIds]);
 
   const handleBidSubmitted = (newBid: Bid) => {
-    // Refresh bids list
     fetch(`/api/tasks/${task.id}/bids`)
       .then(res => res.json())
       .then(setBids);
@@ -44,12 +55,9 @@ export const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
   const selectWinner = async () => {
     if (isSelecting) return;
     setIsSelecting(true);
-    
     try {
       const res = await fetch(`/api/tasks/${task.id}/select`, { method: 'POST' });
-      if (res.ok) {
-        // Parent dashboard polling will handle the task status update
-      } else {
+      if (!res.ok) {
         const error = await res.json();
         alert(error.error || 'Failed to select winner');
       }
@@ -60,132 +68,215 @@ export const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
     }
   };
 
+  const startExecution = async () => {
+    if (isDecomposing) return;
+    setIsDecomposing(true);
+    try {
+      const res = await fetch(`/api/tasks/${task.id}/execute`, { method: 'POST' });
+      if (!res.ok) {
+        const error = await res.json();
+        alert(error.error || 'Execution failed');
+      } else {
+        setShowGraph(true); 
+      }
+    } catch (err) {
+      console.error('Error starting execution:', err);
+    } finally {
+      setIsDecomposing(false);
+    }
+  };
+
   const winningBid = bids.find(b => b.id === task.winningBid);
-  
-  // Calculate relative scores for display if in bidding state
-  const bidsWithScores = bids.map(b => {
-    // Note: Actual scoring logic is on server, this is for UI transparency
-    // In a real app we'd fetch these or have a shared lib
-    return b;
-  });
 
   return (
     <motion.div
-      initial={{ opacity: 0, y: 10 }}
+      layout
+      initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="p-5 bg-slate-900 border border-slate-800 rounded-2xl group hover:border-slate-700 transition-all flex flex-col gap-4 shadow-lg shadow-black/20"
+      className="glass-panel rounded-[2rem] p-8 hover:border-blue-500/20 transition-all duration-500 group relative overflow-hidden flex flex-col gap-6"
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex-1 min-w-0">
-          <p className="text-slate-100 font-semibold leading-relaxed line-clamp-2">{task.prompt}</p>
-          <div className="flex items-center gap-3 mt-3 text-[11px] text-slate-500 font-medium">
-            <span className="flex items-center gap-1 bg-slate-950 px-2 py-0.5 rounded border border-slate-800">
-              {new Date(task.createdAt).toLocaleTimeString()}
-            </span>
-            <span className="w-1 h-1 bg-slate-700 rounded-full" />
-            <span className="font-mono text-blue-400 bg-blue-400/5 px-2 py-0.5 rounded border border-blue-400/20">
-              ${task.budget.toFixed(2)} USDC
-            </span>
+      {/* Background ID Watermark */}
+      <div className="absolute top-4 right-4 text-[40px] font-black text-white/[0.02] pointer-events-none select-none italic tracking-tighter">
+        #{task.id.slice(0, 4)}
+      </div>
+
+      <div className="flex items-start justify-between gap-6">
+        <div className="flex-1 space-y-4">
+          <div className="flex items-center gap-2">
+             <div className="px-2 py-0.5 bg-slate-800 rounded text-[9px] font-black text-slate-400 uppercase tracking-widest border border-white/5">
+               Task Layer 0{task.depth || 1}
+             </div>
+             <div className="w-1 h-1 bg-slate-700 rounded-full" />
+             <div className="text-[10px] font-mono text-slate-500">{new Date(task.createdAt).toLocaleTimeString()}</div>
+          </div>
+          
+          <h3 className="text-xl font-bold text-white leading-tight tracking-tight group-hover:text-blue-400 transition-colors duration-300">
+            {task.prompt}
+          </h3>
+
+          <div className="flex items-center gap-4">
+             <div className="flex items-center gap-2 bg-blue-500/5 px-3 py-1.5 rounded-xl border border-blue-500/10">
+                <span className="text-[10px] font-black text-blue-500/60 uppercase">Budget</span>
+                <span className="text-sm font-mono font-black text-blue-400">${(task.budget ?? 0).toFixed(2)}</span>
+             </div>
+             {task.subTaskIds.length > 0 && (
+               <div className="flex items-center gap-2 bg-purple-500/5 px-3 py-1.5 rounded-xl border border-purple-500/10">
+                  <Layers className="w-3 h-3 text-purple-400" />
+                  <span className="text-xs font-bold text-purple-400">{task.subTaskIds.length} Nodes</span>
+               </div>
+             )}
           </div>
         </div>
-        
-        <div className={`flex items-center gap-2 px-3 py-1 rounded-full border text-[10px] font-bold uppercase tracking-tighter
+
+        <div className={`flex items-center gap-2.5 px-4 py-2 rounded-2xl border-2 font-black text-[11px] uppercase tracking-wider h-fit
           ${task.status === 'pending' ? 'bg-slate-950 border-slate-800 text-slate-400' : ''}
-          ${task.status === 'bidding' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : ''}
-          ${task.status === 'assigned' ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : ''}
-          ${task.status === 'executing' ? 'bg-yellow-500/10 border-yellow-500/20 text-yellow-400' : ''}
-          ${task.status === 'completed' ? 'bg-green-500/10 border-green-500/20 text-green-400' : ''}
-          ${task.status === 'failed' ? 'bg-red-500/10 border-red-500/20 text-red-400' : ''}
+          ${task.status === 'bidding' ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : ''}
+          ${task.status === 'assigned' ? 'bg-purple-500/10 border-purple-500/30 text-purple-400' : ''}
+          ${task.status === 'executing' ? 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400 animate-status-pulse' : ''}
+          ${task.status === 'completed' ? 'bg-green-500/10 border-green-500/30 text-green-400' : ''}
+          ${task.status === 'failed' ? 'bg-red-500/10 border-red-500/30 text-red-400' : ''}
+          ${task.status === 'open' ? 'bg-slate-800 border-slate-700 text-slate-400' : ''}
         `}>
           {statusIcons[task.status as keyof typeof statusIcons]}
           {task.status}
         </div>
       </div>
 
-      {task.status === 'bidding' && bids.length > 0 && (
-        <div className="border-t border-slate-800 pt-4 space-y-2">
-          <div className="flex items-center justify-between text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-1">
-            <div className="flex items-center gap-2">
-              <Gavel className="w-3 h-3" />
-              <span>Active Bids ({bids.length})</span>
-            </div>
-            <span>Agent Pool</span>
-          </div>
-          <div className="grid gap-2">
-            {bids.map(bid => (
-              <div key={bid.id} className="flex items-center justify-between p-2.5 bg-slate-950 border border-slate-800 rounded-lg text-xs">
-                <div className="flex flex-col">
-                  <span className="text-slate-200 font-semibold">{bid.agentName || 'Agent'}</span>
-                  <span className="text-[10px] text-slate-500 italic mt-0.5">{bid.strategy}</span>
-                </div>
-                <div className="flex items-center gap-3">
-                  <span className="text-blue-400 font-mono font-bold">${bid.price.toFixed(2)}</span>
-                  <div className="w-px h-3 bg-slate-800" />
-                  <span className="text-slate-500 text-[10px]">{bid.estimatedTimeMs / 1000}s</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
+      {/* SPECIAL ASSIGNED VIEW */}
       {task.status === 'assigned' && winningBid && (
-        <div className="mt-4 p-4 bg-purple-500/5 border border-purple-500/20 rounded-xl">
-          <div className="flex items-center justify-between mb-3">
-            <span className="text-[10px] font-black text-purple-400 uppercase tracking-widest">Winning Agent</span>
-            <div className="flex items-center gap-1.5 px-2 py-0.5 bg-purple-500/10 rounded-full border border-purple-500/10">
-              <span className="text-[10px] font-bold text-purple-400">WINNER</span>
-            </div>
+        <motion.div 
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="p-6 bg-purple-500/5 border border-purple-500/20 rounded-[1.5rem] flex items-center justify-between"
+        >
+          <div className="flex items-center gap-4">
+             <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+                <Gavel className="w-6 h-6" />
+             </div>
+             <div>
+                <div className="text-[10px] font-black text-purple-400/60 uppercase tracking-widest">Selected Lead Agent</div>
+                <div className="text-lg font-bold text-slate-100">{winningBid.agentName}</div>
+             </div>
           </div>
+          <button 
+            disabled={isDecomposing}
+            onClick={startExecution}
+            className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center gap-3 shadow-xl shadow-purple-900/30"
+          >
+            {isDecomposing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
+            Ignite Pipeline
+          </button>
+        </motion.div>
+      )}
+
+      {/* GRAPH VISUALIZER VIEW */}
+      {(task.status === 'executing' || task.status === 'completed' || subTasks.length > 0) && (
+        <div className="space-y-4">
           <div className="flex items-center justify-between">
-            <div className="flex flex-col">
-              <span className="text-white font-bold">{winningBid.agentName}</span>
-              <span className="text-[11px] text-slate-500 mt-0.5">{winningBid.strategy}</span>
-            </div>
-            <div className="text-right">
-              <div className="font-mono text-purple-400 font-bold">${winningBid.price.toFixed(2)}</div>
-              <div className="text-[10px] text-slate-600 mt-1 uppercase font-black">Decision Confirmed</div>
-            </div>
+            <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
+              <Code className="w-3.5 h-3.5" />
+              Hybrid Execution Graph
+            </h4>
+            <button 
+              onClick={() => setShowGraph(!showGraph)}
+              className="text-[10px] font-black text-blue-400 uppercase hover:text-white transition-colors border-b border-blue-400/30 pb-0.5"
+            >
+              {showGraph ? 'Switch to Tree' : 'Visualize DAG'}
+            </button>
           </div>
-          <div className="mt-3 pt-3 border-t border-purple-500/10 flex justify-between items-center text-[10px]">
-             <span className="text-slate-500 uppercase font-bold tracking-tighter">Economic Score</span>
-             <span className="font-mono text-purple-400/80">Deterministically Ranked #1</span>
-          </div>
+
+          <AnimatePresence mode="wait">
+            {showGraph ? (
+              <motion.div
+                key="graph"
+                initial={{ opacity: 0, scale: 0.98 }}
+                animate={{ opacity: 1, scale: 1 }}
+                exit={{ opacity: 0, scale: 0.98 }}
+              >
+                <ExecutionGraph taskId={task.id} />
+              </motion.div>
+            ) : (
+              <motion.div
+                key="tree"
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                className="grid grid-cols-1 md:grid-cols-2 gap-3"
+              >
+                {subTasks.map((st, idx) => (
+                   <div key={st.id} className="p-4 bg-slate-950/50 border border-white/5 rounded-2xl flex flex-col gap-2">
+                      <div className="flex items-center justify-between">
+                         <span className="text-[9px] font-mono text-slate-600">0{idx+1}</span>
+                         <span className={`text-[8px] font-black uppercase px-2 py-0.5 rounded border ${
+                           st.status === 'completed' ? 'bg-green-500/5 border-green-500/20 text-green-400' :
+                           st.status === 'executing' ? 'bg-yellow-500/5 border-yellow-500/20 text-yellow-400' : 'text-slate-500 border-white/5'
+                         }`}>
+                           {st.status}
+                         </span>
+                      </div>
+                      <h5 className="text-xs font-bold text-slate-200">{st.title}</h5>
+                      <p className="text-[10px] text-slate-500 line-clamp-1">{st.description}</p>
+                   </div>
+                ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
       )}
 
+      {/* BIDDING MARKET PANEL */}
       {task.status === 'bidding' && (
-        <div className="mt-4 flex flex-col gap-3">
-          <div className="grid grid-cols-2 gap-3">
-            {!showBidForm ? (
-              <button
-                disabled={isSelecting}
-                onClick={() => setShowBidForm(true)}
-                className="col-span-1 h-10 text-[10px] font-bold uppercase tracking-wider text-slate-400 hover:text-blue-400 hover:bg-blue-400/5 border border-dashed border-slate-800 hover:border-blue-400/30 rounded-xl transition-all disabled:opacity-50"
-              >
-                + Place Bid
-              </button>
-            ) : (
-              <div className="col-span-2">
-                <BidForm taskId={task.id} onBidSubmitted={handleBidSubmitted} />
-              </div>
-            )}
-            
-            {!showBidForm && bids.length > 0 && (
-              <button
-                disabled={isSelecting}
-                onClick={selectWinner}
-                className="col-span-1 h-10 bg-purple-600 hover:bg-purple-500 disabled:bg-slate-800 text-white text-[10px] font-black uppercase tracking-widest rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-900/20"
-              >
-                {isSelecting ? (
-                  <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                ) : (
-                  <Gavel className="w-3.5 h-3.5" />
-                )}
-                {isSelecting ? 'Selecting...' : 'Select Winner'}
-              </button>
-            )}
-          </div>
+        <div className="space-y-4 pt-4 border-t border-white/5">
+           <div className="flex items-center justify-between">
+              <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
+                <Hash className="w-3.5 h-3.5" />
+                Active Bidding Market
+              </h4>
+              {!showBidForm && bids.length > 0 && (
+                <button
+                  disabled={isSelecting}
+                  onClick={selectWinner}
+                  className="px-4 py-2 bg-purple-600/10 border border-purple-500/30 text-purple-400 text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-purple-600 hover:text-white transition-all"
+                >
+                  {isSelecting ? 'Locking...' : 'Select Best Bid'}
+                </button>
+              )}
+           </div>
+
+           <div className="grid gap-2">
+             {bids.map(bid => (
+               <div key={bid.id} className="flex items-center justify-between p-3 bg-slate-950/50 border border-white/5 rounded-xl hover:border-slate-700 transition-all">
+                 <div className="flex items-center gap-3">
+                   <div className="w-8 h-8 rounded-lg bg-blue-500/5 border border-blue-500/10 flex items-center justify-center text-blue-400 font-bold text-[10px]">
+                     {bid.agentName?.slice(0, 1)}
+                   </div>
+                   <div className="flex flex-col">
+                     <span className="text-slate-200 text-xs font-bold">{bid.agentName}</span>
+                     <span className="text-[9px] text-slate-500 flex items-center gap-1 uppercase font-black">
+                       <Clock className="w-2.5 h-2.5" /> {bid.estimatedTimeMs / 1000}s Delivery
+                     </span>
+                   </div>
+                 </div>
+                 <div className="text-right">
+                    <div className="text-xs font-mono font-black text-blue-400">${bid.price.toFixed(2)}</div>
+                 </div>
+               </div>
+             ))}
+           </div>
+
+           {!showBidForm ? (
+             <button
+               disabled={isSelecting}
+               onClick={() => setShowBidForm(true)}
+               className="w-full h-12 border-2 border-dashed border-slate-800 rounded-2xl text-[10px] font-black text-slate-500 uppercase tracking-widest hover:border-blue-500/30 hover:text-blue-400 transition-all bg-white/[0.01]"
+             >
+               + Inject External Bid
+             </button>
+           ) : (
+             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
+               <BidForm taskId={task.id} onBidSubmitted={handleBidSubmitted} />
+             </motion.div>
+           )}
         </div>
       )}
     </motion.div>
@@ -195,28 +286,18 @@ export const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
 export const TaskList: React.FC<TaskListProps> = ({ tasks }) => {
   if (tasks.length === 0) {
     return (
-      <div className="text-center py-12 text-slate-600 border border-dashed border-slate-800 rounded-3xl mt-8">
-        No compute tasks live in the network.
+      <div className="p-20 flex flex-col items-center justify-center gap-4 glass-panel rounded-[3rem] border-dashed">
+        <Zap className="w-10 h-10 text-slate-800" />
+        <div className="text-[10px] font-black text-slate-600 uppercase tracking-[0.4em]">No Live Jobs</div>
       </div>
     );
   }
 
   return (
-    <div className="space-y-4 w-full max-w-2xl mx-auto mt-8">
-      <div className="flex items-center justify-between px-1 mb-4">
-        <h2 className="text-slate-400 text-[10px] font-black uppercase tracking-[0.2em]">
-          Compute Stream
-        </h2>
-        <div className="flex items-center gap-2">
-          <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse" />
-          <span className="text-[10px] text-slate-500 font-bold uppercase tracking-widest">Live</span>
-        </div>
-      </div>
-      <div className="grid gap-6">
-        {tasks.map((task) => (
-          <TaskCard key={task.id} task={task} />
-        ))}
-      </div>
+    <div className="grid gap-8">
+      {tasks.map((task) => (
+        <TaskCard key={task.id} task={task} />
+      ))}
     </div>
   );
 };
