@@ -1,26 +1,82 @@
 @import "tailwindcss";
 
+@theme {
+  --color-brand-blue: #3b82f6;
+  --color-brand-green: #22c55e;
+  --color-brand-purple: #a855f7;
+  --color-brand-yellow: #eab308;
+}
+
+/* SwarmPay Experience Layer Animations */
+@keyframes status-pulse {
+  0% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0.4); }
+  70% { box-shadow: 0 0 0 10px rgba(234, 179, 8, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(234, 179, 8, 0); }
+}
+
+@keyframes success-flash {
+  0% { filter: brightness(1); }
+  50% { filter: brightness(1.5) saturate(1.5); }
+  100% { filter: brightness(1); }
+}
+
+@keyframes reward-pop {
+  0% { transform: scale(0.5) translateY(0); opacity: 0; }
+  50% { opacity: 1; }
+  100% { transform: scale(1.2) translateY(-20px); opacity: 0; }
+}
+
+.animate-status-pulse { animation: status-pulse 2s infinite; }
+.animate-success-flash { animation: success-flash 0.5s ease-out; }
+
+.reward-popup {
+  position: absolute;
+  top: -20px;
+  right: -10px;
+  color: #22c55e;
+  font-weight: 900;
+  font-family: monospace;
+  pointer-events: none;
+  animation: reward-pop 1s forwards;
+}
+
+/* Glassmorphism System */
+.glass-panel {
+  background: rgba(15, 23, 42, 0.6);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.37);
+}
+
+.dashboard-card {
+  background: rgba(30, 41, 59, 0.4);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.dashboard-card:hover {
+  border-color: rgba(59, 130, 246, 0.3);
+  background: rgba(30, 41, 59, 0.6);
+  transform: translateY(-2px);
+}
+
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
-}
-
-@theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+  --background: #020617;
+  --foreground: #f8fafc;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Inter', system-ui, sans-serif;
+  letter-spacing: -0.01em;
 }
+
+/* Custom Scrollbar */
+::-webkit-scrollbar { width: 6px; }
+::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); }
+::-webkit-scrollbar-thumb {
+  background: rgba(255,255,255,0.1);
+  border-radius: 10px;
+}
+::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
