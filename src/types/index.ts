@@ -1,43 +1,57 @@
 /**
  * SwarmPay Core Types
- * Based on SwarmPay PRD Master Section 4.1
- * 
- * STRICT CONTRACTS: Do not deviate from the PRD.
+ * Upgraded for Phase 5: Autonomous Agent Economy
  */
 
-// ─── Enums ──────────────────────────────────────────
+export type TaskStatus = 'open' | 'pending' | 'bidding' | 'assigned' | 'executing' | 'completed' | 'failed';
 
-export type TaskStatus = 'pending' | 'bidding' | 'assigned' | 'executing' | 'completed' | 'failed';
+export type AgentRole = 'research-agent' | 'planning-agent' | 'execution-agent' | 'validation-agent' | 'orchestrator';
 
-export type SubTaskType = 'fetch_data' | 'clean_data' | 'analyze' | 'compute' | 'summarize';
+export interface ExecutionResult {
+  result: string;
+  confidence: number;   // 0–1
+  cost: number;         // simulated cost
+  metadata?: Record<string, any>;
+}
 
-export type SubTaskStatus = 'open' | 'bidding' | 'assigned' | 'running' | 'completed' | 'failed';
+export interface AgentMemory {
+  pastTasks: string[];   // titles/prompts
+  pastResults: string[]; // brief summaries
+  successCount: number;
+  failureCount: number;
+}
 
-export type AgentType = 'research' | 'analyzer' | 'compute' | 'orchestrator';
-
-// ─── Core Entities ──────────────────────────────────
+export interface AgentMessage {
+  id: string;
+  fromAgentId: string;
+  toAgentId: string;
+  taskId: string;
+  content: string;
+  createdAt: number;
+}
 
 export interface CostBreakdown {
   research: number;
   compute: number;
   analysis: number;
   platformFee: number;
-  totalPayments: number;        // Count of micropayments
+  totalPayments: number;
   totalCost: number;
   userBudget: number;
   userSavings: number;
 }
 
 export interface Task {
-  id: string;                    // UUID
+  id: string;
   userId: string;
-  prompt: string;                // "Summarize top crypto opportunities"
-  budget: number;                // 0.30 (USDC)
-  status: TaskStatus;           // pending | bidding | executing | completed | failed
-  winningBid: string | null;    // Bid ID
-  assignedAgentId: string | null; // Agent ID
-  subTasks: SubTask[];
-  result: string | null;
+  prompt: string;
+  budget: number;
+  status: TaskStatus;
+  winningBid: string | null;
+  assignedAgentId: string | null;
+  subTaskIds: string[];
+  depth: number;                // Max depth = 3 in Phase 5
+  result: ExecutionResult | null;
   costBreakdown: CostBreakdown;
   createdAt: number;
   completedAt: number | null;
@@ -47,26 +61,41 @@ export interface Bid {
   id: string;
   taskId: string;
   agentId: string;
-  price: number;                // Agent's quoted price in USDC
+  price: number;
   estimatedTimeMs: number;
-  confidence: number;           // 0-1
-  strategy: string;             // Brief description of approach
+  confidence: number;
+  strategy: string;
   submittedAt: number;
 }
 
 export interface SubTask {
   id: string;
-  taskId: string;
-  parentAgentId: string;        // Lead agent that created this
-  type: SubTaskType;
+  parentTaskId: string;
+  parentAgentId: string;
+  title: string;
   description: string;
-  status: SubTaskStatus;
-  assignedAgentId: string | null;
-  bids: SubBid[];               // Sub-agents also bid
-  cost: number;
-  startedAt: number | null;
-  completedAt: number | null;
-  result: any;                  // PRD lists this as 'any' in Section 4.1
+  budget?: number;
+  status: TaskStatus;
+  winningBidId?: string;
+  assignedAgentId?: string;
+  result?: ExecutionResult | null;
+  depth: number;
+  createdAt: number;
+  completedAt?: number | null;
+}
+
+export interface Agent {
+  id: string;
+  name: string;
+  role: AgentRole;              // Assigned specialized role
+  capabilities: string[];
+  walletAddress: string;
+  wallet: number;               // simulated USDC balance
+  reputation: number;           // 0-100
+  totalEarned: number;
+  tasksCompleted: number;
+  avgResponseTimeMs: number;
+  memory: AgentMemory;
 }
 
 export interface SubBid {
@@ -74,67 +103,6 @@ export interface SubBid {
   subTaskId: string;
   agentId: string;
   price: number;
-  submittedAt: number;
-}
-
-export interface Agent {
-  id: string;
-  name: string;                 // "Research-Alpha-01"
-  type: AgentType;
-  capabilities: string[];
-  walletAddress: string;        // Circle wallet
-  balance: number;              // Current USDC balance
-  reputation: number;           // 0-100, updated after each task
-  totalEarned: number;
-  tasksCompleted: number;
-  avgResponseTimeMs: number;
-}
-
-export interface PaymentIntent {
-  id: string;
-  taskId: string;
-  subTaskId: string | null;
-  from: string;                 // Agent/user wallet
-  to: string;                   // Agent wallet
-  amount: number;               // USDC
-  reason: string;               // "fetch_data_step_1"
-  status: 'pending' | 'signed' | 'settled';
+  estimatedTimeMs: number;
   createdAt: number;
-  settledTxHash: string | null;
-}
-
-export interface SettlementBatch {
-  id: string;
-  taskId: string;
-  payments: PaymentIntent[];
-  totalAmount: number;
-  txHash: string | null;
-  status: 'pending' | 'submitted' | 'confirmed' | 'failed';
-  createdAt: number;
-  confirmedAt: number | null;
-}
-
-export interface ComputeSession {
-  id: string;
-  taskId: string;
-  subTaskId: string;
-  agentId: string;
-  code: string;                 // Code to execute
-  startedAt: number;
-  endedAt: number | null;
-  durationMs: number;
-  costPerMs: number;            // 0.000001
-  totalCost: number;
-  output: string | null;
-  cpuUsagePercent: number[];    // Time series for live meter
-}
-
-export interface LeaderboardEntry {
-  agentId: string;
-  agentName: string;
-  totalEarned: number;
-  tasksWon: number;
-  avgBidPrice: number;
-  winRate: number;              // percentage
-  reputation: number;
 }
