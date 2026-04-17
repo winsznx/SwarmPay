@@ -1,11 +1,12 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Send, DollarSign } from 'lucide-react';
+import { Send, DollarSign, Sparkles } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { Task } from '@/types';
 
 interface TaskInputProps {
-  onTaskCreated: (task: any) => void;
+  onTaskCreated: (task: Task) => void;
 }
 
 export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
@@ -38,53 +39,55 @@ export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
   };
 
   return (
-    <motion.div 
-      initial={{ opacity: 0, y: 20 }}
-      animate={{ opacity: 1, y: 0 }}
-      className="w-full max-w-2xl mx-auto p-6 bg-slate-900 border border-slate-800 rounded-2xl shadow-xl shadow-black/50"
-    >
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <div className="relative">
+    <div className="w-full">
+      <form onSubmit={handleSubmit} className="space-y-6">
+        <div className="group relative">
+          <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl blur opacity-10 group-focus-within:opacity-25 transition duration-1000"></div>
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="What should the agents compute?"
-            className="w-full h-32 px-4 py-3 bg-slate-950 border border-slate-800 rounded-xl text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-blue-500/50 resize-none transition-all"
+            placeholder="Describe the objective for the agent swarm..."
+            className="relative w-full h-36 px-6 py-5 bg-[#0a0f1e] border border-white/5 rounded-2xl text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 resize-none transition-all text-sm leading-relaxed"
             required
           />
         </div>
         
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center bg-slate-950 border border-slate-800 rounded-xl px-3 py-2">
-            <DollarSign className="w-4 h-4 text-slate-400 mr-1" />
+        <div className="flex items-center justify-between gap-6">
+          <div className="flex-1 flex items-center bg-[#0a0f1e] border border-white/5 rounded-2xl px-5 py-3 group focus-within:border-blue-500/30 transition-all">
+            <DollarSign className="w-4 h-4 text-blue-500/60 mr-2" />
             <input
               type="number"
               step="0.01"
               value={budget}
               onChange={(e) => setBudget(e.target.value)}
-              className="bg-transparent text-slate-100 focus:outline-none w-20 text-sm"
+              className="bg-transparent text-slate-100 focus:outline-none w-full text-sm font-mono font-bold"
               placeholder="Budget"
               required
             />
-            <span className="text-xs text-slate-500 ml-2">USDC</span>
+            <span className="text-[10px] font-black text-slate-600 uppercase ml-2 tracking-widest whitespace-nowrap">USDC Allocated</span>
           </div>
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="flex items-center gap-2 px-6 py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-medium rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-blue-900/20"
+            className="flex items-center gap-3 px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-900/40 group active:scale-95"
           >
             {isSubmitting ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             ) : (
               <>
-                <span>Submit Task</span>
-                <Send className="w-4 h-4" />
+                <span>Launch SWARM</span>
+                <Send className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
               </>
             )}
           </button>
         </div>
+
+        <div className="flex items-center gap-2 px-3">
+           <Sparkles className="w-3 h-3 text-yellow-500/50" />
+           <p className="text-[10px] text-slate-600 font-bold uppercase tracking-tight">AI agents will automatically decompose this request into executable sub-tasks.</p>
+        </div>
       </form>
-    </motion.div>
+    </div>
   );
 };
