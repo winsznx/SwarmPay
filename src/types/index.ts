@@ -34,6 +34,7 @@ export interface CostBreakdown {
   research: number;
   compute: number;
   analysis: number;
+  agentMargins: number;
   platformFee: number;
   totalPayments: number;
   totalCost: number;
@@ -70,14 +71,16 @@ export interface Bid {
 
 export interface SubTask {
   id: string;
+  userId?: string;              // Linked to parent task's user
   parentTaskId: string;
   parentAgentId: string;
   title: string;
   description: string;
   budget?: number;
   status: TaskStatus;
-  winningBidId?: string;
-  assignedAgentId?: string;
+  winningBid?: string | null;   // Unified with Task
+  assignedAgentId?: string | null;
+  subTaskIds?: string[];        // Future proofing for nested subtasks
   result?: ExecutionResult | null;
   depth: number;
   createdAt: number;
@@ -104,5 +107,18 @@ export interface SubBid {
   agentId: string;
   price: number;
   estimatedTimeMs: number;
+  createdAt: number;
+}
+
+export interface PaymentIntent {
+  id: string;
+  fromAgentId: string;
+  fromAgentName: string;
+  toAgentId: string;
+  toAgentName: string;
+  taskId: string;
+  amount: number;
+  currency: string;
+  status: 'pending' | 'signed' | 'settled';
   createdAt: number;
 }
