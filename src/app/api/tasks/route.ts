@@ -1,9 +1,17 @@
 import { NextResponse } from 'next/server';
 import { store } from '@/lib/store';
-import { Task, TaskStatus, CostBreakdown } from '@/types';
+import { Task, CostBreakdown } from '@/types';
+import { runAutonomousPipeline } from '@/lib/pipeline';
+import { startWsServer } from '@/lib/wsServer';
+
+let wsStarted = false;
 
 export async function GET() {
-  const tasks = store.getTasks();
+  if (!wsStarted) {
+    startWsServer();
+    wsStarted = true;
+  }
+  const tasks = store.getTasks().filter(t => !(t as any).parentTaskId);
   return NextResponse.json(tasks);
 }
 
@@ -20,7 +28,8 @@ export async function POST(request: Request) {
       research: 0,
       compute: 0,
       analysis: 0,
-      platformFee: budget * 0.1, // Platform fee 10% as per PRD
+      agentMargins: 0,
+      platformFee: budget * 0.1,
       totalPayments: 0,
       totalCost: 0,
       userBudget: budget,
@@ -34,7 +43,9 @@ export async function POST(request: Request) {
       budget,
       status: 'bidding',
       winningBid: null,
-      subTasks: [],
+      assignedAgentId: null,
+      subTaskIds: [],
+      depth: 0,
       result: null,
       costBreakdown: initialCostBreakdown,
       createdAt: Date.now(),
@@ -42,6 +53,14 @@ export async function POST(request: Request) {
     };
 
     store.createTask(newTask);
+
+    // 🚀 Fire and forget — the autonomous pipeline runs entirely in the background.
+    // The user gets an immediate response while agents compete autonomously.
+    setImmediate(() => {
+      runAutonomousPipeline(newTask).catch(err =>
+        console.error('[PIPELINE CRITICAL]', err)
+      );
+    });
 
     return NextResponse.json(newTask, { status: 201 });
   } catch (error) {
