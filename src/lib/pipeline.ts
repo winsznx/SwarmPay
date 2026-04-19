@@ -28,10 +28,7 @@ export async function runAutonomousPipeline(task: Task) {
     console.log(`\n[PHASE 1] Opening bidding war...`);
     const agents = store.getAgents();
 
-    if (agents.length === 0) {
-      console.warn('[PIPELINE] No agents registered. Seeding demo agents...');
-      await seedDemoAgents();
-    }
+    // Seeding is now handled automatically by the store singleton
 
     const allAgents = store.getAgents();
     if (allAgents.length === 0) {
@@ -238,6 +235,7 @@ async function runSubTaskExecution(taskId: string, subTasks: SubTask[], leadAgen
       pipelineEvents.emit(EMIT_SUBTASK_DONE, { taskId, subTaskId: st.id, result, cost: st.budget || 0.01 });
       
       const cost = st.budget || 0.01;
+      console.log('[PAYMENT] emitting payment:intent', st.id, cost);
       store.distributePayment(subAgent.id, cost);
 
       // Accumulate cost in parent task
