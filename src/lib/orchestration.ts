@@ -2,7 +2,7 @@ import { Task, SubTask, Agent } from '@/types';
 import { store } from './store';
 
 const MAX_DEPTH = 3;
-const BLUEPRINT = ["Research", "Planning", "Execution", "Validation"];
+const BLUEPRINT = ["fetch_data", "clean_data", "analyze", "compute"];
 
 /**
  * Advanced Orchestration Engine
