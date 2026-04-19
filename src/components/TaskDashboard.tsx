@@ -7,6 +7,7 @@ import { AgentManager } from './AgentManager';
 import { Task } from '@/types';
 import { Wallet, Zap, Activity, Shield, Users, Boxes } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
+import { PaymentStream } from './PaymentStream';
 
 export const TaskDashboard: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -14,7 +15,7 @@ export const TaskDashboard: React.FC = () => {
 
   useEffect(() => {
     fetchTasks();
-    const interval = setInterval(fetchTasks, 5000);
+    const interval = setInterval(fetchTasks, 2000);
     return () => clearInterval(interval);
   }, []);
 
@@ -41,7 +42,7 @@ export const TaskDashboard: React.FC = () => {
         <div className="max-w-[1400px] mx-auto px-8 h-12 flex items-center justify-between">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-2">
-              <Zap className="w-4 h-4 text-blue-500 fill-blue-500" />
+              <img src="/icon.png" alt="SwarmPay" className="w-5 h-5 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
               <span className="font-black text-xs uppercase tracking-[0.2em]">SwarmPay Node</span>
             </div>
             <div className="h-4 w-px bg-white/10" />
@@ -131,6 +132,16 @@ export const TaskDashboard: React.FC = () => {
                  <span className="text-[9px] font-black text-slate-500 uppercase border border-white/10 px-2 py-0.5 rounded">Verified Personnel</span>
               </div>
               <AgentManager />
+            </section>
+
+            <section>
+               <div className="flex items-center justify-between mb-6 px-2">
+                  <h2 className="text-xs font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                    Network Nanopayments
+                  </h2>
+               </div>
+               <PaymentStream />
             </section>
 
             <section className="glass-panel p-6 rounded-[1.5rem] border-white/5">
