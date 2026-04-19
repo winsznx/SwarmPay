@@ -9,6 +9,7 @@ import { ResultCard } from './ResultCard';
 
 interface TaskListProps {
   tasks: Task[];
+  agents: Agent[];
 }
 
 const statusIcons = {
@@ -21,46 +22,48 @@ const statusIcons = {
   open: <Hash className="w-3.5 h-3.5 text-slate-500" />,
 };
 
-export const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
+export const TaskCard: React.FC<{ task: Task; agents: Agent[] }> = ({ task, agents }) => {
   const [bids, setBids] = useState<(Bid & { agentName?: string })[]>([]);
   const [subTasks, setSubTasks] = useState<(SubTask & { bids?: SubBid[] })[]>([]);
   const [assignedAgent, setAssignedAgent] = useState<string | null>(null);
   const [showGraph, setShowGraph] = useState(false);
 
   useEffect(() => {
-    if (['bidding', 'assigned', 'completed', 'executing'].includes(task.status)) {
-      fetch(`/api/tasks/${task.id}/bids`)
-        .then(res => res.json())
+    // Only fetch if task is in active state and we don't have data yet
+    const isActive = ['bidding', 'assigned', 'completed', 'executing'].includes(task.status);
+    
+    if (isActive && bids.length === 0) {
+      const controller = new AbortController();
+      fetch(`/api/tasks/${task.id}/bids`, { signal: controller.signal })
+        .then(res => res.ok ? res.json() : [])
         .then(data => {
-          setBids(data);
-          // Resolve agent names from the bids data if available
-          if (data.length > 0) {
-            fetch('/api/agents')
-              .then(r => r.json())
-              .then((agents: Agent[]) => {
-                setBids(data.map((b: Bid) => ({ ...b, agentName: agents.find(a => a.id === b.agentId)?.name || 'Agent' })));
-              });
-          }
+          setBids(data.map((b: Bid) => ({ 
+            ...b, 
+            agentName: agents.find(a => a.id === b.agentId)?.name || 'Agent' 
+          })));
         })
-        .catch(err => console.error('Failed to fetch bids:', err));
+        .catch(err => {
+          if (err.name !== 'AbortError') console.error('Failed to fetch bids:', err);
+        });
+      return () => controller.abort();
     }
     
-    if (task.status === 'executing' || task.status === 'completed' || (task.subTaskIds && task.subTaskIds.length > 0)) {
-      fetch(`/api/tasks/${task.id}/subtasks`)
-        .then(res => res.json())
+    if ((task.status === 'executing' || task.status === 'completed') && subTasks.length === 0) {
+      const controller = new AbortController();
+      fetch(`/api/tasks/${task.id}/subtasks`, { signal: controller.signal })
+        .then(res => res.ok ? res.json() : [])
         .then(setSubTasks)
-        .catch(err => console.error('Failed to fetch subtasks:', err));
+        .catch(err => {
+          if (err.name !== 'AbortError') console.error('Failed to fetch subtasks:', err);
+        });
+      return () => controller.abort();
     }
 
     if (task.assignedAgentId) {
-      fetch('/api/agents')
-        .then(r => r.json())
-        .then((agents: Agent[]) => {
-          const a = agents.find(ag => ag.id === task.assignedAgentId);
-          if (a) setAssignedAgent(a.name);
-        });
+      const a = agents.find(ag => ag.id === task.assignedAgentId);
+      if (a) setAssignedAgent(a.name);
     }
-  }, [task.id, task.status, task.subTaskIds, task.assignedAgentId]);
+  }, [task.id, task.status, agents, task.assignedAgentId]);
 
   const winningBid = bids.find(b => b.id === task.winningBid);
 
@@ -261,7 +264,7 @@ export const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
   );
 };
 
-export const TaskList: React.FC<TaskListProps> = ({ tasks }) => {
+export const TaskList: React.FC<TaskListProps> = ({ tasks, agents }) => {
   if (tasks.length === 0) {
     return (
       <div className="p-20 flex flex-col items-center justify-center gap-4 glass-panel rounded-[3rem] border-dashed">
@@ -274,7 +277,7 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks }) => {
   return (
     <div className="grid gap-8">
       {tasks.map((task) => (
-        <TaskCard key={task.id} task={task} />
+        <TaskCard key={task.id} task={task} agents={agents} />
       ))}
     </div>
   );
