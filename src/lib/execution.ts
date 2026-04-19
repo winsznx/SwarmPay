@@ -3,6 +3,8 @@ import { Task, Agent, ExecutionResult, AgentRole, AgentMessage } from '@/types';
 import { store } from './store';
 import { pipelineEvents, EMIT_COMPUTE_TICK, EMIT_AGENT_ACT, EMIT_PAYMENT_SIGNED } from './events';
 
+console.log('OPENAI_API_KEY loaded:', !!process.env.OPENAI_API_KEY);
+
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
 const MAX_ATTEMPTS = 2;
@@ -10,11 +12,28 @@ const MAX_ATTEMPTS = 2;
 export type QueryCategory = 'crypto' | 'research' | 'code' | 'analysis' | 'general';
 
 export function classifyPrompt(prompt: string): QueryCategory {
-  const p = prompt.toLowerCase();
-  if (/bitcoin|ethereum|crypto|defi|token|blockchain|layer.?[0-9]|sol\b|btc|eth\b|nft|web3|usdc|wallet/.test(p)) return 'crypto';
-  if (/explain|what is|how does|define|overview|tell me about/.test(p)) return 'research';
-  if (/build|create|implement|code|develop|write a|make a/.test(p)) return 'code';
-  if (/analyze|compare|evaluate|assess|review|best|top/.test(p)) return 'analysis';
+  const p = prompt.trim().toLowerCase();
+  
+  // 1. Research first (look for leading question words)
+  if (/^(what|who|where|when|why|how|is|are|was|were|does|did|can|could)\b/i.test(p) || /explain|tell me|define/i.test(p)) {
+    return 'research';
+  }
+  
+  // 2. Crypto
+  if (/bitcoin|ethereum|solana|crypto|defi|token|blockchain|layer.?[0-9]|sol\b|btc|eth\b|nft|web3|usdc|wallet/.test(p)) {
+    return 'crypto';
+  }
+  
+  // 3. Code
+  if (/build|create|implement|code|develop|write a|make a|design a/.test(p)) {
+    return 'code';
+  }
+  
+  // 4. Analysis (tightened: requires explicit comparison/evaluation verbs)
+  if (/\b(compare|versus|vs|evaluate|assess|rank|better|worse|pros and cons)\b/i.test(p)) {
+    return 'analysis';
+  }
+  
   return 'general';
 }
 
@@ -23,7 +42,8 @@ export function classifyPrompt(prompt: string): QueryCategory {
  * Phase 6: Adaptive Intelligence with Memory and Communication.
  */
 export async function executeTask(task: Task | any, agent: Agent): Promise<ExecutionResult> {
-  const prompt = task.prompt || task.description;
+  const parentTask = task.parentTaskId ? store.getTask(task.parentTaskId) : null;
+  const prompt = (parentTask as any)?.prompt || task.prompt || task.description;
   const role = agent.role;
   const category = classifyPrompt(prompt);
   
@@ -38,6 +58,9 @@ export async function executeTask(task: Task | any, agent: Agent): Promise<Execu
   const commContext = messages.length > 0
     ? `\nMessages from other agents about this task:\n${messages.map(m => `- From ${m.fromAgentId}: "${m.content}"`).join('\n')}`
     : '';
+ 
+  const USE_REAL_AI = !!process.env.OPENAI_API_KEY;
+  console.log(`[DEBUG] subTask.type = ${task.title || 'none'} | USE_REAL_AI = ${USE_REAL_AI}`);
  
   console.log(`[EXECUTION] Agent ${agent.name} (${role}) starting. Category: ${category}. Memory: ${memory.pastTasks.length}`);
   
@@ -110,17 +133,23 @@ export async function executeTask(task: Task | any, agent: Agent): Promise<Execu
         } else {
           resultText = `Processed retrieved data. Removed duplicates, structured into 4 categories. Quality score: 93/100.`;
         }
-      } else if (taskTitle.includes('analyze')) {
-        if (category === 'crypto') {
+      } else if (taskTitle.includes('analyze') || taskTitle.includes('research')) {
+        console.log(`[OPENAI] attempt call for "${taskTitle}", prefix: ${process.env.OPENAI_API_KEY?.slice(0, 7)}`);
+        // Real OpenAI Call for Analysis
+        const aiResult = await fetchOpenAiResult(role, taskTitle, prompt);
+        
+        if (aiResult) {
+          resultText = aiResult;
+        } else if (category === 'crypto') {
           resultText = `Top opportunities for ${topic}:\n1. ${topic.toUpperCase()} showing strong momentum indicators.\n2. Key support levels holding above psychological resistance.\n3. Bullish divergence detected on 4h timeframe. Risk level: Medium. Confidence: 87%`;
         } else if (category === 'research') {
-          resultText = `Summary for '${topic}':\n1. Primary investigation reveals significant adoption of ${topic}\n2. Main consensus across sources agrees on core principles\n3. Notable debate: implementation vs theory\nConfidence: 89%`;
+          resultText = `Findings for "${topic}":\n1. Multiple perspectives documented — mainstream and alternative views recorded\n2. Evidence quality varies: peer-reviewed sources support core claims\n3. Consensus: this remains an open question with strong positions on both sides\nConfidence: 89%`;
         } else if (category === 'code') {
           resultText = `Architecture recommendation for '${topic}':\n1. Use modular component structure\n2. Implement error boundaries and validation\n3. Suggested stack: TypeScript + tested framework\nComplexity: Medium`;
         } else if (category === 'analysis') {
-          resultText = `Comparative analysis for '${topic}':\n1. Option A leads on performance metrics (+34%)\n2. Option B stronger on cost efficiency\n3. Recommendation: hybrid approach\nConfidence: 91%`;
+          resultText = `Comparative analysis for '${topic}':\n1. Primary option shows superior scalability metrics\n2. Alternative candidate stronger on cost-per-request efficiency\n3. Hybrid model recommended for optimal balance\nConfidence: 91%`;
         } else {
-          resultText = `Agent findings for '${topic}':\n1. Primary insight based on retrieved data\n2. Secondary pattern identified\n3. Recommended next step\nConfidence: 88%`;
+          resultText = `Agent findings for "${topic}":\n1. Primary data points cross-referenced across sources\n2. Structural patterns identified in the underlying dataset\n3. Synthesis: findings indicate a stable trend with low volatility\nConfidence: 88%`;
         }
       } else if (taskTitle.includes('compute')) {
         if (category === 'crypto') {
@@ -157,8 +186,8 @@ export async function executeTask(task: Task | any, agent: Agent): Promise<Execu
         console.log(`[RETRY] Low confidence detected. Retrying with refinement...`);
       }
 
-    } catch (err) {
-      console.error('Execution Error:', err);
+    } catch (err: any) {
+      console.error(`[EXECUTION ERROR] "${task.title || 'subtask'}":`, err.message || err);
       break;
     }
   }
@@ -214,4 +243,51 @@ async function triggerPaymentBurst(task: any, agent: Agent) {
   }
   // Simulation pause
   await new Promise(r => setTimeout(r, 400));
+}
+
+/**
+ * OpenAI Call for Real Intelligence
+ */
+async function fetchOpenAiResult(role: string, taskTitle: string, prompt: string): Promise<string | null> {
+  try {
+    const apiKey = process.env.OPENAI_API_KEY;
+    if (!apiKey) {
+      console.warn('[OPENAI] Missing API key, skipping real AI call.');
+      return null;
+    }
+
+    console.log(`[OPENAI] Calling GPT-4o for "${taskTitle}"...`);
+    const response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${apiKey}`
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a ${role} in an autonomous agent swarm. 
+            Provide a concise, professional execution result (maximum 3 sentences) for this specific sub-task: "${taskTitle}". 
+            Context: The user asked "${prompt}". 
+            Respond only with the execution findings.`
+          }
+        ],
+        temperature: 0.7
+      })
+    });
+
+    const data = await response.json();
+    console.log('[OPENAI] status:', response.status, 'error:', data.error?.message || 'none');
+
+    if (!data.choices?.[0]?.message?.content) {
+      throw new Error(`Invalid OpenAI response: ${JSON.stringify(data)}`);
+    }
+    
+    return data.choices[0].message.content;
+  } catch (err) {
+    console.error('[OPENAI] Full fetch failed:', err);
+    return null;
+  }
 }
