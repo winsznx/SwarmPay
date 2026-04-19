@@ -1,7 +1,8 @@
 import * as fs from 'fs';
 import * as path from 'path';
-import { Task, Bid, Agent, SubTask, SubBid, ExecutionResult } from '@/types';
+import { Task, Bid, Agent, SubTask, SubBid, ExecutionResult, AgentMessage, PaymentIntent } from '@/types';
 import { calculateBidScore } from '../scoring';
+import { pipelineEvents, EMIT_PAYMENT } from '../events';
 
 const STORE_PATH = path.join(process.cwd(), 'store.json');
 
@@ -10,9 +11,11 @@ class InMemoryStore {
   private bids: Map<string, Bid | SubBid> = new Map();
   private agents: Map<string, Agent> = new Map();
   private messages: Map<string, AgentMessage> = new Map();
+  private payments: Map<string, PaymentIntent> = new Map();
 
   constructor() {
     this.load();
+    this.cleanStaleTasks();
   }
 
   private save(): void {
@@ -21,6 +24,7 @@ class InMemoryStore {
       bids: Array.from(this.bids.entries()),
       agents: Array.from(this.agents.entries()),
       messages: Array.from(this.messages.entries()),
+      payments: Array.from(this.payments.entries()),
     };
     console.log(`💾 STORE SAVE: Tasks:${this.tasks.size}, Bids:${this.bids.size}, Agents:${this.agents.size}, Messages:${this.messages.size}`);
     fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2));
@@ -36,6 +40,7 @@ class InMemoryStore {
         this.bids = new Map(data.bids || []);
         this.agents = new Map(data.agents || []);
         this.messages = new Map(data.messages || []);
+        this.payments = new Map(data.payments || []);
 
         // Initialize Memory for any agents missing it
         this.agents.forEach(agent => {
@@ -44,10 +49,29 @@ class InMemoryStore {
           }
         });
 
-        console.log(`📦 STORE LOADED: Tasks:${this.tasks.size}, Bids:${this.bids.size}, Agents:${this.agents.size}, Messages:${this.messages.size}`);
+        console.log(`[STORE] Database loaded: ${this.tasks.size} tasks, ${this.agents.size} agents.`);
       } catch (err) {
-        console.error('Failed to load store:', err);
       }
+    }
+  }
+
+  private cleanStaleTasks(): void {
+    const now = Date.now();
+    let cleaned = 0;
+    this.tasks.forEach((task, id) => {
+      const isStale = (task.status === 'bidding' || task.status === 'executing') && 
+                      (now - task.createdAt > 2 * 60 * 1000); // 2 minutes
+      
+      if (isStale) {
+        task.status = 'failed';
+        this.tasks.set(id, task);
+        cleaned++;
+      }
+    });
+
+    if (cleaned > 0) {
+      console.log(`🧹 [STORE] Cleaned up ${cleaned} stale tasks.`);
+      this.save();
     }
   }
 
@@ -102,11 +126,11 @@ class InMemoryStore {
       if (sids.length > 0) {
         const subs = sids.map((sid: string) => this.tasks.get(sid)).filter(Boolean);
         const allDone = subs.length === sids.length && subs.every((s: any) => s.status === 'completed');
-        if (allDone && updatedTask.status !== 'completed') {
-           updatedTask.status = 'completed';
-           (updatedTask as any).completedAt = Date.now();
-           this.tasks.set(id, updatedTask);
-        }
+         if (allDone && updatedTask.status !== 'completed') {
+            updatedTask.status = 'completed';
+            updatedTask.completedAt = Date.now();
+            this.tasks.set(id, updatedTask);
+         }
       }
 
       this.save();
@@ -125,7 +149,7 @@ class InMemoryStore {
 
     if (allDone && parent.status !== 'completed') {
       parent.status = 'completed';
-      (parent as any).completedAt = Date.now();
+      parent.completedAt = Date.now();
       this.tasks.set(parentId, parent);
       
       // Recurse up if parent also has a parent
@@ -220,7 +244,7 @@ class InMemoryStore {
       winningBid: winner.bid.id,
       assignedAgentId: winner.agent.id,
       status: 'assigned'
-    } as any);
+    });
   }
 
   // Inter-Agent Communication
@@ -283,6 +307,33 @@ class InMemoryStore {
   calculateBudgetHeuristic(content: string): number {
     const len = content?.length || 0;
     return 0.01 + (len / 1000);
+  }
+
+  // Payments
+  createPaymentIntent(data: Omit<PaymentIntent, 'id' | 'createdAt' | 'status'>): PaymentIntent {
+    this.load();
+    const intent: PaymentIntent = {
+      ...data,
+      id: crypto.randomUUID(),
+      status: 'pending',
+      createdAt: Date.now(),
+    };
+    
+    this.payments.set(intent.id, intent);
+    this.save();
+    
+    // Broadcast real-time event
+    pipelineEvents.emit(EMIT_PAYMENT, intent);
+    console.log(`[TX] [PAYMENT] Intent: ${intent.fromAgentName} -> ${intent.toAgentName} [$${intent.amount.toFixed(4)}]`);
+    
+    return intent;
+  }
+
+  getPaymentsForTask(taskId: string): PaymentIntent[] {
+    this.load();
+    return Array.from(this.payments.values())
+      .filter(p => !taskId || p.taskId === taskId)
+      .sort((a, b) => b.createdAt - a.createdAt);
   }
 }
 
