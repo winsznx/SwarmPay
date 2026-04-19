@@ -11,25 +11,38 @@ import {
 } from './events';
 import { parse } from 'url';
 
+
 export function startWsServer() {
   if ((global as any).wss) {
     return;
   }
 
   console.log('[WS] Initializing WebSocket server on port 3006...');
-  const wss = new WebSocketServer({ port: 3006 });
-  (global as any).wss = wss;
+  try {
+    const wss = new WebSocketServer({ port: 3006 });
+    (global as any).wss = wss;
 
-  wss.on('connection', (ws, req) => {
-    const { query } = parse(req.url || '', true);
-    const taskId = query.taskId as string;
-    
-    (ws as any).taskId = taskId;
-    console.log(`[CONN] [WS] Client connected. Filtering by Task: ${taskId || 'all'}`);
+    wss.on('listening', () => console.log('[WS] WebSocket server is listening on port 3006.'));
+    wss.on('error', (err: any) => {
+      console.error('[WS] Server error:', err.message);
+      if (err.code === 'EADDRINUSE') {
+        console.warn('[WS] Port 3006 already in use. Assuming server is already handled.');
+      }
+    });
 
-    ws.on('error', console.error);
-    ws.on('close', () => console.log('[DISC] [WS] Client disconnected.'));
-  });
+    wss.on('connection', (ws, req) => {
+      const { query } = parse(req.url || '', true);
+      const taskId = query.taskId as string;
+      
+      (ws as any).taskId = taskId;
+      console.log(`[CONN] [WS] Client connected. Filtering by Task: ${taskId || 'all'}`);
+
+      ws.on('error', console.error);
+      ws.on('close', () => console.log('[DISC] [WS] Client disconnected.'));
+    });
+  } catch (err: any) {
+    console.error('[WS] Critical initialization error:', err.message);
+  }
 
   // Bridge internal event bus to WebSocket broadcast
   const mappedEvents = [
