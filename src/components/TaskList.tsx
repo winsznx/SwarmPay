@@ -1,11 +1,11 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Task, Bid, SubTask, SubBid } from '@/types';
+import { Task, Bid, SubTask, SubBid, Agent } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, CheckCircle2, AlertCircle, Loader2, Gavel, TrendingUp, Play, Code, Hash, Layers, Zap } from 'lucide-react';
-import { BidForm } from './BidForm';
+import { Clock, CheckCircle2, AlertCircle, Loader2, Gavel, TrendingUp, Hash, Layers, Zap, Code, Star } from 'lucide-react';
 import { ExecutionGraph } from './ExecutionGraph';
+import { ResultCard } from './ResultCard';
 
 interface TaskListProps {
   tasks: Task[];
@@ -24,16 +24,24 @@ const statusIcons = {
 export const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
   const [bids, setBids] = useState<(Bid & { agentName?: string })[]>([]);
   const [subTasks, setSubTasks] = useState<(SubTask & { bids?: SubBid[] })[]>([]);
-  const [showBidForm, setShowBidForm] = useState(false);
-  const [isSelecting, setIsSelecting] = useState(false);
-  const [isDecomposing, setIsDecomposing] = useState(false);
+  const [assignedAgent, setAssignedAgent] = useState<string | null>(null);
   const [showGraph, setShowGraph] = useState(false);
 
   useEffect(() => {
     if (['bidding', 'assigned', 'completed', 'executing'].includes(task.status)) {
       fetch(`/api/tasks/${task.id}/bids`)
         .then(res => res.json())
-        .then(setBids)
+        .then(data => {
+          setBids(data);
+          // Resolve agent names from the bids data if available
+          if (data.length > 0) {
+            fetch('/api/agents')
+              .then(r => r.json())
+              .then((agents: Agent[]) => {
+                setBids(data.map((b: Bid) => ({ ...b, agentName: agents.find(a => a.id === b.agentId)?.name || 'Agent' })));
+              });
+          }
+        })
         .catch(err => console.error('Failed to fetch bids:', err));
     }
     
@@ -43,48 +51,16 @@ export const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
         .then(setSubTasks)
         .catch(err => console.error('Failed to fetch subtasks:', err));
     }
-  }, [task.id, task.status, task.subTaskIds]);
 
-  const handleBidSubmitted = (newBid: Bid) => {
-    fetch(`/api/tasks/${task.id}/bids`)
-      .then(res => res.json())
-      .then(setBids);
-    setShowBidForm(false);
-  };
-
-  const selectWinner = async () => {
-    if (isSelecting) return;
-    setIsSelecting(true);
-    try {
-      const res = await fetch(`/api/tasks/${task.id}/select`, { method: 'POST' });
-      if (!res.ok) {
-        const error = await res.json();
-        alert(error.error || 'Failed to select winner');
-      }
-    } catch (err) {
-      console.error('Error selecting winner:', err);
-    } finally {
-      setIsSelecting(false);
+    if (task.assignedAgentId) {
+      fetch('/api/agents')
+        .then(r => r.json())
+        .then((agents: Agent[]) => {
+          const a = agents.find(ag => ag.id === task.assignedAgentId);
+          if (a) setAssignedAgent(a.name);
+        });
     }
-  };
-
-  const startExecution = async () => {
-    if (isDecomposing) return;
-    setIsDecomposing(true);
-    try {
-      const res = await fetch(`/api/tasks/${task.id}/execute`, { method: 'POST' });
-      if (!res.ok) {
-        const error = await res.json();
-        alert(error.error || 'Execution failed');
-      } else {
-        setShowGraph(true); 
-      }
-    } catch (err) {
-      console.error('Error starting execution:', err);
-    } finally {
-      setIsDecomposing(false);
-    }
-  };
+  }, [task.id, task.status, task.subTaskIds, task.assignedAgentId]);
 
   const winningBid = bids.find(b => b.id === task.winningBid);
 
@@ -119,10 +95,10 @@ export const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
                 <span className="text-[10px] font-black text-blue-500/60 uppercase">Budget</span>
                 <span className="text-sm font-mono font-black text-blue-400">${(task.budget ?? 0).toFixed(2)}</span>
              </div>
-             {task.subTaskIds.length > 0 && (
+             {task.subTaskIds && task.subTaskIds.length > 0 && (
                <div className="flex items-center gap-2 bg-purple-500/5 px-3 py-1.5 rounded-xl border border-purple-500/10">
                   <Layers className="w-3 h-3 text-purple-400" />
-                  <span className="text-xs font-bold text-purple-400">{task.subTaskIds.length} Nodes</span>
+                  <span className="text-xs font-bold text-purple-400">{(task.subTaskIds || []).length} Nodes</span>
                </div>
              )}
           </div>
@@ -142,30 +118,26 @@ export const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
         </div>
       </div>
 
-      {/* SPECIAL ASSIGNED VIEW */}
-      {task.status === 'assigned' && winningBid && (
+      {/* ASSIGNED / EXECUTING STATUS PANEL */}
+      {(task.status === 'assigned' || task.status === 'executing') && (
         <motion.div 
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
-          className="p-6 bg-purple-500/5 border border-purple-500/20 rounded-[1.5rem] flex items-center justify-between"
+          className="p-4 bg-purple-500/5 border border-purple-500/20 rounded-[1.5rem] flex items-center gap-4"
         >
-          <div className="flex items-center gap-4">
-             <div className="w-12 h-12 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
-                <Gavel className="w-6 h-6" />
-             </div>
-             <div>
-                <div className="text-[10px] font-black text-purple-400/60 uppercase tracking-widest">Selected Lead Agent</div>
-                <div className="text-lg font-bold text-slate-100">{winningBid.agentName}</div>
-             </div>
+          <div className="w-10 h-10 rounded-xl bg-purple-500/10 border border-purple-500/20 flex items-center justify-center text-purple-400">
+            {task.status === 'executing' ? <Loader2 className="w-5 h-5 animate-spin" /> : <Gavel className="w-5 h-5" />}
           </div>
-          <button 
-            disabled={isDecomposing}
-            onClick={startExecution}
-            className="px-6 py-3 bg-purple-600 hover:bg-purple-500 text-white text-[10px] font-black uppercase tracking-[0.2em] rounded-xl transition-all flex items-center gap-3 shadow-xl shadow-purple-900/30"
-          >
-            {isDecomposing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4 fill-current" />}
-            Ignite Pipeline
-          </button>
+          <div>
+            <div className="text-[9px] font-black text-purple-400/60 uppercase tracking-widest">
+              {task.status === 'assigned' ? 'Lead Agent Preparing' : 'Autonomous Execution Running'}
+            </div>
+            <div className="text-sm font-bold text-slate-100">{assignedAgent || winningBid?.agentName || '...'}</div>
+          </div>
+          <div className="ml-auto flex items-center gap-1.5 px-2 py-1 bg-purple-500/10 border border-purple-500/20 rounded-lg">
+            <div className="w-1 h-1 bg-purple-400 rounded-full animate-pulse" />
+            <span className="text-[8px] font-black text-purple-400 uppercase">{task.status}</span>
+          </div>
         </motion.div>
       )}
 
@@ -215,7 +187,12 @@ export const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
                          </span>
                       </div>
                       <h5 className="text-xs font-bold text-slate-200">{st.title}</h5>
-                      <p className="text-[10px] text-slate-500 line-clamp-1">{st.description}</p>
+                      <p className="text-[10px] text-slate-500 line-clamp-2">
+                        {(() => {
+                          const text = st.status === 'completed' && st.result?.result ? st.result.result : st.description;
+                          return text.length > 80 ? text.slice(0, 80) + '...' : text;
+                        })()}
+                      </p>
                    </div>
                 ))}
               </motion.div>
@@ -224,61 +201,62 @@ export const TaskCard: React.FC<{ task: Task }> = ({ task }) => {
         </div>
       )}
 
-      {/* BIDDING MARKET PANEL */}
+      {/* BIDDING MARKET PANEL — shows live competing bids */}
       {task.status === 'bidding' && (
-        <div className="space-y-4 pt-4 border-t border-white/5">
+        <div className="space-y-3 pt-4 border-t border-white/5">
            <div className="flex items-center justify-between">
               <h4 className="text-[11px] font-black text-slate-500 uppercase tracking-[0.2em] flex items-center gap-2">
                 <Hash className="w-3.5 h-3.5" />
-                Active Bidding Market
+                Agents Bidding — Autonomous Market
               </h4>
-              {!showBidForm && bids.length > 0 && (
-                <button
-                  disabled={isSelecting}
-                  onClick={selectWinner}
-                  className="px-4 py-2 bg-purple-600/10 border border-purple-500/30 text-purple-400 text-[9px] font-black uppercase tracking-widest rounded-lg hover:bg-purple-600 hover:text-white transition-all"
-                >
-                  {isSelecting ? 'Locking...' : 'Select Best Bid'}
-                </button>
-              )}
+              <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-500/10 border border-blue-500/20 rounded-md">
+                <div className="w-1 h-1 bg-blue-400 rounded-full animate-pulse" />
+                <span className="text-[8px] font-black text-blue-400 uppercase">Auto-resolving</span>
+              </div>
            </div>
 
-           <div className="grid gap-2">
-             {bids.map(bid => (
-               <div key={bid.id} className="flex items-center justify-between p-3 bg-slate-950/50 border border-white/5 rounded-xl hover:border-slate-700 transition-all">
-                 <div className="flex items-center gap-3">
-                   <div className="w-8 h-8 rounded-lg bg-blue-500/5 border border-blue-500/10 flex items-center justify-center text-blue-400 font-bold text-[10px]">
-                     {bid.agentName?.slice(0, 1)}
-                   </div>
-                   <div className="flex flex-col">
-                     <span className="text-slate-200 text-xs font-bold">{bid.agentName}</span>
-                     <span className="text-[9px] text-slate-500 flex items-center gap-1 uppercase font-black">
-                       <Clock className="w-2.5 h-2.5" /> {bid.estimatedTimeMs / 1000}s Delivery
-                     </span>
-                   </div>
-                 </div>
-                 <div className="text-right">
-                    <div className="text-xs font-mono font-black text-blue-400">${bid.price.toFixed(2)}</div>
-                 </div>
+           <div className="grid gap-1.5">
+             {bids.length === 0 ? (
+               <div className="py-6 text-center">
+                 <Loader2 className="w-5 h-5 text-blue-400 animate-spin mx-auto mb-2" />
+                 <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Waiting for agent bids...</p>
                </div>
-             ))}
+             ) : (
+               bids.map(bid => (
+                <div key={bid.id} className="flex items-center justify-between p-3 bg-slate-950/50 border border-white/5 rounded-xl hover:border-slate-700 transition-all">
+                  <div className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-lg bg-blue-500/5 border border-blue-500/10 flex items-center justify-center text-blue-400 font-bold text-[9px]">
+                      {bid.agentName?.slice(0, 1)}
+                    </div>
+                    <div className="flex flex-col">
+                      <span className="text-slate-200 text-[11px] font-bold">{bid.agentName}</span>
+                      <span className="text-[9px] text-slate-500 flex items-center gap-1 uppercase font-black">
+                        <Clock className="w-2.5 h-2.5" /> {(bid.estimatedTimeMs / 1000).toFixed(0)}s
+                      </span>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                     <div className="text-xs font-mono font-black text-blue-400">${bid.price.toFixed(4)}</div>
+                     {bid.id === task.winningBid && (
+                       <div className="text-[8px] font-black text-green-400 uppercase flex items-center gap-1">
+                         <Star className="w-2.5 h-2.5 fill-green-400" /> Winner
+                       </div>
+                     )}
+                  </div>
+                </div>
+               ))
+             )}
            </div>
-
-           {!showBidForm ? (
-             <button
-               disabled={isSelecting}
-               onClick={() => setShowBidForm(true)}
-               className="w-full h-12 border-2 border-dashed border-slate-800 rounded-2xl text-[10px] font-black text-slate-500 uppercase tracking-widest hover:border-blue-500/30 hover:text-blue-400 transition-all bg-white/[0.01]"
-             >
-               + Inject External Bid
-             </button>
-           ) : (
-             <motion.div initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }}>
-               <BidForm taskId={task.id} onBidSubmitted={handleBidSubmitted} />
-             </motion.div>
-           )}
         </div>
       )}
+
+      {/* RESULT CARD — completion payoff screen */}
+      {task.status === 'completed' && (
+        <div className="pt-4 border-t border-green-500/10">
+          <ResultCard task={task} />
+        </div>
+      )}
+
     </motion.div>
   );
 };
