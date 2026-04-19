@@ -27,6 +27,7 @@ export async function POST(request: Request) {
       totalEarned: 0,
       tasksCompleted: 0,
       avgResponseTimeMs: 0,
+      memory: { pastTasks: [], pastResults: [], successCount: 0, failureCount: 0 },
     };
 
     store.addAgent(newAgent);
