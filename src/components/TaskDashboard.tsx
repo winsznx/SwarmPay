@@ -8,16 +8,33 @@ import { Task } from '@/types';
 import { Wallet, Zap, Activity, Shield, Users, Boxes } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PaymentStream } from './PaymentStream';
+import { Agent } from '@/types';
+import { Menu, X } from 'lucide-react';
 
 export const TaskDashboard: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
+  const [agents, setAgents] = useState<Agent[]>([]);
   const [balance] = useState(5.00); 
+  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     fetchTasks();
-    const interval = setInterval(fetchTasks, 2000);
+    fetchAgents();
+    const interval = setInterval(() => {
+      fetchTasks();
+      fetchAgents();
+    }, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  const fetchAgents = async () => {
+    try {
+      const res = await fetch('/api/agents');
+      if (res.ok) setAgents(await res.json());
+    } catch (err) {
+      console.error('Failed to fetch agents:', err);
+    }
+  };
 
   const fetchTasks = async () => {
     try {
@@ -39,14 +56,25 @@ export const TaskDashboard: React.FC = () => {
     <div className="min-h-screen bg-[#020617] text-slate-100 selection:bg-blue-500/30">
       {/* Top Navigation Bar */}
       <nav className="border-b border-white/5 bg-slate-950/40 backdrop-blur-2xl sticky top-0 z-[100]">
-        <div className="max-w-[1400px] mx-auto px-8 h-12 flex items-center justify-between">
-          <div className="flex items-center gap-6">
+        <div className="max-w-[1400px] mx-auto px-4 md:px-8 h-14 md:h-12 flex items-center justify-between">
+          <div className="flex items-center gap-4 md:gap-6">
+            {/* Mobile Menu Toggle */}
+            <button 
+              onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="lg:hidden p-2 text-slate-400 hover:text-white transition-colors"
+            >
+              {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+            </button>
+
             <div className="flex items-center gap-2">
               <img src="/icon.png" alt="SwarmPay" className="w-5 h-5 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-              <span className="font-black text-xs uppercase tracking-[0.2em]">SwarmPay Node</span>
+              <span className="font-black text-xs uppercase tracking-[0.2em] hidden xs:inline">SwarmPay Node</span>
             </div>
-            <div className="h-4 w-px bg-white/10" />
-            <div className="flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
+            
+            <div className="h-4 w-px bg-white/10 hidden lg:block" />
+            
+            {/* Desktop Navigation */}
+            <div className="hidden lg:flex items-center gap-4 text-[10px] font-bold text-slate-500 uppercase tracking-widest">
                <span className="flex items-center gap-1.5 hover:text-white transition-colors cursor-pointer">
                  <Boxes className="w-3 h-3" /> Marketplace
                </span>
@@ -59,8 +87,8 @@ export const TaskDashboard: React.FC = () => {
             </div>
           </div>
           
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-2">
+          <div className="flex items-center gap-4 md:gap-6">
+            <div className="hidden sm:flex items-center gap-2">
                <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
                <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Network Live</span>
             </div>
@@ -72,6 +100,40 @@ export const TaskDashboard: React.FC = () => {
             </div>
           </div>
         </div>
+
+        {/* Mobile Navigation Drawer */}
+        <AnimatePresence>
+          {isMobileMenuOpen && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              className="lg:hidden border-t border-white/5 bg-slate-950/90 backdrop-blur-xl overflow-hidden"
+            >
+              <div className="px-6 py-8 flex flex-col gap-6">
+                {[
+                  { icon: Boxes, label: 'Marketplace' },
+                  { icon: Shield, label: 'Security' },
+                  { icon: Users, label: 'Agents' },
+                  { icon: Activity, label: 'Network Stats' },
+                ].map((item, i) => (
+                  <div key={i} className="flex items-center gap-3 text-xs font-black text-slate-400 uppercase tracking-widest hover:text-blue-400 transition-colors cursor-pointer group">
+                    <item.icon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                    {item.label}
+                  </div>
+                ))}
+                
+                <div className="pt-4 border-t border-white/5 flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                    <span className="text-[10px] text-slate-400 font-black tracking-widest uppercase">Node Online</span>
+                  </div>
+                  <span className="text-[10px] font-mono font-bold text-slate-500">v1.2.4-stable</span>
+                </div>
+              </div>
+            </motion.div>
+          )}
+        </AnimatePresence>
       </nav>
 
       <main className="max-w-[1400px] mx-auto px-8 py-10">
@@ -117,7 +179,7 @@ export const TaskDashboard: React.FC = () => {
                     {tasks.length} Active Jobs
                   </span>
                </div>
-               <TaskList tasks={tasks} />
+                <TaskList tasks={tasks.slice(0, 50)} agents={agents} />
             </section>
           </div>
 
