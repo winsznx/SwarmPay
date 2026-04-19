@@ -4,13 +4,14 @@ import { Task, CostBreakdown } from '@/types';
 import { runAutonomousPipeline } from '@/lib/pipeline';
 import { startWsServer } from '@/lib/wsServer';
 
-let wsStarted = false;
+// Ensure WebSocket server starts at module load (singleton handle in startWsServer prevents duplicates)
+try {
+  startWsServer();
+} catch (e) {
+  console.error('[SERVER] Failed to start WebSocket server:', e);
+}
 
 export async function GET() {
-  if (!wsStarted) {
-    startWsServer();
-    wsStarted = true;
-  }
   const tasks = store.getTasks().filter(t => !(t as any).parentTaskId);
   return NextResponse.json(tasks);
 }
