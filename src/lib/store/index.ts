@@ -4,7 +4,8 @@ import { Task, Bid, Agent, SubTask, SubBid, ExecutionResult, AgentMessage, Payme
 import { calculateBidScore } from '../scoring';
 import { pipelineEvents, EMIT_PAYMENT } from '../events';
 
-const STORE_PATH = path.join(process.cwd(), 'store.json');
+const STORE_DIR = path.join(process.cwd(), '.data');
+const STORE_PATH = path.join(STORE_DIR, 'store.json');
 
 class InMemoryStore {
   private tasks: Map<string, Task | SubTask> = new Map();
@@ -14,20 +15,59 @@ class InMemoryStore {
   private payments: Map<string, PaymentIntent> = new Map();
 
   constructor() {
-    this.load();
+    this.init();
     this.cleanStaleTasks();
   }
 
+  private init(): void {
+    if (!fs.existsSync(STORE_DIR)) {
+      fs.mkdirSync(STORE_DIR, { recursive: true });
+    }
+    this.load();
+    if (this.agents.size === 0) {
+      this.seedAgents();
+    }
+  }
+
+  private seedAgents(): void {
+    console.log('[SEED] No agents found. Initializing registry...');
+    const SEED_AGENTS = [
+      { id: 'crypto-scout-x', name: 'CryptoScout-X', role: 'orchestrator', reputation: 95 },
+      { id: 'research-alpha', name: 'Research-Alpha', role: 'research-agent', reputation: 92 },
+      { id: 'data-miner-pro', name: 'DataMiner-Pro', role: 'research-agent', reputation: 87 },
+      { id: 'compute-grid-4', name: 'Compute-Grid-4', role: 'execution-agent', reputation: 90 },
+      { id: 'parser-x', name: 'Parser-X', role: 'research-agent', reputation: 88 },
+      { id: 'analysis-node', name: 'Analysis-Node', role: 'execution-agent', reputation: 91 },
+    ];
+
+    SEED_AGENTS.forEach(a => {
+      this.addAgent({
+        ...a,
+        walletAddress: `0x${Math.random().toString(16).slice(2, 42)}`,
+        wallet: 5.0,
+        totalEarned: 0,
+        tasksCompleted: 0,
+        avgResponseTimeMs: 1200,
+        capabilities: [a.role.split('-')[0]],
+        memory: { pastTasks: [], pastResults: [], successCount: 0, failureCount: 0 },
+      } as Agent);
+    });
+    console.log('[SEED] Registry initialized with 6 agents.');
+  }
+
   private save(): void {
-    const data = {
-      tasks: Array.from(this.tasks.entries()),
-      bids: Array.from(this.bids.entries()),
-      agents: Array.from(this.agents.entries()),
-      messages: Array.from(this.messages.entries()),
-      payments: Array.from(this.payments.entries()),
-    };
-    console.log(`💾 STORE SAVE: Tasks:${this.tasks.size}, Bids:${this.bids.size}, Agents:${this.agents.size}, Messages:${this.messages.size}`);
-    fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2));
+    try {
+      const data = {
+        tasks: Array.from(this.tasks.entries()),
+        bids: Array.from(this.bids.entries()),
+        agents: Array.from(this.agents.entries()),
+        messages: Array.from(this.messages.entries()),
+        payments: Array.from(this.payments.entries()),
+      };
+      fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2));
+    } catch (err) {
+      console.error('[STORE] Save Error:', err);
+    }
   }
 
   private load(): void {
@@ -42,7 +82,6 @@ class InMemoryStore {
         this.messages = new Map(data.messages || []);
         this.payments = new Map(data.payments || []);
 
-        // Initialize Memory for any agents missing it
         this.agents.forEach(agent => {
           if (!agent.memory) {
             agent.memory = { pastTasks: [], pastResults: [], successCount: 0, failureCount: 0 };
@@ -51,6 +90,7 @@ class InMemoryStore {
 
         console.log(`[STORE] Database loaded: ${this.tasks.size} tasks, ${this.agents.size} agents.`);
       } catch (err) {
+        console.error('[STORE] Load Error:', err);
       }
     }
   }
@@ -70,14 +110,12 @@ class InMemoryStore {
     });
 
     if (cleaned > 0) {
-      console.log(`🧹 [STORE] Cleaned up ${cleaned} stale tasks.`);
       this.save();
     }
   }
 
   // Unified Task Management
   createTask(task: Task | SubTask): void {
-    this.load();
     const newTask = {
       ...task,
       subTaskIds: (task as any).subTaskIds || [],
@@ -85,7 +123,6 @@ class InMemoryStore {
     };
     this.tasks.set(task.id, newTask);
     
-    // Link to parent if it exists
     if ((task as any).parentTaskId) {
       const parent = this.tasks.get((task as any).parentTaskId);
       if (parent) {
@@ -100,28 +137,23 @@ class InMemoryStore {
   }
 
   getTasks(): (Task | SubTask)[] {
-    this.load();
     return Array.from(this.tasks.values()).sort((a, b) => b.createdAt - a.createdAt);
   }
 
   getTask(id: string): (Task | SubTask) | undefined {
-    this.load();
     return this.tasks.get(id);
   }
 
   updateTask(id: string, updates: Partial<Task | SubTask>): void {
-    this.load();
     const task = this.tasks.get(id);
     if (task) {
       const updatedTask = { ...task, ...updates };
       this.tasks.set(id, updatedTask);
       
-      // Auto-Aggregation: If this is a subtask, trigger parent check
       if ((updatedTask as any).parentTaskId) {
         this.checkParentCompletion((updatedTask as any).parentTaskId);
       }
 
-      // If this task has subtasks, check if they are all done
       const sids = (updatedTask as any).subTaskIds || [];
       if (sids.length > 0) {
         const subs = sids.map((sid: string) => this.tasks.get(sid)).filter(Boolean);
@@ -152,7 +184,6 @@ class InMemoryStore {
       parent.completedAt = Date.now();
       this.tasks.set(parentId, parent);
       
-      // Recurse up if parent also has a parent
       if ((parent as any).parentTaskId) {
         this.checkParentCompletion((parent as any).parentTaskId);
       }
@@ -163,7 +194,6 @@ class InMemoryStore {
   createSubTask(st: SubTask) { this.createTask(st); }
   getSubTask(id: string) { return this.getTask(id); }
   getSubTasks(taskId: string): SubTask[] {
-    this.load();
     const task = this.tasks.get(taskId);
     if (!task) return [];
     const sids = (task as any).subTaskIds || [];
@@ -173,25 +203,21 @@ class InMemoryStore {
 
   // Agents
   addAgent(agent: Agent): void {
-    this.load();
     this.agents.set(agent.id, agent);
     this.save();
   }
 
   getAgents(): Agent[] {
-    this.load();
     return Array.from(this.agents.values());
   }
 
   // Bids (Unified)
   addBid(bid: Bid | SubBid): void {
-    this.load();
     this.bids.set(bid.id, bid);
     this.save();
   }
 
   getBidsForTask(taskId: string): (Bid | SubBid)[] {
-    this.load();
     return Array.from(this.bids.values()).filter(bid => (bid as any).taskId === taskId || (bid as any).subTaskId === taskId);
   }
 
@@ -200,7 +226,6 @@ class InMemoryStore {
 
   // Selection Engine
   selectWinningBid(taskId: string): { bid: Bid, agent: Agent, score: number } {
-    this.load();
     const task = this.getTask(taskId);
     if (!task) throw new Error('Task not found');
 
@@ -249,13 +274,11 @@ class InMemoryStore {
 
   // Inter-Agent Communication
   addMessage(msg: AgentMessage): void {
-    this.load();
     this.messages.set(msg.id, msg);
     this.save();
   }
 
   getMessagesForTask(taskId: string): AgentMessage[] {
-    this.load();
     return Array.from(this.messages.values())
       .filter(m => m.taskId === taskId)
       .sort((a, b) => a.createdAt - b.createdAt);
@@ -263,7 +286,6 @@ class InMemoryStore {
 
   // Intelligence Evolution
   updateAgentIntelligence(agentId: string, task: Task | SubTask, result: ExecutionResult): void {
-    this.load();
     const agent = this.agents.get(agentId);
     if (!agent) return;
 
@@ -271,7 +293,6 @@ class InMemoryStore {
       agent.memory = { pastTasks: [], pastResults: [], successCount: 0, failureCount: 0 };
     }
 
-    // Update Reputation & Counters
     if (result.confidence >= 0.7) {
       agent.reputation = Math.min(100, agent.reputation + 1);
       agent.memory.successCount += 1;
@@ -280,19 +301,16 @@ class InMemoryStore {
       agent.memory.failureCount += 1;
     }
 
-    // Update Memory Context (Keep last 10)
     const taskTitle = (task as any).title || (task as any).prompt;
     agent.memory.pastTasks = [taskTitle, ...agent.memory.pastTasks].slice(0, 10);
     agent.memory.pastResults = [result.result.slice(0, 100), ...agent.memory.pastResults].slice(0, 10);
 
     this.agents.set(agentId, agent);
     this.save();
-    console.log(`🧠 [EVOLUTION] Agent ${agent.name} updated. Rep: ${agent.reputation}, Memory: ${agent.memory.pastTasks.length}`);
   }
 
   // Economy
   distributePayment(agentId: string, amount: number): void {
-    this.load();
     const agent = this.agents.get(agentId);
     if (agent) {
       agent.wallet += amount;
@@ -300,7 +318,6 @@ class InMemoryStore {
       agent.tasksCompleted += 1;
       this.agents.set(agentId, agent);
       this.save();
-      console.log(`[PAYMENT] Agent ${agent.name} credited with ${amount.toFixed(4)} USDC.`);
     }
   }
 
@@ -311,7 +328,6 @@ class InMemoryStore {
 
   // Payments
   createPaymentIntent(data: Omit<PaymentIntent, 'id' | 'createdAt' | 'status'>): PaymentIntent {
-    this.load();
     const intent: PaymentIntent = {
       ...data,
       id: crypto.randomUUID(),
@@ -322,15 +338,12 @@ class InMemoryStore {
     this.payments.set(intent.id, intent);
     this.save();
     
-    // Broadcast real-time event
     pipelineEvents.emit(EMIT_PAYMENT, intent);
-    console.log(`[TX] [PAYMENT] Intent: ${intent.fromAgentName} -> ${intent.toAgentName} [$${intent.amount.toFixed(4)}]`);
     
     return intent;
   }
 
   getPaymentsForTask(taskId: string): PaymentIntent[] {
-    this.load();
     return Array.from(this.payments.values())
       .filter(p => !taskId || p.taskId === taskId)
       .sort((a, b) => b.createdAt - a.createdAt);
