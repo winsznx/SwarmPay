@@ -58,12 +58,12 @@ export function startWsServer() {
   mappedEvents.forEach(evt => {
     pipelineEvents.on(evt.name, (payload: any) => {
       const taskId = payload.taskId || payload.id;
-      broadcastToTask(taskId, { type: evt.type, ...payload });
+      broadcastEvent(taskId, { type: evt.type, ...payload });
     });
   });
 }
 
-function broadcastToTask(taskId: string, data: any) {
+export function broadcastEvent(taskId: string, data: any) {
   const server = (global as any).wss as WebSocketServer;
   if (!server) return;
 
