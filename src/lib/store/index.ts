@@ -32,12 +32,12 @@ class InMemoryStore {
   private seedAgents(): void {
     console.log('[SEED] No agents found. Initializing registry...');
     const SEED_AGENTS = [
-      { id: 'crypto-scout-x',  name: 'CryptoScout-X',  role: 'orchestrator', reputation: 95, balance: 0.42 },
-      { id: 'research-alpha',  name: 'Research-Alpha',  role: 'research',     reputation: 92, balance: 0.19 },
-      { id: 'data-miner-pro',  name: 'DataMiner-Pro',   role: 'research',     reputation: 87, balance: 0.31 },
-      { id: 'parser-x',        name: 'Parser-X',        role: 'clean_data',   reputation: 88, balance: 0.07 },
-      { id: 'analysis-node',   name: 'Analysis-Node',   role: 'analysis',     reputation: 91, balance: 0.16 },
-      { id: 'compute-grid-4',  name: 'Compute-Grid-4',  role: 'compute',      reputation: 90, balance: 0.08 },
+      { id: 'crypto-scout-x',  name: 'CryptoScout-X',  role: 'orchestrator', reputation: 95, balance: 0.42, available: true },
+      { id: 'research-alpha',  name: 'Research-Alpha',  role: 'research',     reputation: 92, balance: 0.19, available: true },
+      { id: 'data-miner-pro',  name: 'DataMiner-Pro',   role: 'research',     reputation: 87, balance: 0.31, available: true },
+      { id: 'parser-x',        name: 'Parser-X',        role: 'clean_data',   reputation: 88, balance: 0.07, available: true },
+      { id: 'analysis-node',   name: 'Analysis-Node',   role: 'analysis',     reputation: 91, balance: 0.16, available: true },
+      { id: 'compute-grid-4',  name: 'Compute-Grid-4',  role: 'compute',      reputation: 90, balance: 0.08, available: true },
     ];
 
     SEED_AGENTS.forEach(a => {
