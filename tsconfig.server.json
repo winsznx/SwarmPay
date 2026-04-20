@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "module": "commonjs",
+    "moduleResolution": "node",
+    "outDir": "./dist",
+    "noEmit": false,
+    "allowJs": true,
+    "esModuleInterop": true
+  },
+  "include": ["server.ts", "src/lib/wsServer.ts", "src/lib/events.ts"]
+}
