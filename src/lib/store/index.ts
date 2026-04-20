@@ -25,16 +25,22 @@ class InMemoryStore {
         fs.mkdirSync(STORE_DIR, { recursive: true });
       }
     } catch (err) {
-      console.warn('[STORE] Warning: Local filesystem is not writable. Falling back to in-memory mode.');
+      console.warn('[STORE] Environment warning: Local storage directory could not be created/accessed.');
     }
-    this.load();
+    
+    try {
+      this.load();
+    } catch (err) {
+      console.warn('[STORE] Data loading skipped or failed.');
+    }
+
     if (this.agents.size === 0) {
       this.seedAgents();
     }
   }
 
   private seedAgents(): void {
-    console.log('[SEED] No agents found. Initializing registry...');
+    console.log('[SEED] Registry initializing in memory...');
     const SEED_AGENTS = [
       { id: 'crypto-scout-x',  name: 'CryptoScout-X',  role: 'orchestrator', reputation: 95, balance: 0.42, available: true },
       { id: 'research-alpha',  name: 'Research-Alpha',  role: 'research',     reputation: 92, balance: 0.19, available: true },
@@ -45,7 +51,7 @@ class InMemoryStore {
     ];
 
     SEED_AGENTS.forEach(a => {
-      this.addAgent({
+      const agent = {
         ...a,
         walletAddress: `0x${Math.random().toString(16).slice(2, 42)}`,
         wallet: a.balance,
@@ -54,12 +60,15 @@ class InMemoryStore {
         avgResponseTimeMs: 1200,
         capabilities: [a.role.split('-')[0]],
         memory: { pastTasks: [], pastResults: [], successCount: 0, failureCount: 0 },
-      } as Agent);
+      } as Agent;
+      this.agents.set(agent.id, agent);
     });
-    console.log('[SEED] Registry initialized with 6 agents.');
+    console.log('[SEED] Memory registry initialized.');
   }
 
   private save(): void {
+    if (process.env.VERCEL) return;
+    
     try {
       const data = {
         tasks: Array.from(this.tasks.entries()),
@@ -68,17 +77,15 @@ class InMemoryStore {
         messages: Array.from(this.messages.entries()),
         payments: Array.from(this.payments.entries()),
       };
-      if (process.env.VERCEL) return; // Skip disk writes on Vercel
       fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2));
     } catch (err) {
-      // log but don't crash
-      console.error('[STORE] Persistence Error:', err);
+      // Intentionally silent - persistence is best-effort in this architecture
     }
   }
 
   private load(): void {
-    if (fs.existsSync(STORE_PATH)) {
-      try {
+    try {
+      if (fs.existsSync(STORE_PATH)) {
         const raw = fs.readFileSync(STORE_PATH, 'utf8');
         if (!raw) return;
         const data = JSON.parse(raw);
@@ -94,29 +101,33 @@ class InMemoryStore {
           }
         });
 
-        console.log(`[STORE] Database loaded: ${this.tasks.size} tasks, ${this.agents.size} agents.`);
-      } catch (err) {
-        console.error('[STORE] Load Error:', err);
+        console.log(`[STORE] Database loaded: ${this.tasks.size} tasks.`);
       }
+    } catch (err) {
+      console.warn('[STORE] Persistence could not be loaded.');
     }
   }
 
   private cleanStaleTasks(): void {
-    const now = Date.now();
-    let cleaned = 0;
-    this.tasks.forEach((task, id) => {
-      const isStale = (task.status === 'bidding' || task.status === 'executing') && 
-                      (now - task.createdAt > 2 * 60 * 1000); // 2 minutes
-      
-      if (isStale) {
-        task.status = 'failed';
-        this.tasks.set(id, task);
-        cleaned++;
-      }
-    });
+    try {
+      const now = Date.now();
+      let cleaned = 0;
+      this.tasks.forEach((task, id) => {
+        const isStale = (task.status === 'bidding' || task.status === 'executing') && 
+                        (now - task.createdAt > 2 * 60 * 1000);
+        
+        if (isStale) {
+          task.status = 'failed';
+          this.tasks.set(id, task);
+          cleaned++;
+        }
+      });
 
-    if (cleaned > 0) {
-      this.save();
+      if (cleaned > 0) {
+        this.save();
+      }
+    } catch (err) {
+      // silently ignore
     }
   }
 
