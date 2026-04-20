@@ -20,8 +20,12 @@ class InMemoryStore {
   }
 
   private init(): void {
-    if (!fs.existsSync(STORE_DIR)) {
-      fs.mkdirSync(STORE_DIR, { recursive: true });
+    try {
+      if (!fs.existsSync(STORE_DIR)) {
+        fs.mkdirSync(STORE_DIR, { recursive: true });
+      }
+    } catch (err) {
+      console.warn('[STORE] Warning: Local filesystem is not writable. Falling back to in-memory mode.');
     }
     this.load();
     if (this.agents.size === 0) {
@@ -64,9 +68,11 @@ class InMemoryStore {
         messages: Array.from(this.messages.entries()),
         payments: Array.from(this.payments.entries()),
       };
+      if (process.env.VERCEL) return; // Skip disk writes on Vercel
       fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2));
     } catch (err) {
-      console.error('[STORE] Save Error:', err);
+      // log but don't crash
+      console.error('[STORE] Persistence Error:', err);
     }
   }
 
