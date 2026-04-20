@@ -4,22 +4,18 @@ import { Task, CostBreakdown } from '@/types';
 import { runAutonomousPipeline } from '@/lib/pipeline';
 import { startWsServer } from '@/lib/wsServer';
 
-// Ensure WebSocket server starts at module load (singleton handle in startWsServer prevents duplicates)
-try {
-  startWsServer();
-} catch (e) {
-  console.error('[SERVER] Failed to start WebSocket server:', e);
-}
+// Ensure WebSocket server starts at module load
+startWsServer();
 
 export async function GET() {
-  const tasks = store.getTasks().filter((t: Task) => !(t as any).parentTaskId);
+  const tasks = store.getTasks();
   return NextResponse.json(tasks);
 }
 
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { prompt, budget, userId = 'user_1' } = body;
+    const { prompt, budget, userId = 'user_1', parentTaskId } = body;
 
     if (!prompt || !budget) {
       return NextResponse.json({ error: 'Prompt and budget are required' }, { status: 400 });
@@ -49,6 +45,7 @@ export async function POST(request: Request) {
       depth: 0,
       result: null,
       costBreakdown: initialCostBreakdown,
+      parentTaskId,
       createdAt: Date.now(),
       completedAt: null,
     };
