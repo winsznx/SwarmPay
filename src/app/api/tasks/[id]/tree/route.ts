@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { store } from '@/lib/store';
-import { Task, SubTask } from '@/types';
+import { Task, SubTask, Agent } from '@/types';
 
 export async function GET(
   request: Request,
@@ -25,7 +25,7 @@ export async function GET(
       const task = store.getTask(taskId);
       if (!task) return;
 
-      const agent = task.assignedAgentId ? store.getAgents().find(a => a.id === task.assignedAgentId) : null;
+      const agent = task.assignedAgentId ? store.getAgents().find((a: Agent) => a.id === task.assignedAgentId) : null;
       const messages = store.getMessagesForTask(task.id);
 
       // Create Node
