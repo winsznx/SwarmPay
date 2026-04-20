@@ -157,7 +157,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ task }) => {
         ].map((stat, i) => (
           <div
             key={i}
-            className={`flex flex-row xs:flex-col items-center justify-between xs:justify-center gap-2 px-4 py-3 xs:py-3 rounded-xl border
+            className={`flex flex-row xs:flex-col items-center justify-between xs:justify-center gap-1.5 md:gap-2 px-3 md:px-4 py-2.5 md:py-3 rounded-xl border
               ${ stat.color === 'blue'   ? 'bg-blue-500/5   border-blue-500/15   text-blue-400'   : ''}
               ${ stat.color === 'purple' ? 'bg-purple-500/5 border-purple-500/15 text-purple-400' : ''}
               ${ stat.color === 'yellow' ? 'bg-yellow-500/5 border-yellow-500/15 text-yellow-400' : ''}

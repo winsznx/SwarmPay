@@ -47,20 +47,20 @@ export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Describe the objective for the agent swarm..."
-            className="relative w-full h-36 px-6 py-5 bg-[#0a0f1e] border border-white/5 rounded-2xl text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 resize-none transition-all text-sm leading-relaxed"
+            className="relative w-full h-32 md:h-36 px-4 md:px-6 py-4 md:py-5 bg-[#0a0f1e] border border-white/5 rounded-2xl text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 resize-none transition-all text-base leading-relaxed"
             required
           />
         </div>
         
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 md:gap-6">
-          <div className="flex-1 flex items-center bg-[#0a0f1e] border border-white/5 rounded-2xl px-4 md:px-5 py-3 group focus-within:border-blue-500/30 transition-all">
+          <div className="flex-1 flex items-center bg-[#0a0f1e] border border-white/5 rounded-2xl px-4 md:px-5 py-3.5 group focus-within:border-blue-500/30 transition-all">
             <DollarSign className="w-4 h-4 text-blue-500/60 mr-2" />
             <input
               type="number"
               step="0.01"
               value={budget}
               onChange={(e) => setBudget(e.target.value)}
-              className="bg-transparent text-slate-100 focus:outline-none w-full text-sm font-mono font-bold"
+              className="bg-transparent text-slate-100 focus:outline-none w-full text-base font-mono font-bold"
               placeholder="Budget"
               required
             />

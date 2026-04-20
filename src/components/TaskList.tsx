@@ -99,7 +99,7 @@ export const TaskCard: React.FC<{
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glass-panel rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-8 hover:border-blue-500/20 transition-all duration-500 group relative overflow-hidden flex flex-col gap-5 md:gap-6"
+      className="glass-panel rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-8 hover:border-blue-500/20 transition-all duration-500 group relative overflow-hidden flex flex-col gap-4 md:gap-6"
     >
       {/* Background ID Watermark */}
       <div className="absolute top-4 right-4 text-[40px] font-black text-white/[0.02] pointer-events-none select-none italic tracking-tighter">

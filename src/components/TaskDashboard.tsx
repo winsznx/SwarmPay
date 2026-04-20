@@ -103,7 +103,7 @@ export const TaskDashboard: React.FC = () => {
     <div className="min-h-screen bg-[#020617] text-slate-100 selection:bg-blue-500/30">
       {/* Top Navigation Bar */}
       <nav className="border-b border-white/5 bg-slate-950/40 backdrop-blur-2xl sticky top-0 z-[100]">
-        <div className="max-w-[1400px] mx-auto px-4 md:px-8 h-14 md:h-12 flex items-center justify-between">
+        <div className="max-w-[1400px] mx-auto px-4 md:px-8 h-12 flex items-center justify-between">
           <div className="flex items-center gap-4 md:gap-6">
             {/* Mobile Menu Toggle */}
             <button 
@@ -114,7 +114,7 @@ export const TaskDashboard: React.FC = () => {
             </button>
 
             <div className="flex items-center gap-2">
-              <img src="/icon.png" alt="SwarmPay" className="w-5 h-5 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
+              <img src="/logo.png" alt="SwarmPay" className="w-6 h-6 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
               <span className="font-black text-xs uppercase tracking-[0.2em] hidden xs:inline">SwarmPay Node</span>
             </div>
             
@@ -162,14 +162,14 @@ export const TaskDashboard: React.FC = () => {
         </div>
 
         {/* MAIN CONTENT - Scrollable */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar px-4 py-6 md:p-8">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar px-3 py-6 md:p-8">
           {/* Page Hero */}
-          <div className="mb-8 md:mb-12 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
+          <div className="mb-6 md:mb-12 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
             <div>
-              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tighter uppercase italic">
+              <h1 className="text-2xl md:text-4xl font-black text-white tracking-tighter uppercase italic">
                 Mission Control
               </h1>
-              <p className="text-slate-500 text-[11px] md:text-sm font-medium tracking-tight mt-1">
+              <p className="text-slate-500 text-[10px] md:text-sm font-medium tracking-tight mt-1">
                 Autonomous agent economy. Orbiting the Arc Network.
               </p>
             </div>
@@ -322,7 +322,7 @@ export const TaskDashboard: React.FC = () => {
               <div className="p-6 h-full flex flex-col gap-8 overflow-y-auto custom-scrollbar">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <img src="/icon.png" alt="SwarmPay" className="w-5 h-5" />
+                    <img src="/logo.png" alt="SwarmPay" className="w-6 h-6" />
                     <span className="font-black text-xs uppercase tracking-widest">SwarmPay</span>
                   </div>
                   <button onClick={() => setIsMobileMenuOpen(false)}>
