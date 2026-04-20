@@ -54,7 +54,7 @@ export async function decomposeTask(
     descriptions = parsed.descriptions;
 
   } catch (err) {
-    descriptions = BLUEPRINT.map(title => `Fallback: Process ${title} for "${prompt.substring(0, 20)}..."`);
+    descriptions = BLUEPRINT.map(title => `Execute ${title} to fulfill the primary mission requirements.`);
   }
 
   const parentBudget = (task as any).budget || 0;
@@ -65,6 +65,7 @@ export async function decomposeTask(
       id: crypto.randomUUID(),
       parentTaskId: task.id,
       parentAgentId: assignedAgentId || (task as any).assignedAgentId || 'system',
+      type: title,
       title,
       description: descriptions[index] || `Process ${title}`,
       budget: subTaskBudget,
