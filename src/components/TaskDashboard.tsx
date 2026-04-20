@@ -9,12 +9,14 @@ import { Wallet, Zap, Activity, Shield, Users, Boxes } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PaymentStream } from './PaymentStream';
 import { Agent } from '@/types';
+import { MissionSidebar } from './MissionSidebar';
 import { Menu, X } from 'lucide-react';
 
 export const TaskDashboard: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [balance] = useState(5.00); 
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -42,6 +44,9 @@ export const TaskDashboard: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         setTasks(data);
+        if (!selectedTaskId && data.length > 0) {
+          setSelectedTaskId(data[0].id);
+        }
       }
     } catch (error) {
       console.error('Failed to fetch tasks:', error);
@@ -50,6 +55,7 @@ export const TaskDashboard: React.FC = () => {
 
   const handleTaskCreated = (newTask: Task) => {
     setTasks((prev) => [newTask, ...prev]);
+    setSelectedTaskId(newTask.id);
   };
 
   return (
@@ -101,128 +107,190 @@ export const TaskDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Mobile Navigation Drawer */}
+        {/* Mobile Side Drawer */}
         <AnimatePresence>
           {isMobileMenuOpen && (
-            <motion.div
-              initial={{ height: 0, opacity: 0 }}
-              animate={{ height: 'auto', opacity: 1 }}
-              exit={{ height: 0, opacity: 0 }}
-              className="lg:hidden border-t border-white/5 bg-slate-950/90 backdrop-blur-xl overflow-hidden"
-            >
-              <div className="px-6 py-8 flex flex-col gap-6">
-                {[
-                  { icon: Boxes, label: 'Marketplace' },
-                  { icon: Shield, label: 'Security' },
-                  { icon: Users, label: 'Agents' },
-                  { icon: Activity, label: 'Network Stats' },
-                ].map((item, i) => (
-                  <div key={i} className="flex items-center gap-3 text-xs font-black text-slate-400 uppercase tracking-widest hover:text-blue-400 transition-colors cursor-pointer group">
-                    <item.icon className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                    {item.label}
+            <>
+              {/* Backdrop */}
+              <motion.div
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                exit={{ opacity: 0 }}
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[150] lg:hidden"
+              />
+              
+              {/* Drawer */}
+              <motion.div
+                initial={{ x: '-100%' }}
+                animate={{ x: 0 }}
+                exit={{ x: '-100%' }}
+                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+                className="fixed inset-y-0 left-0 w-[280px] bg-slate-950 border-r border-white/10 z-[200] lg:hidden shadow-2xl"
+              >
+                <div className="p-6 h-full flex flex-col gap-8 overflow-y-auto custom-scrollbar">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-2">
+                      <img src="/icon.png" alt="SwarmPay" className="w-5 h-5" />
+                      <span className="font-black text-xs uppercase tracking-widest">SwarmPay</span>
+                    </div>
+                    <button onClick={() => setIsMobileMenuOpen(false)}>
+                      <X className="w-5 h-5 text-slate-500" />
+                    </button>
                   </div>
-                ))}
-                
-                <div className="pt-4 border-t border-white/5 flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                    <span className="text-[10px] text-slate-400 font-black tracking-widest uppercase">Node Online</span>
+
+                  <div className="space-y-4">
+                    {[
+                      { icon: Boxes, label: 'Marketplace' },
+                      { icon: Shield, label: 'Security' },
+                      { icon: Users, label: 'Agents' },
+                      { icon: Activity, label: 'Network Stats' },
+                    ].map((item, i) => (
+                      <div key={i} className="flex items-center gap-4 text-xs font-black text-slate-400 uppercase tracking-widest hover:text-blue-400 transition-colors cursor-pointer group">
+                        <item.icon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                        {item.label}
+                      </div>
+                    ))}
                   </div>
-                  <span className="text-[10px] font-mono font-bold text-slate-500">v1.2.4-stable</span>
+                  
+                  <div className="pt-8 border-t border-white/5">
+                    <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Mission History</h3>
+                    <div className="flex flex-col gap-2 pr-2">
+                      {tasks.map(t => (
+                        <button 
+                          key={t.id}
+                          onClick={() => {
+                            setSelectedTaskId(t.id);
+                            setIsMobileMenuOpen(false);
+                          }}
+                          className={`flex items-center justify-between p-3 rounded-xl border transition-all text-left
+                            ${selectedTaskId === t.id ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-white/5 border-transparent text-slate-400'}
+                          `}
+                        >
+                          <span className="text-[11px] font-bold truncate pr-4">{t.prompt}</span>
+                          <span className="text-[9px] font-mono opacity-60">#{t.id.slice(0,4)}</span>
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mt-auto pt-6 border-t border-white/5">
+                      <div className="flex items-center gap-2">
+                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                        <span className="text-[10px] text-slate-400 font-black tracking-widest uppercase">Node Online</span>
+                      </div>
+                      <div className="mt-2 text-[10px] font-mono font-bold text-slate-600">v1.2.4-stable</div>
+                  </div>
                 </div>
-              </div>
-            </motion.div>
+              </motion.div>
+            </>
           )}
         </AnimatePresence>
       </nav>
 
-      <main className="max-w-[1400px] mx-auto px-8 py-10">
-        {/* Page Hero */}
-        <div className="mb-12 flex items-end justify-between">
-          <div>
-            <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">
-              Mission Control
-            </h1>
-            <p className="text-slate-500 text-sm font-medium tracking-tight mt-1">
-              Autonomous agent economy. Orbiting the Arc Network.
-            </p>
-          </div>
-          <div className="flex items-center gap-4">
-             <div className="text-right">
-                <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Total Compute</div>
-                <div className="text-xl font-mono font-black text-slate-200">12.4 GH/s</div>
-             </div>
-             <Activity className="w-8 h-8 text-blue-500/20" />
-          </div>
+      <main className="max-w-[1600px] mx-auto flex h-[calc(100vh-3rem)]">
+        {/* MISSION SIDEBAR - Fixed Width */}
+        <div className="hidden lg:block w-72 h-full">
+           <MissionSidebar 
+              tasks={tasks} 
+              selectedTaskId={selectedTaskId} 
+              onSelectTask={setSelectedTaskId} 
+           />
         </div>
 
-        {/* Two-Column Grid Dashboard */}
-        <div className="grid grid-cols-12 gap-10 items-start">
-          
-          {/* LEFT COLUMN (COL-7): Tasks & Execution */}
-          <div className="col-span-12 lg:col-span-7 space-y-10">
-            <section className="glass-panel p-8 rounded-[2rem] border-white/5 relative overflow-hidden">
-              <div className="absolute top-0 right-0 p-4 opacity-10">
-                <Zap className="w-20 h-20" />
+        {/* MAIN CONTENT - Scrollable */}
+        <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
+          {/* Page Hero */}
+          <div className="mb-12 flex items-end justify-between">
+            <div>
+              <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">
+                Mission Control
+              </h1>
+              <p className="text-slate-500 text-sm font-medium tracking-tight mt-1">
+                Autonomous agent economy. Orbiting the Arc Network.
+              </p>
+            </div>
+            <div className="flex items-center gap-4">
+              <div className="text-right">
+                  <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Total Compute</div>
+                  <div className="text-xl font-mono font-black text-slate-200">12.4 GH/s</div>
               </div>
-              <h2 className="text-xs font-black text-blue-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
-                <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
-                Initialize Compute Task
-              </h2>
-              <TaskInput onTaskCreated={handleTaskCreated} />
-            </section>
-
-            <section className="space-y-6">
-               <div className="flex items-center justify-between px-2">
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">Execution Stream</h3>
-                  <span className="text-[10px] font-bold text-slate-600 uppercase bg-slate-900 px-3 py-1 rounded-full border border-white/5">
-                    {tasks.length} Active Jobs
-                  </span>
-               </div>
-                <TaskList tasks={tasks.slice(0, 50)} agents={agents} />
-            </section>
+              <Activity className="w-8 h-8 text-blue-500/20" />
+            </div>
           </div>
 
-          {/* RIGHT COLUMN (COL-5): Agent Registry & Network Ops */}
-          <div className="col-span-12 lg:col-span-5 space-y-10">
-            <section className="bg-white/[0.02] border border-white/5 p-8 rounded-[2rem] relative">
-              <div className="flex items-center justify-between mb-8">
-                 <h2 className="text-xs font-black text-purple-500 uppercase tracking-[0.3em] flex items-center gap-2">
-                   <div className="w-1.5 h-1.5 bg-purple-500 rounded-full" />
-                   Agent Registry
-                 </h2>
-                 <span className="text-[9px] font-black text-slate-500 uppercase border border-white/10 px-2 py-0.5 rounded">Verified Personnel</span>
-              </div>
-              <AgentManager />
-            </section>
+          <div className="grid grid-cols-12 gap-10 items-start">
+            
+            {/* LEFT COLUMN: Tasks & Execution */}
+            <div className="col-span-12 lg:col-span-7 space-y-10">
+              <section className="glass-panel p-8 rounded-[2rem] border-white/5 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-10">
+                  <Zap className="w-20 h-20" />
+                </div>
+                <h2 className="text-xs font-black text-blue-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                  Initialize Compute Task
+                </h2>
+                <TaskInput onTaskCreated={handleTaskCreated} />
+              </section>
 
-            <section>
-               <div className="flex items-center justify-between mb-6 px-2">
-                  <h2 className="text-xs font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2">
-                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
-                    Network Nanopayments
+              <section className="space-y-6">
+                <div className="flex items-center justify-between px-2">
+                    <h3 className="text-xs font-black text-slate-400 uppercase tracking-[0.3em]">
+                      {selectedTaskId ? 'Focused Mission Execution' : 'Execution Stream'}
+                    </h3>
+                    <span className="text-[10px] font-bold text-slate-600 uppercase bg-slate-900 px-3 py-1 rounded-full border border-white/5">
+                      {selectedTaskId ? `Task #${selectedTaskId.slice(0, 8)}` : `${tasks.length} Active Jobs`}
+                    </span>
+                </div>
+                  <TaskList 
+                    tasks={selectedTaskId ? tasks.filter(t => t.id === selectedTaskId) : tasks.slice(0, 1)} 
+                    agents={agents} 
+                  />
+              </section>
+            </div>
+
+            {/* RIGHT COLUMN: Agent Registry & Network Ops */}
+            <div className="col-span-12 lg:col-span-5 space-y-10">
+              <section className="bg-white/[0.02] border border-white/5 p-8 rounded-[2rem] relative">
+                <div className="flex items-center justify-between mb-8">
+                  <h2 className="text-xs font-black text-purple-500 uppercase tracking-[0.3em] flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-purple-500 rounded-full" />
+                    Agent Registry
                   </h2>
-               </div>
-               <PaymentStream />
-            </section>
+                  <span className="text-[9px] font-black text-slate-500 uppercase border border-white/10 px-2 py-0.5 rounded">Verified Personnel</span>
+                </div>
+                <AgentManager />
+              </section>
 
-            <section className="glass-panel p-6 rounded-[1.5rem] border-white/5">
-               <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Network Status</h3>
-               <div className="space-y-3">
-                  {[
-                    { label: 'Latency', value: '14ms', ok: true },
-                    { label: 'Gas Price', value: '0.00 USDC', ok: true },
-                    { label: 'Nodes Online', value: '1,492', ok: true },
-                  ].map((stat, i) => (
-                    <div key={i} className="flex items-center justify-between py-2 border-b border-white/[0.03]">
-                       <span className="text-[11px] font-bold text-slate-400">{stat.label}</span>
-                       <span className="text-[11px] font-mono font-black text-slate-100">{stat.value}</span>
-                    </div>
-                  ))}
-               </div>
-            </section>
+              <section>
+                <div className="flex items-center justify-between mb-6 px-2">
+                    <h2 className="text-xs font-black text-blue-500 uppercase tracking-[0.3em] flex items-center gap-2">
+                      <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
+                      Network Nanopayments
+                    </h2>
+                </div>
+                <PaymentStream />
+              </section>
+
+              <section className="glass-panel p-6 rounded-[1.5rem] border-white/5">
+                <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-widest mb-4">Network Status</h3>
+                <div className="space-y-3">
+                    {[
+                      { label: 'Latency', value: '14ms', ok: true },
+                      { label: 'Gas Price', value: '0.00 USDC', ok: true },
+                      { label: 'Nodes Online', value: '1,492', ok: true },
+                    ].map((stat, i) => (
+                      <div key={i} className="flex items-center justify-between py-2 border-b border-white/[0.03]">
+                        <span className="text-[11px] font-bold text-slate-400">{stat.label}</span>
+                        <span className="text-[11px] font-mono font-black text-slate-100">{stat.value}</span>
+                      </div>
+                    ))}
+                </div>
+              </section>
+            </div>
+
           </div>
-
         </div>
       </main>
 
