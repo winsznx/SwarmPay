@@ -154,40 +154,14 @@ class InMemoryStore {
         this.checkParentCompletion((updatedTask as any).parentTaskId);
       }
 
-      const sids = (updatedTask as any).subTaskIds || [];
-      if (sids.length > 0) {
-        const subs = sids.map((sid: string) => this.tasks.get(sid)).filter(Boolean);
-        const allDone = subs.length === sids.length && subs.every((s: any) => s.status === 'completed');
-         if (allDone && updatedTask.status !== 'completed') {
-            updatedTask.status = 'completed';
-            updatedTask.completedAt = Date.now();
-            this.tasks.set(id, updatedTask);
-         }
-      }
-
+      // Note: Automatic parent completion removed to avoid conflicts with 'settling' phase in pipeline.
       this.save();
     }
   }
 
   private checkParentCompletion(parentId: string) {
-    const parent = this.tasks.get(parentId);
-    if (!parent) return;
-
-    const sids = (parent as any).subTaskIds || [];
-    if (sids.length === 0) return;
-
-    const subs = sids.map((id: string) => this.tasks.get(id)).filter(Boolean);
-    const allDone = subs.length === sids.length && subs.every((s: any) => s.status === 'completed');
-
-    if (allDone && parent.status !== 'completed') {
-      parent.status = 'completed';
-      parent.completedAt = Date.now();
-      this.tasks.set(parentId, parent);
-      
-      if ((parent as any).parentTaskId) {
-        this.checkParentCompletion((parent as any).parentTaskId);
-      }
-    }
+    // Note: Automatic parent completion removed to avoid conflicts with 'settling' phase in pipeline.
+    return;
   }
 
   // SubTask Helpers (Alias for unified map)
@@ -350,4 +324,4 @@ class InMemoryStore {
   }
 }
 
-export const store = new InMemoryStore();
+export const store = (global as any).appStore || ((global as any).appStore = new InMemoryStore());
