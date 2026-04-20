@@ -6,12 +6,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, CheckCircle2, AlertCircle, Loader2, Gavel, TrendingUp, Hash, Layers, Zap, Code, Star } from 'lucide-react';
 import { ExecutionGraph } from './ExecutionGraph';
 import { ResultCard } from './ResultCard';
-import { MarginProofCard } from './MarginProofCard';
 import { SettlementAnimation } from './SettlementAnimation';
 
 interface TaskListProps {
   tasks: Task[];
   agents: Agent[];
+  onNewTask?: (prompt: string, budget: number, parentTaskId?: string) => void;
+  isLatest?: boolean;
 }
 
 const statusIcons = {
@@ -25,7 +26,12 @@ const statusIcons = {
   open: <Hash className="w-3.5 h-3.5 text-slate-500" />,
 };
 
-export const TaskCard: React.FC<{ task: Task; agents: Agent[] }> = ({ task, agents }) => {
+export const TaskCard: React.FC<{ 
+  task: Task; 
+  agents: Agent[]; 
+  onNewTask?: (prompt: string, budget: number, parentTaskId?: string) => void;
+  isLatest?: boolean;
+}> = ({ task, agents, onNewTask, isLatest }) => {
   const [bids, setBids] = useState<(Bid & { agentName?: string })[]>([]);
   const [subTasks, setSubTasks] = useState<(SubTask & { bids?: SubBid[] })[]>([]);
   const [assignedAgent, setAssignedAgent] = useState<string | null>(null);
@@ -93,7 +99,7 @@ export const TaskCard: React.FC<{ task: Task; agents: Agent[] }> = ({ task, agen
       layout
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="glass-panel rounded-[2rem] p-8 hover:border-blue-500/20 transition-all duration-500 group relative overflow-hidden flex flex-col gap-6"
+      className="glass-panel rounded-[1.5rem] md:rounded-[2rem] p-5 md:p-8 hover:border-blue-500/20 transition-all duration-500 group relative overflow-hidden flex flex-col gap-5 md:gap-6"
     >
       {/* Background ID Watermark */}
       <div className="absolute top-4 right-4 text-[40px] font-black text-white/[0.02] pointer-events-none select-none italic tracking-tighter">
@@ -213,7 +219,7 @@ export const TaskCard: React.FC<{ task: Task; agents: Agent[] }> = ({ task, agen
                       <h5 className="text-xs font-bold text-slate-200">{st.title}</h5>
                       <p className="text-[10px] text-slate-500 line-clamp-2">
                         {(() => {
-                          const text = st.status === 'completed' && st.result?.result ? st.result.result : st.description;
+                          const text = (st.status === 'completed' && st.result?.result ? st.result.result : st.description) || '';
                           return text.length > 80 ? text.slice(0, 80) + '...' : text;
                         })()}
                       </p>
@@ -285,7 +291,6 @@ export const TaskCard: React.FC<{ task: Task; agents: Agent[] }> = ({ task, agen
       {task.status === 'completed' && (
         <div className="pt-4 border-t border-green-500/10 flex flex-col gap-4">
           <ResultCard task={task} />
-          <MarginProofCard />
         </div>
       )}
 
@@ -293,7 +298,7 @@ export const TaskCard: React.FC<{ task: Task; agents: Agent[] }> = ({ task, agen
   );
 };
 
-export const TaskList: React.FC<TaskListProps> = ({ tasks, agents }) => {
+export const TaskList: React.FC<TaskListProps> = ({ tasks, agents, onNewTask, isLatest }) => {
   if (tasks.length === 0) {
     return (
       <div className="p-20 flex flex-col items-center justify-center gap-4 glass-panel rounded-[3rem] border-dashed">
@@ -306,7 +311,13 @@ export const TaskList: React.FC<TaskListProps> = ({ tasks, agents }) => {
   return (
     <div className="grid gap-8">
       {tasks.map((task) => (
-        <TaskCard key={task.id} task={task} agents={agents} />
+        <TaskCard 
+          key={task.id} 
+          task={task} 
+          agents={agents} 
+          onNewTask={onNewTask} 
+          isLatest={isLatest} 
+        />
       ))}
     </div>
   );
