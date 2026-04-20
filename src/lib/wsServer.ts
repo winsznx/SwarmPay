@@ -13,35 +13,30 @@ import { parse } from 'url';
 
 
 export function startWsServer() {
-  if ((global as any).wss) {
-    return;
-  }
+  if ((global as any).wss) return; // already started
 
   console.log('[WS] Initializing WebSocket server on port 3006...');
   try {
     const wss = new WebSocketServer({ port: 3006 });
     (global as any).wss = wss;
 
-    wss.on('listening', () => console.log('[WS] WebSocket server is listening on port 3006.'));
-    wss.on('error', (err: any) => {
-      console.error('[WS] Server error:', err.message);
-      if (err.code === 'EADDRINUSE') {
-        console.warn('[WS] Port 3006 already in use. Assuming server is already handled.');
-      }
-    });
-
+    console.log('[WS] Server started on port 3006');
+    
     wss.on('connection', (ws, req) => {
       const { query } = parse(req.url || '', true);
       const taskId = query.taskId as string;
-      
       (ws as any).taskId = taskId;
-      console.log(`[CONN] [WS] Client connected. Filtering by Task: ${taskId || 'all'}`);
-
+      
+      console.log('[WS] Client connected');
       ws.on('error', console.error);
-      ws.on('close', () => console.log('[DISC] [WS] Client disconnected.'));
+      ws.on('close', () => console.log('[WS] Client disconnected'));
     });
   } catch (err: any) {
-    console.error('[WS] Critical initialization error:', err.message);
+    if (err.code === 'EADDRINUSE') {
+      console.warn('[WS] Port 3006 already in use.');
+    } else {
+      console.error('[WS] Critical initialization error:', err.message);
+    }
   }
 
   // Bridge internal event bus to WebSocket broadcast
@@ -63,17 +58,16 @@ export function startWsServer() {
   });
 }
 
-export function broadcastEvent(taskId: string, data: any) {
+export function broadcastEvent(taskId: string, event: object) {
+  const message = JSON.stringify({ taskId, ...event });
+  console.log('[WS] broadcasting:', message.slice(0, 100));
+  
   const server = (global as any).wss as WebSocketServer;
   if (!server) return;
 
-  const msg = JSON.stringify(data);
   server.clients.forEach(client => {
     if (client.readyState === WebSocket.OPEN) {
-      const clientTaskId = (client as any).taskId;
-      if (!clientTaskId || clientTaskId === taskId) {
-        client.send(msg);
-      }
+      client.send(message);
     }
   });
 }
