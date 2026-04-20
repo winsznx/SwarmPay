@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { store } from '@/lib/store';
+import { Bid, Agent } from '@/types';
 
 export async function GET(
   request: Request,
@@ -9,8 +10,8 @@ export async function GET(
   const bids = store.getBidsForTask(id);
   
   // Also get agent names for the UI to display
-  const bidsWithAgentInfo = bids.map(bid => {
-    const agent = store.getAgents().find(a => a.id === bid.agentId);
+  const bidsWithAgentInfo = bids.map((bid: Bid) => {
+    const agent = store.getAgents().find((a: Agent) => a.id === bid.agentId);
     return {
       ...bid,
       agentName: agent ? agent.name : 'Unknown Agent'
