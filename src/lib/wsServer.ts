@@ -13,6 +13,11 @@ import { parse } from 'url';
 
 
 export function startWsServer() {
+  if (process.env.VERCEL) {
+    console.log('[WS] Running on Vercel: Skipping WebSocket server initialization.');
+    return;
+  }
+  
   if ((global as any).wss) return; // already started
 
   console.log('[WS] Initializing WebSocket server on port 3006...');
