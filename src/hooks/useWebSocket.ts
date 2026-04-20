@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useState } from 'react';
 
 export interface PaymentEvent {
   id: string;
@@ -15,116 +15,69 @@ export interface PaymentEvent {
 export function usePaymentStream(taskId: string | null | undefined) {
   const [payments, setPayments] = useState<PaymentEvent[]>([]);
   const [connected, setConnected] = useState(false);
-  const [isPolling, setIsPolling] = useState(false);
-  
-  const wsRef = useRef<WebSocket | null>(null);
-  const reconnectRef = useRef<any>(null);
-  const pollingRef = useRef<any>(null);
 
   useEffect(() => {
     if (!taskId) return;
 
-    // 1. Initial Data Load
+    // 1. Initial State Load (Catch-up)
     fetch(`/api/tasks/${taskId}/payments`)
       .then(res => res.ok ? res.json() : [])
-      .then(data => setPayments(data))
-      .catch(err => console.error('[STREAM] Initial fetch failed:', err));
+      .then(data => {
+        setPayments(data);
+      })
+      .catch(err => console.error('[SSE] Initial fetch failed:', err));
 
-    function startPolling() {
-      if (pollingRef.current) return;
-      console.log('[STREAM] Starting polling fallback for task:', taskId);
-      setIsPolling(true);
-      
-      pollingRef.current = setInterval(async () => {
-        try {
-          const res = await fetch(`/api/tasks/${taskId}/payments`);
-          if (res.ok) {
-            const data = await res.json();
-            setPayments(data);
-          }
-        } catch (e) {
-          console.error('[STREAM] Polling error:', e);
-        }
-      }, 3000);
-    }
+    // 2. Initialize EventSource for real-time stream
+    const url = `/api/stream?taskId=${taskId}`;
+    console.log('[SSE] Connecting to stream:', url);
+    const es = new EventSource(url);
 
-    function stopPolling() {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-        setIsPolling(false);
-      }
-    }
+    es.onopen = () => {
+      console.log('[SSE] connected for task:', taskId);
+      setConnected(true);
+    };
 
-    function connect() {
-      // Use current window host instead of hardcoded localhost
-      const host = window.location.hostname;
-      const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-      const wsUrl = `${protocol}//${host}:3006?taskId=${taskId}`;
-      
-      console.log('[STREAM] Attempting transition to WebSocket:', wsUrl);
-      const ws = new WebSocket(wsUrl);
-      wsRef.current = ws;
-
-      ws.onopen = () => {
-        console.log('[STREAM] WebSocket connected. Disabling polling.');
-        setConnected(true);
-        stopPolling();
-      };
-
-      ws.onmessage = (event) => {
-        try {
-          const data = JSON.parse(event.data);
-          if (data.type === 'payment:intent') {
-            setPayments(prev => {
-               const exists = prev.some(p => p.id === data.id);
-               if (exists) return prev;
-               return [{
-                 id: data.id,
-                 fromAgent: data.fromAgent,
-                 fromAgentName: data.fromAgentName,
-                 toAgent: data.toAgent,
-                 toAgentName: data.toAgentName,
-                 amount: data.amount,
-                 timestamp: data.timestamp
-               }, ...prev].slice(0, 50);
-            });
-          }
-        } catch (e) {
-          console.error('[STREAM] parse error:', e);
-        }
-      };
-
-      ws.onclose = () => {
-        setConnected(false);
-        // If WebSocket closes (or fails to start), fallback to polling
-        startPolling();
+    es.onmessage = (event) => {
+      try {
+        if (!event.data || event.data.startsWith(': heartbeat')) return;
         
-        // Try to reconnect WS every 10s if not on Vercel (best effort)
-        // Note: On Vercel this will always fail, which is fine as polling is now active.
-        reconnectRef.current = setTimeout(connect, 10000);
-      };
+        const data = JSON.parse(event.data);
+        console.log('[SSE] received:', data.type);
+        
+        if (data.type === 'payment:intent') {
+          setPayments(prev => {
+            // Deduplicate
+            if (prev.some(p => p.id === data.id)) return prev;
+            return [{
+              id: data.id,
+              fromAgent: data.fromAgent,
+              fromAgentName: data.fromAgentName,
+              toAgent: data.toAgent,
+              toAgentName: data.toAgentName,
+              amount: data.amount,
+              timestamp: data.timestamp || Date.now()
+            }, ...prev].slice(0, 50);
+          });
+        }
+      } catch (e) {
+        console.error('[SSE] parse error:', e);
+      }
+    };
 
-      ws.onerror = (e) => {
-        // ws.onerror is usually followed by ws.onclose
-        console.warn('[STREAM] WebSocket unavailable (expected on Vercel).');
-      };
-    }
-
-    // Start with polling fallback immediately for better UX
-    startPolling();
-    
-    // Then attempt WebSocket connection
-    connect();
+    es.onerror = (e) => {
+      console.warn('[SSE] connection error, browser will auto-reconnect.');
+      setConnected(false);
+    };
 
     return () => {
-      if (reconnectRef.current) clearTimeout(reconnectRef.current);
-      stopPolling();
-      wsRef.current?.close();
+      console.log('[SSE] closing connection');
+      es.close();
+      setConnected(false);
     };
   }, [taskId]);
 
-  return { payments, connected, isPolling };
+  return { payments, connected };
 }
 
+// Keep legacy export for easier transition
 export { usePaymentStream as useWebSocket };
