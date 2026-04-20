@@ -12,7 +12,7 @@ try {
 }
 
 export async function GET() {
-  const tasks = store.getTasks().filter(t => !(t as any).parentTaskId);
+  const tasks = store.getTasks().filter((t: Task) => !(t as any).parentTaskId);
   return NextResponse.json(tasks);
 }
 
