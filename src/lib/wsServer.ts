@@ -1,18 +1,7 @@
-import { WebSocketServer, WebSocket } from 'ws';
-import { 
-  pipelineEvents, 
-  EMIT_PAYMENT, 
-  EMIT_PAYMENT_SIGNED,
-  EMIT_SUBTASK_START, 
-  EMIT_SUBTASK_DONE, 
-  EMIT_COMPUTE_TICK, 
-  EMIT_TASK_DONE, 
-  EMIT_AGENT_ACT 
-} from './events';
+import { pipelineEvents, EMIT_PAYMENT, EMIT_PAYMENT_SIGNED, EMIT_SUBTASK_START, EMIT_SUBTASK_DONE, EMIT_COMPUTE_TICK, EMIT_TASK_DONE, EMIT_AGENT_ACT } from './events';
 import { parse } from 'url';
 
-
-export function startWsServer() {
+export async function startWsServer() {
   if (process.env.VERCEL) {
     console.log('[WS] Running on Vercel: Skipping WebSocket server initialization.');
     return;
@@ -20,8 +9,12 @@ export function startWsServer() {
   
   if ((global as any).wss) return; // already started
 
-  console.log('[WS] Initializing WebSocket server on port 3006...');
   try {
+    // Dynamic import to prevent 'ws' from loading in environments that don't support it
+    // or as a top-level dependency in serverless functions.
+    const { WebSocketServer } = await import('ws');
+    
+    console.log('[WS] Initializing WebSocket server on port 3006...');
     const wss = new WebSocketServer({ port: 3006 });
     (global as any).wss = wss;
 
@@ -32,19 +25,18 @@ export function startWsServer() {
       const taskId = query.taskId as string;
       (ws as any).taskId = taskId;
       
-      console.log('[WS] Client connected');
+      console.log('[WS] Client connected for task:', taskId);
       ws.on('error', console.error);
-      ws.on('close', () => console.log('[WS] Client disconnected'));
     });
   } catch (err: any) {
-    if (err.code === 'EADDRINUSE') {
-      console.warn('[WS] Port 3006 already in use.');
-    } else {
-      console.error('[WS] Critical initialization error:', err.message);
-    }
+    console.warn('[WS] Optimization: WebSocket server could not be started:', err.message);
   }
 
   // Bridge internal event bus to WebSocket broadcast
+  setupEventListeners();
+}
+
+function setupEventListeners() {
   const mappedEvents = [
     { name: EMIT_PAYMENT,        type: 'payment:intent' },
     { name: EMIT_PAYMENT_SIGNED, type: 'payment:signed' },
@@ -63,15 +55,15 @@ export function startWsServer() {
   });
 }
 
-export function broadcastEvent(taskId: string, event: object) {
-  const message = JSON.stringify({ taskId, ...event });
-  console.log('[WS] broadcasting:', message.slice(0, 100));
-  
-  const server = (global as any).wss as WebSocketServer;
+export async function broadcastEvent(taskId: string, event: object) {
+  const server = (global as any).wss;
   if (!server) return;
 
-  server.clients.forEach(client => {
-    if (client.readyState === WebSocket.OPEN) {
+  const { WebSocket } = await import('ws');
+  const message = JSON.stringify({ taskId, ...event });
+  
+  server.clients.forEach((client: any) => {
+    if (client.readyState === WebSocket.OPEN && client.taskId === taskId) {
       client.send(message);
     }
   });
