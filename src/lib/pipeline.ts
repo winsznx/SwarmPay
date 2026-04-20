@@ -143,22 +143,19 @@ export async function runAutonomousPipeline(task: Task) {
       
       console.log(`[PIPELINE] Finalizing result from ${subTasks.length} sub-tasks.`);
       
-      const fetchResult   = subTasks.find((s: SubTask) => s.title.toLowerCase().includes('fetch'))?.result?.result ?? '';
-      const analyzeResult = subTasks.find((s: SubTask) => s.title.toLowerCase().includes('analyze'))?.result?.result ?? '';
-      const computeResult = subTasks.find((s: SubTask) => s.title.toLowerCase().includes('compute'))?.result?.result ?? '';
+      const fetchResult   = subTasks.find((s: SubTask) => s.type === 'fetch_data' || s.title.toLowerCase().includes('fetch'))?.result?.result ?? '';
+      const analyzeResult = subTasks.find((s: SubTask) => s.type === 'analyze' || s.title.toLowerCase().includes('analyze'))?.result?.result ?? '';
+      const computeResult = subTasks.find((s: SubTask) => s.type === 'compute' || s.title.toLowerCase().includes('compute'))?.result?.result ?? '';
 
-      const category = classifyPrompt(task.prompt);
-      let finalResultText = '';
-
-      // PRIMARY result is ALWAYS the Analysis
-      finalResultText = `## Executive Summary\n${analyzeResult}\n\n`;
+      const mainAnswer = analyzeResult || 'Analysis complete.';
+      let finalResultText = `## Executive Summary\n${mainAnswer}\n\n`;
       
       if (fetchResult) {
-        finalResultText += `**Sources & Data:**\n${fetchResult}\n\n`;
+        finalResultText += `**Sources:** ${fetchResult}\n\n`;
       }
       
       if (computeResult) {
-        finalResultText += `**Computation:**\n${computeResult}`;
+        finalResultText += `**Computation:** ${computeResult}`;
       }
 
       // ── Phase 7: On-Chain Settlement ──────────────────────────────────────
@@ -266,6 +263,28 @@ async function runSubTaskExecution(taskId: string, subTasks: SubTask[], leadAgen
       pipelineEvents.emit(EMIT_SUBTASK_DONE, { taskId, subTaskId: st.id, result, cost: st.budget || 0.01 });
       
       const cost = st.budget || 0.01;
+      const paymentIntent = store.createPaymentIntent({
+        fromAgentId: leadAgent.id,
+        fromAgentName: leadAgent.name,
+        toAgentId: subAgent.id,
+        toAgentName: subAgent.name,
+        taskId: taskId,
+        amount: cost,
+        currency: 'USDC'
+      });
+
+      console.log('[PIPELINE] broadcasting payment', paymentIntent.amount);
+      broadcastEvent(taskId, {
+        type: 'payment:intent',
+        id: paymentIntent.id,
+        fromAgent: paymentIntent.fromAgentId,
+        fromAgentName: paymentIntent.fromAgentName,
+        toAgent: paymentIntent.toAgentId,
+        toAgentName: paymentIntent.toAgentName,
+        amount: paymentIntent.amount,
+        timestamp: Date.now()
+      });
+      
       store.distributePayment(subAgent.id, cost);
 
       // Accumulate cost in parent task
