@@ -32,19 +32,19 @@ class InMemoryStore {
   private seedAgents(): void {
     console.log('[SEED] No agents found. Initializing registry...');
     const SEED_AGENTS = [
-      { id: 'crypto-scout-x', name: 'CryptoScout-X', role: 'orchestrator', reputation: 95 },
-      { id: 'research-alpha', name: 'Research-Alpha', role: 'research-agent', reputation: 92 },
-      { id: 'data-miner-pro', name: 'DataMiner-Pro', role: 'research-agent', reputation: 87 },
-      { id: 'compute-grid-4', name: 'Compute-Grid-4', role: 'execution-agent', reputation: 90 },
-      { id: 'parser-x', name: 'Parser-X', role: 'research-agent', reputation: 88 },
-      { id: 'analysis-node', name: 'Analysis-Node', role: 'execution-agent', reputation: 91 },
+      { id: 'crypto-scout-x',  name: 'CryptoScout-X',  role: 'orchestrator', reputation: 95, balance: 0.42 },
+      { id: 'research-alpha',  name: 'Research-Alpha',  role: 'research',     reputation: 92, balance: 0.19 },
+      { id: 'data-miner-pro',  name: 'DataMiner-Pro',   role: 'research',     reputation: 87, balance: 0.31 },
+      { id: 'parser-x',        name: 'Parser-X',        role: 'clean_data',   reputation: 88, balance: 0.07 },
+      { id: 'analysis-node',   name: 'Analysis-Node',   role: 'analysis',     reputation: 91, balance: 0.16 },
+      { id: 'compute-grid-4',  name: 'Compute-Grid-4',  role: 'compute',      reputation: 90, balance: 0.08 },
     ];
 
     SEED_AGENTS.forEach(a => {
       this.addAgent({
         ...a,
         walletAddress: `0x${Math.random().toString(16).slice(2, 42)}`,
-        wallet: 5.0,
+        wallet: a.balance,
         totalEarned: 0,
         tasksCompleted: 0,
         avgResponseTimeMs: 1200,
