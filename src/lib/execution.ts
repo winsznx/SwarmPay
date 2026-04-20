@@ -2,6 +2,7 @@
 import { Task, Agent, ExecutionResult, AgentRole, AgentMessage } from '@/types';
 import { store } from './store';
 import { pipelineEvents, EMIT_COMPUTE_TICK, EMIT_AGENT_ACT, EMIT_PAYMENT_SIGNED } from './events';
+import { broadcastEvent } from './wsServer';
 
 console.log('OPENAI_API_KEY loaded:', !!process.env.OPENAI_API_KEY);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -294,6 +295,12 @@ async function triggerPaymentBurst(task: any, agent: Agent) {
           taskId: task.id,
           amount: 0.0001 * (Math.random() * 5 + 1),
           currency: 'USDC'
+      });
+      
+      // Real-time broadcast to frontend
+      broadcastEvent(task.id, {
+        type: 'payment:intent',
+        paymentIntent: intent
       });
       
       // Simulate cryptographic signing delay and broadcast
