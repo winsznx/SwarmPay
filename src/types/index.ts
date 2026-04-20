@@ -3,7 +3,7 @@
  * Upgraded for Phase 5: Autonomous Agent Economy
  */
 
-export type TaskStatus = 'open' | 'pending' | 'bidding' | 'assigned' | 'executing' | 'completed' | 'failed';
+export type TaskStatus = 'open' | 'pending' | 'bidding' | 'assigned' | 'executing' | 'settling' | 'completed' | 'failed';
 
 export type AgentRole = 'research-agent' | 'planning-agent' | 'execution-agent' | 'validation-agent' | 'orchestrator';
 
