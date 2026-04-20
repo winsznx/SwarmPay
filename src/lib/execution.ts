@@ -1,8 +1,7 @@
 // Cache bust
 import { Task, Agent, ExecutionResult, AgentRole, AgentMessage } from '@/types';
 import { store } from './store';
-import { pipelineEvents, EMIT_COMPUTE_TICK, EMIT_AGENT_ACT, EMIT_PAYMENT_SIGNED } from './events';
-import { broadcastEvent } from './wsServer';
+import { pipelineEvents, EMIT_COMPUTE_TICK, EMIT_AGENT_ACT, EMIT_PAYMENT_SIGNED, EMIT_PAYMENT } from './events';
 
 console.log('OPENAI_API_KEY loaded:', !!process.env.OPENAI_API_KEY);
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
@@ -310,10 +309,16 @@ async function triggerPaymentBurst(task: any, agent: Agent) {
           currency: 'USDC'
       });
       
-      // Real-time broadcast to frontend
-      broadcastEvent(task.id, {
-        type: 'payment:intent',
-        paymentIntent: intent
+      // Real-time broadcast to frontend via SSE stream
+      pipelineEvents.emit(EMIT_PAYMENT, {
+        taskId: task.id,
+        id: intent.id,
+        fromAgent: intent.fromAgentId,
+        fromAgentName: intent.fromAgentName,
+        toAgent: intent.toAgentId,
+        toAgentName: intent.toAgentName,
+        amount: intent.amount,
+        timestamp: Date.now()
       });
       
       // Simulate cryptographic signing delay and broadcast

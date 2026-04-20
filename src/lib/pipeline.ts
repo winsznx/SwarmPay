@@ -2,8 +2,7 @@ import { Task, SubTask, Agent, Bid } from '@/types';
 import { store } from './store';
 import { executeTask, classifyPrompt } from './execution';
 import { decomposeTask } from './orchestration';
-import { pipelineEvents, EMIT_SUBTASK_START, EMIT_SUBTASK_DONE, EMIT_TASK_DONE, EMIT_PAYMENT } from './events';
-import { broadcastEvent } from './wsServer';
+import { pipelineEvents, EMIT_SUBTASK_START, EMIT_SUBTASK_DONE, EMIT_TASK_DONE, EMIT_PAYMENT, EMIT_AGENT_ACT } from './events';
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -273,9 +272,9 @@ async function runSubTaskExecution(taskId: string, subTasks: SubTask[], leadAgen
         currency: 'USDC'
       });
 
-      console.log('[PIPELINE] broadcasting payment', paymentIntent.amount);
-      broadcastEvent(taskId, {
-        type: 'payment:intent',
+      console.log('[PIPELINE] emitting payment event', paymentIntent.amount);
+      pipelineEvents.emit(EMIT_PAYMENT, {
+        taskId: taskId,
         id: paymentIntent.id,
         fromAgent: paymentIntent.fromAgentId,
         fromAgentName: paymentIntent.fromAgentName,
