@@ -11,6 +11,8 @@ import { PaymentStream } from './PaymentStream';
 import { Agent } from '@/types';
 import { MissionSidebar } from './MissionSidebar';
 import { Menu, X } from 'lucide-react';
+import { FollowUpInput } from './FollowUpInput';
+import { MarginProofCard } from './MarginProofCard';
 
 export const TaskDashboard: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -57,6 +59,45 @@ export const TaskDashboard: React.FC = () => {
     setTasks((prev) => [newTask, ...prev]);
     setSelectedTaskId(newTask.id);
   };
+
+  const handleCreateNewTask = async (prompt: string, budget: number, parentTaskId?: string) => {
+    if (!prompt?.trim() || prompt.includes('undefined')) {
+      console.error('[TASK] blocked invalid prompt:', prompt);
+      return;
+    }
+    try {
+      const response = await fetch('/api/tasks', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ prompt, budget, parentTaskId }),
+      });
+
+      if (response.ok) {
+        const newTask = await response.json();
+        handleTaskCreated(newTask);
+      }
+    } catch (error) {
+      console.error('Failed to create task:', error);
+    }
+  };
+
+  const buildThread = (activeTaskId: string): Task[] => {
+    const thread: Task[] = [];
+    let currentId: string | undefined = activeTaskId;
+    
+    while (currentId) {
+      const task = tasks.find(t => t.id === currentId);
+      if (task && (task as any).prompt) {
+        thread.unshift(task);
+        currentId = task.parentTaskId;
+      } else {
+        currentId = undefined;
+      }
+    }
+    return thread;
+  };
+
+  const activeThread = selectedTaskId ? buildThread(selectedTaskId) : [];
 
   return (
     <div className="min-h-screen bg-[#020617] text-slate-100 selection:bg-blue-500/30">
@@ -110,34 +151,34 @@ export const TaskDashboard: React.FC = () => {
         {/* Mobile Side Drawer moved to bottom of component for better stacking context */}
       </nav>
 
-      <main className="max-w-[1600px] mx-auto flex h-[calc(100vh-3rem)]">
+      <main className="max-w-[1600px] mx-auto flex h-[calc(100vh-3.5rem)] md:h-[calc(100vh-3rem)] overflow-hidden">
         {/* MISSION SIDEBAR - Dynamic Width controlled by child */}
         <div className="hidden lg:block h-full flex-shrink-0">
            <MissionSidebar 
-              tasks={tasks} 
+              tasks={tasks.filter(t => !t.parentTaskId)} 
               selectedTaskId={selectedTaskId} 
               onSelectTask={setSelectedTaskId} 
            />
         </div>
 
         {/* MAIN CONTENT - Scrollable */}
-        <div className="flex-1 overflow-y-auto custom-scrollbar p-8">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar px-4 py-6 md:p-8">
           {/* Page Hero */}
-          <div className="mb-12 flex items-end justify-between">
+          <div className="mb-8 md:mb-12 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
             <div>
-              <h1 className="text-4xl font-black text-white tracking-tighter uppercase italic">
+              <h1 className="text-3xl md:text-4xl font-black text-white tracking-tighter uppercase italic">
                 Mission Control
               </h1>
-              <p className="text-slate-500 text-sm font-medium tracking-tight mt-1">
+              <p className="text-slate-500 text-[11px] md:text-sm font-medium tracking-tight mt-1">
                 Autonomous agent economy. Orbiting the Arc Network.
               </p>
             </div>
-            <div className="flex items-center gap-4">
-              <div className="text-right">
-                  <div className="text-[10px] font-black text-slate-600 uppercase tracking-widest">Total Compute</div>
-                  <div className="text-xl font-mono font-black text-slate-200">12.4 GH/s</div>
+            <div className="flex items-center gap-4 bg-white/5 p-3 rounded-2xl border border-white/5 sm:bg-transparent sm:p-0 sm:border-0">
+              <div className="text-left sm:text-right">
+                  <div className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Total Compute</div>
+                  <div className="text-lg md:text-xl font-mono font-black text-slate-200">12.4 GH/s</div>
               </div>
-              <Activity className="w-8 h-8 text-blue-500/20" />
+              <Activity className="w-6 h-6 md:w-8 md:h-8 text-blue-500/20" />
             </div>
           </div>
 
@@ -145,11 +186,11 @@ export const TaskDashboard: React.FC = () => {
             
             {/* LEFT COLUMN: Tasks & Execution */}
             <div className="col-span-12 lg:col-span-7 space-y-10">
-              <section className="glass-panel p-8 rounded-[2rem] border-white/5 relative overflow-hidden">
-                <div className="absolute top-0 right-0 p-4 opacity-10">
-                  <Zap className="w-20 h-20" />
+              <section className="glass-panel p-5 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border-white/5 relative overflow-hidden">
+                <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
+                  <Zap className="w-12 h-12 md:w-20 md:h-20" />
                 </div>
-                <h2 className="text-xs font-black text-blue-500 uppercase tracking-[0.3em] mb-6 flex items-center gap-2">
+                <h2 className="text-[10px] md:text-xs font-black text-blue-500 uppercase tracking-[0.3em] mb-4 md:mb-6 flex items-center gap-2">
                   <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
                   Initialize Compute Task
                 </h2>
@@ -165,10 +206,45 @@ export const TaskDashboard: React.FC = () => {
                       {selectedTaskId ? `Task #${selectedTaskId.slice(0, 8)}` : `${tasks.length} Active Jobs`}
                     </span>
                 </div>
-                  <TaskList 
-                    tasks={selectedTaskId ? tasks.filter(t => t.id === selectedTaskId) : tasks.slice(0, 1)} 
-                    agents={agents} 
-                  />
+                  <div className="space-y-4">
+                    {activeThread.length > 0 ? (
+                      activeThread.map((t, i) => (
+                        <div key={t.id}>
+                          {i > 0 && (
+                            <div className="flex items-center gap-2 mb-2 px-4">
+                              <div className="h-px flex-1 bg-white/5" />
+                              <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest leading-none">Follow-up Mission</span>
+                              <div className="h-px flex-1 bg-white/5" />
+                            </div>
+                          )}
+                          <TaskList 
+                            tasks={[t]} 
+                            agents={agents} 
+                            onNewTask={handleCreateNewTask}
+                          />
+                        </div>
+                      ))
+                    ) : (
+                      <TaskList 
+                        tasks={tasks.slice(0, 1)} 
+                        agents={agents} 
+                        onNewTask={handleCreateNewTask}
+                      />
+                    )}
+
+                    {/* Single Follow-Up Input at the very bottom of the active thread */}
+                    {activeThread.length > 0 && activeThread[activeThread.length - 1].status === 'completed' && (
+                      <FollowUpInput 
+                        task={activeThread[activeThread.length - 1]} 
+                        onNewTask={handleCreateNewTask} 
+                      />
+                    )}
+
+                    {/* Single Margin Proof Card at the very bottom of the thread */}
+                    {activeThread.length > 0 && activeThread.some(t => t.status === 'completed') && (
+                      <MarginProofCard />
+                    )}
+                  </div>
               </section>
             </div>
 
@@ -192,7 +268,7 @@ export const TaskDashboard: React.FC = () => {
                       Network Nanopayments
                     </h2>
                 </div>
-                <PaymentStream />
+                <PaymentStream activeTaskId={selectedTaskId} />
               </section>
 
               <section className="glass-panel p-6 rounded-[1.5rem] border-white/5">
@@ -271,7 +347,7 @@ export const TaskDashboard: React.FC = () => {
                 <div className="pt-8 border-t border-white/5">
                   <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Mission History</h3>
                   <div className="flex flex-col gap-2 pr-2">
-                    {tasks.map(t => (
+                    {tasks.filter(t => !t.parentTaskId).map(t => (
                       <button 
                         key={t.id}
                         onClick={() => {
