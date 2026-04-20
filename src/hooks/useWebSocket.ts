@@ -8,7 +8,8 @@ import { PaymentIntent } from '@/types';
  * Wraps an in-memory event bus/polling system with a WebSocket-like interface.
  */
 export function useWebSocket(taskId?: string) {
-  const [lastPayment, setLastPayment] = useState<PaymentIntent | null>(null);
+  const [payments, setPayments] = useState<PaymentIntent[]>([]);
+  const [taskStatus, setTaskStatus] = useState<string | null>(null);
 
   useEffect(() => {
     if (!taskId) return;
@@ -23,14 +24,21 @@ export function useWebSocket(taskId?: string) {
       socket.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
+          console.log('[WS] Message received:', data.type);
           
-          if (data.type === 'payment:intent') {
-            setLastPayment(data);
-          }
-          
-          // Handle other event types if needed (broadcast to other hooks/contexts)
-          if (data.type === 'task:completed') {
-            console.log('✅ [WS] Task completed notification received.');
+          switch (data.type) {
+            case 'payment:intent':
+              if (data.paymentIntent) {
+                setPayments(prev => [data.paymentIntent, ...prev].slice(0, 50));
+              }
+              break;
+            case 'task:completed':
+              setTaskStatus('completed');
+              console.log('✅ [WS] Task completed notification received.');
+              break;
+            case 'subtask:completed':
+              console.log('✅ [WS] Sub-task completed:', data.subTaskId);
+              break;
           }
         } catch (err) {
           console.error('[WS] Failed to parse message:', err);
@@ -59,5 +67,5 @@ export function useWebSocket(taskId?: string) {
     };
   }, [taskId]);
 
-  return { lastPayment };
+  return { payments, taskStatus };
 }
