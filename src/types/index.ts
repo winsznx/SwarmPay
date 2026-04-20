@@ -54,6 +54,7 @@ export interface Task {
   depth: number;                // Max depth = 3 in Phase 5
   result: ExecutionResult | null;
   costBreakdown: CostBreakdown;
+  parentTaskId?: string;
   createdAt: number;
   completedAt: number | null;
 }
@@ -74,6 +75,7 @@ export interface SubTask {
   userId?: string;              // Linked to parent task's user
   parentTaskId: string;
   parentAgentId: string;
+  type?: string;
   title: string;
   description: string;
   budget?: number;
