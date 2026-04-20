@@ -3,6 +3,7 @@ import { store } from './store';
 import { executeTask, classifyPrompt } from './execution';
 import { decomposeTask } from './orchestration';
 import { pipelineEvents, EMIT_SUBTASK_START, EMIT_SUBTASK_DONE, EMIT_TASK_DONE, EMIT_PAYMENT } from './events';
+import { broadcastEvent } from './wsServer';
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -149,10 +150,15 @@ export async function runAutonomousPipeline(task: Task) {
       const category = classifyPrompt(task.prompt);
       let finalResultText = '';
 
-      if (category === 'crypto') {
-        finalResultText = `## ${task.prompt}\n\n${analyzeResult}\n\n**Data View:** ${fetchResult}\n\n**Financial Metrics:** ${computeResult}`;
-      } else {
-        finalResultText = `## ${task.prompt}\n\n${analyzeResult}\n\n**Sources:** ${fetchResult}\n\n**Computation:** ${computeResult}`;
+      // PRIMARY result is ALWAYS the Analysis
+      finalResultText = `## Executive Summary\n${analyzeResult}\n\n`;
+      
+      if (fetchResult) {
+        finalResultText += `**Sources & Data:**\n${fetchResult}\n\n`;
+      }
+      
+      if (computeResult) {
+        finalResultText += `**Computation:**\n${computeResult}`;
       }
 
       // ── Phase 7: On-Chain Settlement ──────────────────────────────────────
