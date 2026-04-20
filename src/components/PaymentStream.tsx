@@ -7,26 +7,12 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, ArrowRight, Clock, Zap } from 'lucide-react';
 
 export const PaymentStream: React.FC = () => {
-  const { lastPayment } = useWebSocket();
-  const [payments, setPayments] = useState<PaymentIntent[]>([]);
+  const { payments } = useWebSocket();
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (lastPayment) {
-      setPayments((prev) => {
-        // Prevent duplicates and limit to last 50
-        const exists = prev.some(p => p.id === lastPayment.id);
-        if (exists) return prev;
-        
-        const newArr = [lastPayment, ...prev];
-        return newArr.slice(0, 50);
-      });
-    }
-  }, [lastPayment]);
-
-  useEffect(() => {
     if (scrollRef.current) {
-      scrollRef.current.scrollTop = 0; // Since we are prepending, the "latest" is at the top
+      scrollRef.current.scrollTop = 0; 
     }
   }, [payments]);
 
