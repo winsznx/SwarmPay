@@ -52,8 +52,8 @@ export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
           />
         </div>
         
-        <div className="flex items-center justify-between gap-6">
-          <div className="flex-1 flex items-center bg-[#0a0f1e] border border-white/5 rounded-2xl px-5 py-3 group focus-within:border-blue-500/30 transition-all">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 md:gap-6">
+          <div className="flex-1 flex items-center bg-[#0a0f1e] border border-white/5 rounded-2xl px-4 md:px-5 py-3 group focus-within:border-blue-500/30 transition-all">
             <DollarSign className="w-4 h-4 text-blue-500/60 mr-2" />
             <input
               type="number"
@@ -64,13 +64,15 @@ export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
               placeholder="Budget"
               required
             />
-            <span className="text-[10px] font-black text-slate-600 uppercase ml-2 tracking-widest whitespace-nowrap">USDC Allocated</span>
+            <span className="text-[9px] md:text-[10px] font-black text-slate-600 uppercase ml-2 tracking-widest whitespace-nowrap">
+              USDC <span className="hidden xs:inline">Allocated</span>
+            </span>
           </div>
 
           <button
             type="submit"
             disabled={isSubmitting}
-            className="flex items-center gap-3 px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-900/40 group active:scale-95"
+            className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-900/40 group active:scale-95"
           >
             {isSubmitting ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
