@@ -2,10 +2,6 @@ import { NextResponse } from 'next/server';
 import { store } from '@/lib/store';
 import { Task, CostBreakdown } from '@/types';
 import { runAutonomousPipeline } from '@/lib/pipeline';
-import { startWsServer } from '@/lib/wsServer';
-
-// Ensure WebSocket server starts at module load
-startWsServer();
 
 export async function GET() {
   const tasks = store.getTasks();
