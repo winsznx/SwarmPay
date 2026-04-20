@@ -11,7 +11,6 @@ interface ResultCardProps {
 export const ResultCard: React.FC<ResultCardProps> = ({ task }) => {
   const [visible, setVisible] = useState(false);
   const [refundCount, setRefundCount] = useState(0);
-
   // Entrance animation
   useEffect(() => {
     const t = setTimeout(() => setVisible(true), 30);
@@ -44,6 +43,24 @@ export const ResultCard: React.FC<ResultCardProps> = ({ task }) => {
 
   const cb = task.costBreakdown;
   const result = task.result;
+
+  const raw = task.result?.result ?? '';
+  const sourcesIndex = raw.indexOf('**Sources');
+  const computeIndex = raw.indexOf('**Computation');
+
+  const mainAnswer = raw
+    .slice(0, sourcesIndex > -1 ? sourcesIndex : undefined)
+    .replace(/^##[^\n]*\n/, '')
+    .replace(/^\*\*Executive Summary\*\*\n?/, '')
+    .trim();
+
+  const sources = sourcesIndex > -1
+    ? raw.slice(sourcesIndex).split('\n')[0].replace(/\*\*Sources[^:]*:\*\*/, '').trim()
+    : '';
+
+  const computation = computeIndex > -1
+    ? raw.slice(computeIndex).split('\n')[0].replace(/\*\*Computation[^:]*:\*\*/, '').trim()
+    : '';
 
   const elapsedMs = task.completedAt && task.createdAt
     ? task.completedAt - task.createdAt
@@ -92,11 +109,31 @@ export const ResultCard: React.FC<ResultCardProps> = ({ task }) => {
       {result?.result && (
         <div className="mb-5 border-l-2 border-blue-500/40 pl-4 py-1">
           <div className="text-[9px] font-black text-blue-400/60 uppercase tracking-widest mb-1.5">Agent Output</div>
-          <p className="text-sm text-slate-300 leading-relaxed font-medium">
-            {result.result}
-          </p>
+          
+          {/* Main answer - large, prominent, readable */}
+          <div className="mb-6">
+            <p className="text-sm leading-relaxed text-gray-100">{mainAnswer}</p>
+          </div>
+
+          {/* Hard divider */}
+          <div className="border-t border-gray-800 pt-4 space-y-3">
+            {sources && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">Sources</p>
+                <p className="text-xs text-gray-500">{sources}</p>
+              </div>
+            )}
+
+            {computation && (
+              <div>
+                <p className="text-xs font-semibold uppercase tracking-wider text-gray-600 mb-1">Computation</p>
+                <p className="text-xs text-gray-500">{computation}</p>
+              </div>
+            )}
+          </div>
+
           {result.confidence !== undefined && (
-            <div className="mt-2 flex items-center gap-2">
+            <div className="mt-4 flex items-center gap-2">
               <div className="h-1 flex-1 bg-slate-800 rounded-full overflow-hidden">
                 <div
                   className="h-full bg-green-500 rounded-full transition-all duration-1000"
@@ -112,7 +149,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ task }) => {
       )}
 
       {/* ── Stats Row ── */}
-      <div className="grid grid-cols-3 gap-2 mb-5">
+      <div className="grid grid-cols-1 xs:grid-cols-3 gap-2 mb-5">
         {[
           { icon: <Zap className="w-3 h-3" />, value: paymentCount, label: 'Micropayments', color: 'blue' },
           { icon: <Users className="w-3 h-3" />, value: agentCount, label: 'Agents', color: 'purple' },
@@ -120,15 +157,17 @@ export const ResultCard: React.FC<ResultCardProps> = ({ task }) => {
         ].map((stat, i) => (
           <div
             key={i}
-            className={`flex flex-col items-center justify-center gap-1 py-3 rounded-xl border
+            className={`flex flex-row xs:flex-col items-center justify-between xs:justify-center gap-2 px-4 py-3 xs:py-3 rounded-xl border
               ${ stat.color === 'blue'   ? 'bg-blue-500/5   border-blue-500/15   text-blue-400'   : ''}
               ${ stat.color === 'purple' ? 'bg-purple-500/5 border-purple-500/15 text-purple-400' : ''}
               ${ stat.color === 'yellow' ? 'bg-yellow-500/5 border-yellow-500/15 text-yellow-400' : ''}
             `}
           >
-            {stat.icon}
+            <div className="flex items-center gap-2 xs:flex-col xs:gap-1">
+              {stat.icon}
+              <span className="text-[10px] xs:text-[8px] font-bold uppercase tracking-wider opacity-60">{stat.label}</span>
+            </div>
             <span className="text-sm font-mono font-black">{stat.value}</span>
-            <span className="text-[8px] font-bold uppercase tracking-wider opacity-60">{stat.label}</span>
           </div>
         ))}
       </div>
@@ -184,6 +223,8 @@ export const ResultCard: React.FC<ResultCardProps> = ({ task }) => {
           </span>
           <div className="ml-auto w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
         </div>
+
+      {/* Follow-up chat UI removed - now handled in standalone component */}
     </div>
   );
 };
