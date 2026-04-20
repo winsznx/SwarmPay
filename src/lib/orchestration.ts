@@ -68,7 +68,7 @@ export async function decomposeTask(
       title,
       description: descriptions[index] || `Process ${title}`,
       budget: subTaskBudget,
-      status: 'bidding',
+      status: 'pending',
       depth: currentDepth + 1,
       createdAt: Date.now()
     };
@@ -96,7 +96,7 @@ export function isTaskComplex(task: Task | SubTask): boolean {
  */
 export function initializeSubMarket(taskId: string): void {
   const subTasks = store.getSubTasks(taskId);
-  subTasks.forEach(st => {
+  subTasks.forEach((st: SubTask) => {
     store.updateSubTask(st.id, { status: 'bidding' });
   });
 }
