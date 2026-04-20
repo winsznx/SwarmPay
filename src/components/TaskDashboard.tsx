@@ -107,90 +107,12 @@ export const TaskDashboard: React.FC = () => {
           </div>
         </div>
 
-        {/* Mobile Side Drawer */}
-        <AnimatePresence>
-          {isMobileMenuOpen && (
-            <>
-              {/* Backdrop */}
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                exit={{ opacity: 0 }}
-                onClick={() => setIsMobileMenuOpen(false)}
-                className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[150] lg:hidden"
-              />
-              
-              {/* Drawer */}
-              <motion.div
-                initial={{ x: '-100%' }}
-                animate={{ x: 0 }}
-                exit={{ x: '-100%' }}
-                transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-                className="fixed inset-y-0 left-0 w-[280px] bg-slate-950 border-r border-white/10 z-[200] lg:hidden shadow-2xl"
-              >
-                <div className="p-6 h-full flex flex-col gap-8 overflow-y-auto custom-scrollbar">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <img src="/icon.png" alt="SwarmPay" className="w-5 h-5" />
-                      <span className="font-black text-xs uppercase tracking-widest">SwarmPay</span>
-                    </div>
-                    <button onClick={() => setIsMobileMenuOpen(false)}>
-                      <X className="w-5 h-5 text-slate-500" />
-                    </button>
-                  </div>
-
-                  <div className="space-y-4">
-                    {[
-                      { icon: Boxes, label: 'Marketplace' },
-                      { icon: Shield, label: 'Security' },
-                      { icon: Users, label: 'Agents' },
-                      { icon: Activity, label: 'Network Stats' },
-                    ].map((item, i) => (
-                      <div key={i} className="flex items-center gap-4 text-xs font-black text-slate-400 uppercase tracking-widest hover:text-blue-400 transition-colors cursor-pointer group">
-                        <item.icon className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                        {item.label}
-                      </div>
-                    ))}
-                  </div>
-                  
-                  <div className="pt-8 border-t border-white/5">
-                    <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Mission History</h3>
-                    <div className="flex flex-col gap-2 pr-2">
-                      {tasks.map(t => (
-                        <button 
-                          key={t.id}
-                          onClick={() => {
-                            setSelectedTaskId(t.id);
-                            setIsMobileMenuOpen(false);
-                          }}
-                          className={`flex items-center justify-between p-3 rounded-xl border transition-all text-left
-                            ${selectedTaskId === t.id ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-white/5 border-transparent text-slate-400'}
-                          `}
-                        >
-                          <span className="text-[11px] font-bold truncate pr-4">{t.prompt}</span>
-                          <span className="text-[9px] font-mono opacity-60">#{t.id.slice(0,4)}</span>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
-                  <div className="mt-auto pt-6 border-t border-white/5">
-                      <div className="flex items-center gap-2">
-                        <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                        <span className="text-[10px] text-slate-400 font-black tracking-widest uppercase">Node Online</span>
-                      </div>
-                      <div className="mt-2 text-[10px] font-mono font-bold text-slate-600">v1.2.4-stable</div>
-                  </div>
-                </div>
-              </motion.div>
-            </>
-          )}
-        </AnimatePresence>
+        {/* Mobile Side Drawer moved to bottom of component for better stacking context */}
       </nav>
 
       <main className="max-w-[1600px] mx-auto flex h-[calc(100vh-3rem)]">
-        {/* MISSION SIDEBAR - Fixed Width */}
-        <div className="hidden lg:block w-72 h-full">
+        {/* MISSION SIDEBAR - Dynamic Width controlled by child */}
+        <div className="hidden lg:block h-full flex-shrink-0">
            <MissionSidebar 
               tasks={tasks} 
               selectedTaskId={selectedTaskId} 
@@ -299,6 +221,86 @@ export const TaskDashboard: React.FC = () => {
         <div className="absolute top-[-20%] left-[-10%] w-[60%] h-[60%] bg-blue-600/10 rounded-full blur-[150px]" />
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 rounded-full blur-[150px]" />
       </div>
+
+      {/* Mobile Side Drawer - Placed at root for highest stacking context */}
+      <AnimatePresence>
+        {isMobileMenuOpen && (
+          <>
+            {/* Backdrop */}
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setIsMobileMenuOpen(false)}
+              className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[150] lg:hidden"
+            />
+            
+            {/* Drawer */}
+            <motion.div
+              initial={{ x: '-100%' }}
+              animate={{ x: 0 }}
+              exit={{ x: '-100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
+              className="fixed inset-y-0 left-0 w-[280px] bg-slate-950 border-r border-white/10 z-[200] lg:hidden shadow-2xl"
+            >
+              <div className="p-6 h-full flex flex-col gap-8 overflow-y-auto custom-scrollbar">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <img src="/icon.png" alt="SwarmPay" className="w-5 h-5" />
+                    <span className="font-black text-xs uppercase tracking-widest">SwarmPay</span>
+                  </div>
+                  <button onClick={() => setIsMobileMenuOpen(false)}>
+                    <X className="w-5 h-5 text-slate-500" />
+                  </button>
+                </div>
+
+                <div className="space-y-4">
+                  {[
+                    { icon: Boxes, label: 'Marketplace' },
+                    { icon: Shield, label: 'Security' },
+                    { icon: Users, label: 'Agents' },
+                    { icon: Activity, label: 'Network Stats' },
+                  ].map((item, i) => (
+                    <div key={i} className="flex items-center gap-4 text-xs font-black text-slate-400 uppercase tracking-widest hover:text-blue-400 transition-colors cursor-pointer group">
+                      <item.icon className="w-4 h-4 group-hover:scale-110 transition-transform" />
+                      {item.label}
+                    </div>
+                  ))}
+                </div>
+                
+                <div className="pt-8 border-t border-white/5">
+                  <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Mission History</h3>
+                  <div className="flex flex-col gap-2 pr-2">
+                    {tasks.map(t => (
+                      <button 
+                        key={t.id}
+                        onClick={() => {
+                          setSelectedTaskId(t.id);
+                          setIsMobileMenuOpen(false);
+                        }}
+                        className={`flex items-center justify-between p-3 rounded-xl border transition-all text-left
+                          ${selectedTaskId === t.id ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-white/5 border-transparent text-slate-400'}
+                        `}
+                      >
+                        <span className="text-[11px] font-bold truncate pr-4">{t.prompt}</span>
+                        <span className="text-[9px] font-mono opacity-60">#{t.id.slice(0,4)}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="mt-auto pt-6 border-t border-white/5">
+                    <div className="flex items-center gap-2">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                      <span className="text-[10px] text-slate-400 font-black tracking-widest uppercase">Node Online</span>
+                    </div>
+                    <div className="mt-2 text-[10px] font-mono font-bold text-slate-600">v1.2.4-stable</div>
+                </div>
+              </div>
+            </motion.div>
+          </>
+        )}
+      </AnimatePresence>
     </div>
   );
 };
