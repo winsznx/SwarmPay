@@ -6,6 +6,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Clock, CheckCircle2, AlertCircle, Loader2, Gavel, TrendingUp, Hash, Layers, Zap, Code, Star } from 'lucide-react';
 import { ExecutionGraph } from './ExecutionGraph';
 import { ResultCard } from './ResultCard';
+import { MarginProofCard } from './MarginProofCard';
+import { SettlementAnimation } from './SettlementAnimation';
 
 interface TaskListProps {
   tasks: Task[];
@@ -18,6 +20,7 @@ const statusIcons = {
   assigned: <Gavel className="w-3.5 h-3.5 text-purple-400" />,
   executing: <Loader2 className="w-3.5 h-3.5 text-yellow-400 animate-spin" />,
   completed: <CheckCircle2 className="w-3.5 h-3.5 text-green-400" />,
+  settling: <Zap className="w-3.5 h-3.5 text-blue-400 animate-pulse" />,
   failed: <AlertCircle className="w-3.5 h-3.5 text-red-400" />,
   open: <Hash className="w-3.5 h-3.5 text-slate-500" />,
 };
@@ -30,7 +33,7 @@ export const TaskCard: React.FC<{ task: Task; agents: Agent[] }> = ({ task, agen
 
   useEffect(() => {
     // Only fetch if task is in active state and we don't have data yet
-    const isActive = ['bidding', 'assigned', 'completed', 'executing'].includes(task.status);
+    const isActive = ['bidding', 'assigned', 'completed', 'executing', 'settling'].includes(task.status);
     
     if (isActive && bids.length === 0) {
       const controller = new AbortController();
@@ -48,15 +51,33 @@ export const TaskCard: React.FC<{ task: Task; agents: Agent[] }> = ({ task, agen
       return () => controller.abort();
     }
     
-    if ((task.status === 'executing' || task.status === 'completed') && subTasks.length === 0) {
-      const controller = new AbortController();
-      fetch(`/api/tasks/${task.id}/subtasks`, { signal: controller.signal })
-        .then(res => res.ok ? res.json() : [])
-        .then(setSubTasks)
-        .catch(err => {
-          if (err.name !== 'AbortError') console.error('Failed to fetch subtasks:', err);
-        });
-      return () => controller.abort();
+    const isRunning = ['executing', 'settling'].includes(task.status);
+    
+    if (['executing', 'settling', 'completed'].includes(task.status)) {
+      const fetchSubTasks = () => {
+        const controller = new AbortController();
+        fetch(`/api/tasks/${task.id}/subtasks`, { signal: controller.signal })
+          .then(res => res.ok ? res.json() : [])
+          .then(setSubTasks)
+          .catch(err => {
+            if (err.name !== 'AbortError') console.error('Failed to fetch subtasks:', err);
+          });
+        return controller;
+      };
+
+      // Initial fetch
+      const initialController = fetchSubTasks();
+
+      // Poll if running
+      let interval: NodeJS.Timeout | null = null;
+      if (isRunning) {
+        interval = setInterval(fetchSubTasks, 2000);
+      }
+
+      return () => {
+        initialController.abort();
+        if (interval) clearInterval(interval);
+      };
     }
 
     if (task.assignedAgentId) {
@@ -253,10 +274,18 @@ export const TaskCard: React.FC<{ task: Task; agents: Agent[] }> = ({ task, agen
         </div>
       )}
 
+      {/* SETTLEMENT ANIMATION — Phase 7 */}
+      {task.status === 'settling' && (
+        <div className="pt-4 border-t border-blue-500/10">
+          <SettlementAnimation />
+        </div>
+      )}
+
       {/* RESULT CARD — completion payoff screen */}
       {task.status === 'completed' && (
-        <div className="pt-4 border-t border-green-500/10">
+        <div className="pt-4 border-t border-green-500/10 flex flex-col gap-4">
           <ResultCard task={task} />
+          <MarginProofCard />
         </div>
       )}
 
