@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server';
 import { store } from '@/lib/store';
 import { executeTask } from '@/lib/execution';
 import { decomposeTask, isTaskComplex, initializeSubMarket } from '@/lib/orchestration';
-import { Task, SubTask } from '@/types';
+import { Task, SubTask, Agent } from '@/types';
 
 const DEMO_MODE = true;
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
@@ -22,7 +22,7 @@ export async function POST(
     if (!task) return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     if (task.status !== 'assigned') return NextResponse.json({ error: 'Task must be assigned to execute.' }, { status: 400 });
 
-    const agent = store.getAgents().find(a => a.id === task.assignedAgentId);
+    const agent = store.getAgents().find((a: Agent) => a.id === task.assignedAgentId);
     if (!agent) return NextResponse.json({ error: 'Assigned agent not found.' }, { status: 400 });
 
     // 1. Recursive Check - Should this task be decomposed BEFORE execution?
@@ -67,7 +67,7 @@ export async function POST(
     const parentId = isSubTask ? (task as any).parentTaskId : task.id;
     const subTasks = store.getSubTasks(parentId);
     
-    subTasks.forEach(st => {
+    subTasks.forEach((st: SubTask) => {
       if (st.id !== id) {
         store.addMessage({
           id: Math.random().toString(36).substring(7),
