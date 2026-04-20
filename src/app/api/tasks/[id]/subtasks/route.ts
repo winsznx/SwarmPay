@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { store } from '@/lib/store';
+import { SubTask } from '@/types';
 
 export async function GET(
   request: Request,
@@ -11,7 +12,7 @@ export async function GET(
     const subTasks = store.getSubTasks(id);
     
     // Enrich with sub-bids
-    const subTasksWithBids = subTasks.map(st => ({
+    const subTasksWithBids = subTasks.map((st: SubTask) => ({
       ...st,
       bids: store.getSubBids(st.id)
     }));
