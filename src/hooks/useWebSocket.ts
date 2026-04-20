@@ -1,71 +1,76 @@
 'use client';
 
-import { useState, useEffect } from 'react';
-import { PaymentIntent } from '@/types';
+import { useEffect, useRef, useState } from 'react';
 
-/**
- * useWebSocket Hook (Simulated for Phase 5/6 Demo)
- * Wraps an in-memory event bus/polling system with a WebSocket-like interface.
- */
-export function useWebSocket(taskId?: string) {
-  const [payments, setPayments] = useState<PaymentIntent[]>([]);
-  const [taskStatus, setTaskStatus] = useState<string | null>(null);
+export interface PaymentEvent {
+  id: string;
+  fromAgent: string;
+  fromAgentName?: string;
+  toAgent: string;
+  toAgentName?: string;
+  amount: number;
+  timestamp: number;
+}
+
+export function usePaymentStream(taskId: string | null | undefined) {
+  const [payments, setPayments] = useState<PaymentEvent[]>([]);
+  const [connected, setConnected] = useState(false);
+  const wsRef = useRef<WebSocket | null>(null);
+  const reconnectRef = useRef<any>(null);
 
   useEffect(() => {
     if (!taskId) return;
 
-    let socket: WebSocket | null = null;
-    let reconnectTimeout: any = null;
+    function connect() {
+      const ws = new WebSocket(`ws://localhost:3006?taskId=${taskId}`);
+      wsRef.current = ws;
 
-    const connect = () => {
-      console.log(`🔌 [WS] Connecting for task: ${taskId} on port 3006`);
-      socket = new WebSocket(`ws://localhost:3006?taskId=${taskId}`);
+      ws.onopen = () => {
+        console.log('[WS CLIENT] connected for task:', taskId);
+        setConnected(true);
+      };
 
-      socket.onmessage = (event) => {
+      ws.onmessage = (event) => {
         try {
           const data = JSON.parse(event.data);
-          console.log('[WS] Message received:', data.type);
-          
-          switch (data.type) {
-            case 'payment:intent':
-              if (data.paymentIntent) {
-                setPayments(prev => [data.paymentIntent, ...prev].slice(0, 50));
-              }
-              break;
-            case 'task:completed':
-              setTaskStatus('completed');
-              console.log('✅ [WS] Task completed notification received.');
-              break;
-            case 'subtask:completed':
-              console.log('✅ [WS] Sub-task completed:', data.subTaskId);
-              break;
+          console.log('[WS CLIENT] received:', data.type, data);
+          if (data.type === 'payment:intent') {
+            setPayments(prev => [{
+              id: data.id,
+              fromAgent: data.fromAgent,
+              fromAgentName: data.fromAgentName,
+              toAgent: data.toAgent,
+              toAgentName: data.toAgentName,
+              amount: data.amount,
+              timestamp: data.timestamp
+            }, ...prev].slice(0, 50));
           }
-        } catch (err) {
-          console.error('[WS] Failed to parse message:', err);
+        } catch (e) {
+          console.error('[WS CLIENT] parse error:', e);
         }
       };
 
-      socket.onclose = () => {
-        console.log('⚠️ [WS] Connection lost. Reconnecting in 2s...');
-        reconnectTimeout = setTimeout(connect, 2000);
+      ws.onclose = () => {
+        console.log('[WS CLIENT] disconnected, reconnecting in 2s...');
+        setConnected(false);
+        reconnectRef.current = setTimeout(connect, 2000);
       };
 
-      socket.onerror = (err) => {
-        console.error('[WS] Connection error:', err);
-        socket?.close();
+      ws.onerror = (e) => {
+        console.error('[WS CLIENT] error:', e);
       };
-    };
+    }
 
     connect();
 
     return () => {
-      if (reconnectTimeout) clearTimeout(reconnectTimeout);
-      if (socket) {
-        socket.onclose = null; // Prevent reconnect on intentional close
-        socket.close();
-      }
+      if (reconnectRef.current) clearTimeout(reconnectRef.current);
+      wsRef.current?.close();
     };
   }, [taskId]);
 
-  return { payments, taskStatus };
+  return { payments, connected };
 }
+
+// Keep legacy export for easier transition
+export { usePaymentStream as useWebSocket };
