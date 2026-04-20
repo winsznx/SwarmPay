@@ -1,13 +1,12 @@
 'use client';
 
 import React, { useState, useEffect, useRef } from 'react';
-import { useWebSocket } from '@/hooks/useWebSocket';
-import { PaymentIntent } from '@/types';
+import { usePaymentStream } from '@/hooks/useWebSocket';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, ArrowRight, Clock, Zap } from 'lucide-react';
 
-export const PaymentStream: React.FC = () => {
-  const { payments } = useWebSocket();
+export const PaymentStream: React.FC<{ activeTaskId: string | null }> = ({ activeTaskId }) => {
+  const { payments, connected } = usePaymentStream(activeTaskId);
   const scrollRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -64,18 +63,18 @@ export const PaymentStream: React.FC = () => {
                 <div className="flex items-center gap-3">
                   <div className="text-[9px] font-mono font-bold text-slate-500 flex items-center gap-1">
                     <Clock className="w-2.5 h-2.5" />
-                    {formatTime(p.createdAt)}
+                    {formatTime(p.timestamp)}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black text-slate-200">{p.fromAgentName}</span>
+                    <span className="text-[10px] font-black text-slate-200">{p.fromAgentName ?? 'Agent'}</span>
                     <ArrowRight className="w-2.5 h-2.5 text-slate-600" />
-                    <span className="text-[10px] font-black text-blue-400">{p.toAgentName}</span>
+                    <span className="text-[10px] font-black text-blue-400">{p.toAgentName ?? 'Node'}</span>
                   </div>
                 </div>
                 
                 <div className="flex items-center gap-2">
                   <span className="text-[11px] font-mono font-black text-white bg-blue-500/10 border border-blue-500/20 px-2 py-0.5 rounded-lg shadow-[0_0_10px_rgba(59,130,246,0.1)]">
-                    ${p.amount.toFixed(4)}
+                    ${(p.amount ?? 0).toFixed(4)}
                   </span>
                 </div>
               </motion.div>
