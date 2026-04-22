@@ -1,4 +1,4 @@
-// Cache bust
+// Cache bust: 1713783600
 import { Task, Agent, ExecutionResult, AgentRole, AgentMessage } from '@/types';
 import { store } from './store';
 import { pipelineEvents, EMIT_COMPUTE_TICK, EMIT_AGENT_ACT, EMIT_PAYMENT_SIGNED, EMIT_PAYMENT } from './events';
@@ -83,7 +83,6 @@ export async function executeTask(task: Task | any, agent: Agent): Promise<Execu
       'analysis': 'You are an Intelligence Analyst. Extract patterns and confidence scores.',
       'compute': 'You are a Statistical Compute Agent. Perform matrix operations and modeling.'
     };
-
    
     const systemContent = systemPrompts[role] || systemPrompts['orchestrator'];
     const baseInstructions = `${systemContent} Return a JSON object with "result" (string), "confidence" (number 0-1), and "cost" (number).`;
