@@ -3,6 +3,7 @@ import * as path from 'path';
 import { Task, Bid, Agent, SubTask, SubBid, ExecutionResult, AgentMessage, PaymentIntent } from '@/types';
 import { calculateBidScore } from '../scoring';
 import { pipelineEvents, EMIT_PAYMENT } from '../events';
+import { getAgentBalances, getAgentAddress } from '../circleWallets';
 
 const STORE_DIR = path.join(process.cwd(), '.data');
 const STORE_PATH = path.join(STORE_DIR, 'store.json');
@@ -26,18 +27,13 @@ class InMemoryStore {
   constructor() {
     this.init();
     this.cleanStaleTasks();
-    // Always reset on startup — never use stale balances from store.json
-    this.agents = new Map(SEED_AGENTS.map(a => [a.id, { 
-      ...a, 
-      walletAddress: `0x${Math.random().toString(16).slice(2, 42)}`,
-      wallet: a.balance,
-      totalEarned: 0,
-      tasksCompleted: 0,
-      avgResponseTimeMs: 1200,
-      capabilities: [a.role],
-      memory: { pastTasks: [], pastResults: [], successCount: 0, failureCount: 0 }
-    } as Agent]))
+    
+    // Seed and sync if missing
+    if (this.agents.size === 0) {
+      this.seedAgents();
+    }
   }
+
 
 
   private init(): void {
@@ -210,6 +206,14 @@ class InMemoryStore {
     this.save();
   }
 
+  updateAgent(id: string, updates: Partial<Agent>): void {
+    const agent = this.agents.get(id);
+    if (agent) {
+      this.agents.set(id, { ...agent, ...updates });
+      this.save();
+    }
+  }
+
   getAgents(): Agent[] {
     return Array.from(this.agents.values());
   }
@@ -268,11 +272,55 @@ class InMemoryStore {
 
   assignWinningBid(taskId: string): void {
     const winner = this.selectWinningBid(taskId);
+    const bids = this.getBidsForTask(taskId);
+
+    // Update all bids for this task with their status and rationale
+    bids.forEach(bid => {
+      const isWinner = bid.id === winner.bid.id;
+      const agent = this.agents.get(bid.agentId);
+      
+      let reason = '';
+      if (isWinner) {
+        reason = `Selected as optimal winner (Score: ${winner.score.toFixed(2)}) for ${agent?.role} deployment. Highest confidence with lowest latency-cost ratio.`;
+      } else {
+        // Deterministic rejection reasons based on competitive scoring
+        const bidConf = (bid as any).confidence || (agent?.reputation || 0) / 100;
+        const bidTimeSec = (bid.estimatedTimeMs / 1000);
+        const bidScore = bidConf / (bid.price * bidTimeSec);
+
+        if (bid.price > winner.bid.price * 1.5) {
+          reason = 'Price efficiency: Bid exceeded winning node by >50%.';
+        } else if (bidScore < winner.score * 0.7) {
+          reason = 'Market competition: Low composite value score compared to winner.';
+        } else if (bid.estimatedTimeMs > winner.bid.estimatedTimeMs * 2) {
+          reason = 'Latency rejection: Response time below mission threshold.';
+        } else {
+          reason = 'Market competition: Higher utility candidate selected.';
+        }
+      }
+
+      this.bids.set(bid.id, {
+        ...bid,
+        status: isWinner ? 'winner' : 'rejected',
+        selectionReason: isWinner ? reason : undefined,
+        rejectionReason: !isWinner ? reason : undefined
+      } as any);
+    });
+
     this.updateTask(taskId, {
       winningBid: winner.bid.id,
       assignedAgentId: winner.agent.id,
-      status: 'assigned'
+      status: 'assigned',
+      orchestratorRationale: `Deployed ${winner.agent.name} as lead node based on ${winner.score.toFixed(2)} efficiency score. ${reasonMap(winner.agent.role)}`
     });
+    
+    function reasonMap(role: string) {
+      if (role === 'orchestrator') return 'Optimized for high-level mission decomposition.';
+      if (role === 'compute') return 'Leveraging maximum FLOPS for statistical processing.';
+      return 'Specialized in complex analytical retrieval.';
+    }
+
+    this.save();
   }
 
   // Inter-Agent Communication
@@ -313,14 +361,47 @@ class InMemoryStore {
   }
 
   // Economy
+  async refreshAgentWallets(): Promise<void> {
+    console.log('[STORE] Refreshing real on-chain balances and addresses from Circle...');
+    const balances = await getAgentBalances();
+    
+    for (const [agentId, amount] of Object.entries(balances)) {
+      const agent = this.agents.get(agentId);
+      if (agent) {
+        console.log(`[STORE] Updating agent ${agentId}: Balance ${agent.wallet} -> ${amount}`);
+        agent.wallet = amount;
+        
+          // If address is missing or looks like a mock/short address, update it
+          if (!agent.walletAddress || agent.walletAddress.length < 40 || agent.walletAddress.includes('mock')) {
+           try {
+              const realAddress = await getAgentAddress(agentId);
+             if (realAddress) {
+               console.log(`[STORE] Updating agent ${agentId} address to: ${realAddress}`);
+               agent.walletAddress = realAddress;
+             }
+           } catch (e) {
+             console.warn(`[STORE] Could not update address for ${agentId}`);
+           }
+        }
+        
+        this.agents.set(agentId, agent);
+      } else {
+        console.warn(`[STORE] Sync error: Agent ${agentId} not found in registry!`);
+      }
+    }
+
+    this.save();
+    console.log(`[STORE] On-chain sync complete for ${Object.keys(balances).length} agents.`);
+  }
+
   distributePayment(agentId: string, amount: number): void {
     const agent = this.agents.get(agentId);
     if (agent) {
-      agent.wallet += amount;
-      agent.totalEarned += amount;
-      agent.tasksCompleted += 1;
-      this.agents.set(agentId, agent);
-      this.save();
+      this.updateAgent(agentId, { 
+        wallet: (agent.wallet || 0) + amount,
+        earned: (agent.earned ?? 0) + amount,
+        tasksCompleted: (agent.tasksCompleted || 0) + 1
+      });
     }
   }
 
