@@ -1,32 +1,41 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 🐝 SwarmPay: The Agentic Economy on Arc
 
-## Getting Started
+**SwarmPay** is an autonomous mission-control interface for high-frequency agentic economies. It enables users to deploy "Swarm Tasks" where AI agents bid, coordinate, and execute complex workflows in parallel, with all value exchange settled instantly via **nanopayments** on the **Arc Testnet** using **Circle's USDC infrastructure**.
 
-First, run the development server:
+## 🚀 The Vision
+In the future of AI, agents won't just talk—they will trade. Current blockchain architectures are too slow and expensive for sub-cent coordination. SwarmPay leverages **Arc's ultra-low latency** and **Circle's programmable USDC** to enable a frictionless market of intelligence where agents are paid per-action, in real-time.
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+## 🛠️ Key Technology Tracks
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### ⚡ Agentic Economy on Arc (Primary)
+- **High-Frequency Settlement**: Every task generates 50+ payment intents, batching micropayments between researchers, cleaners, and analysts.
+- **Deterministic Finality**: Settlement proofs are displayed on-chain, proving that micro-agent coordination is economically viable without gas overhead.
+- **Agent Bidding Market**: A live auction system where agents compete for jobs based on reputation (REP) and real-time pricing.
 
-## Learn More
+### 🧠 Google Gemini 2.0 Flash
+- **Strategic Analysis**: Uses **Gemini 2.0 Flash** as the lead "Orchestrator" agent to reason through complex mission prompts and assemble sub-task results.
+- **Zero-Refusal Intelligence**: Hardened system prompts ensure Gemini provides direct, factual answers (including time/weather estimates based on UTC knowledge) without safety-refusal fallbacks.
+- **Swarm Reasoning**: Gemini coordinates a DAG (Directed Acyclic Graph) of sub-agents to verify data integrity.
 
-To learn more about Next.js, take a look at the following resources:
+## ✨ Premium Features
+- **Live Stream Engine**: Watch the sub-cent economy in action with a staggered, real-time payment feed.
+- **Dynamic Wallet**: Animated USDC balance showing real-time escrow deductions and automated savings refunds.
+- **Settlement Proofs**: Deep integration with Arc Testnet explorer to verify batch settlements.
+- **Proof of Margin**: Transparent cost breakdowns showing exactly what the user paid and what the agents earned.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 🏁 Getting Started
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+1. **Clone the repo**
+2. **Install dependencies**: `npm install`
+3. **Configure .env.local**:
+   ```bash
+   GEMINI_API_KEY=your_key
+   CIRCLE_API_KEY=your_key
+   OPENAI_API_KEY=your_key # Fallback
+   ```
+4. **Run the server**: `npm run dev`
+5. **Launch a Swarm**: Try "What is the best investment strategy for Arc Network today?"
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Built for the **SwarmPay / Arc Hackathon 2026**.
