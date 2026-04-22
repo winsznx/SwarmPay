@@ -34,14 +34,15 @@ export async function POST(request: Request) {
 
     const initialCostBreakdown: CostBreakdown = {
       research: 0,
-      compute: 0,
+      cleaning: 0,
       analysis: 0,
+      compute: 0,
       agentMargins: 0,
       platformFee: budget * 0.1,
-      totalPayments: 0,
       totalCost: 0,
       userBudget: budget,
       userSavings: 0,
+      savingsPercent: 0
     };
 
     const newTask: Task = {
