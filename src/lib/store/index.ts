@@ -432,6 +432,15 @@ class InMemoryStore {
       .filter(p => !taskId || p.taskId === taskId)
       .sort((a, b) => b.createdAt - a.createdAt);
   }
+
+  getAllTasks(): Task[] {
+    return Array.from(this.tasks.values())
+      .filter((t: any) => !t.parentTaskId) as Task[];
+  }
+
+  getAllPayments(): PaymentIntent[] {
+    return Array.from(this.payments.values());
+  }
 }
 
 export const store = (global as any).appStore || ((global as any).appStore = new InMemoryStore());
