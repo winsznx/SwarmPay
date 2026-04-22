@@ -33,14 +33,19 @@ export interface AgentMessage {
 
 export interface CostBreakdown {
   research: number;
-  compute: number;
+  cleaning: number;
   analysis: number;
+  compute: number;
   agentMargins: number;
   platformFee: number;
-  totalPayments: number;
+  totalPayments?: number;
   totalCost: number;
   userBudget: number;
   userSavings: number;
+  savingsPercent: number;
+  initialBalance?: number;
+  remainingBalance?: number;
+  guardVerified?: boolean;
 }
 
 export interface Task {
@@ -58,6 +63,10 @@ export interface Task {
   parentTaskId?: string;
   createdAt: number;
   completedAt: number | null;
+  complexity?: 'low' | 'high';
+  orchestratorRationale?: string;
+  agentCount?: number;
+  errorReason?: string;
   settlement?: {
     txHash: string;
     explorerUrl: string;
@@ -77,7 +86,11 @@ export interface Bid {
   estimatedTimeMs: number;
   confidence: number;
   strategy: string;
+  reasoning?: string;         // Why this agent is best
   submittedAt: number;
+  status?: 'winner' | 'rejected';
+  selectionReason?: string;
+  rejectionReason?: string;   // Explicit rationale for rejection
 }
 
 export interface SubTask {
@@ -108,6 +121,7 @@ export interface Agent {
   wallet: number;               // simulated USDC balance
   reputation: number;           // 0-100
   totalEarned: number;
+  earned?: number;
   tasksCompleted: number;
   avgResponseTimeMs: number;
   memory: AgentMemory;
@@ -119,7 +133,9 @@ export interface SubBid {
   agentId: string;
   price: number;
   estimatedTimeMs: number;
+  reasoning?: string;         // Why this sub-agent is best
   createdAt: number;
+  status?: 'winner' | 'rejected';
 }
 
 export interface PaymentIntent {
