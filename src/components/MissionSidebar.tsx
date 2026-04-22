@@ -87,11 +87,10 @@ export const MissionSidebar: React.FC<MissionSidebarProps> = ({ tasks, selectedT
                   {new Date(task.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
-              <h4 className={`text-xs font-bold truncate
-                ${selectedTaskId === task.id ? 'text-white' : 'text-slate-400 group-hover:text-slate-200'}
-              `}>
-                {task.prompt}
-              </h4>
+              <p className="text-[11px] font-medium text-slate-400 group-hover:text-slate-200 truncate pr-4">
+                {task.prompt?.slice(0, 35)}{task.prompt?.length > 35 ? '...' : ''}
+              </p>
+
             </div>
           </button>
         ))}

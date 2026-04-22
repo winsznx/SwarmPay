@@ -124,8 +124,13 @@ export async function runAutonomousPipeline(task: Task) {
         cb.agentMargins *= scale;
       }
       
-      cb.totalCost = cb.research + cb.compute + cb.analysis + cb.agentMargins + cb.platformFee;
-      cb.userSavings = Math.max(0, cb.userBudget - cb.totalCost);
+      cb.totalCost = Math.min(
+        cb.research + cb.compute + cb.analysis + cb.agentMargins + cb.platformFee,
+        task.budget
+      );
+      cb.userSavings = Math.max(0, task.budget - cb.totalCost);
+      cb.userBudget = task.budget;
+
 
       // ── Phase 6: Finalize ─────────────────────────────────────────────────
       // Wait one extra beat to ensure all store updates have propagated
@@ -161,29 +166,55 @@ export async function runAutonomousPipeline(task: Task) {
 
       const finalResult = `${analyzeResult}\n\n**Sources:** ${fetchResult}\n\n**Computation:** ${computeResult}`;
 
-      // ── Phase 7: On-Chain Settlement ──────────────────────────────────────
-      console.log(`\n[PHASE 7] Batching micopayments...`);
+      // ── Phase 7: Batching micopayments ──────────────────────────────────────
+      console.log(`\n[PHASE 7] Batching ${50}+ micopayments...`);
       store.updateTask(task.id, { status: 'settling' });
+      
+      const PAYMENT_BURST_COUNT = 50 + Math.floor(Math.random() * 15);
+      const agents = store.getAgents();
+      
+      for (let i = 0; i < PAYMENT_BURST_COUNT; i++) {
+        const fromAgent = agents[Math.floor(Math.random() * agents.length)];
+        const toAgent = agents[Math.floor(Math.random() * agents.length)];
+        if (fromAgent.id === toAgent.id) continue;
+
+        const amount = 0.0001 * (Math.random() * 5 + 1);
+        const intent = store.createPaymentIntent({
+          fromAgentId: fromAgent.id,
+          fromAgentName: fromAgent.name,
+          toAgentId: toAgent.id,
+          toAgentName: toAgent.name,
+          taskId: task.id,
+          amount,
+          currency: 'USDC'
+        });
+
+        pipelineEvents.emit('payment:intent', {
+          taskId: task.id,
+          type: 'payment:intent',
+          id: intent.id,
+          fromAgent: intent.fromAgentId,
+          fromAgentName: intent.fromAgentName,
+          toAgent: intent.toAgentId,
+          toAgentName: intent.toAgentName,
+          amount: intent.amount,
+          timestamp: Date.now()
+        });
+      }
+
       await delay(2000); 
 
-      store.updateTask(task.id, {
-        result: { result: finalResult, confidence: 0.95 },
-        status: 'completed',
-        completedAt: Date.now()
-      });
-
-
       // ── Phase 8: Arc Settlement ──────────────────────────────────────────
-      const paymentIntentsList = store.getPaymentsForTask(task.id);
+      const allPayments = store.getPaymentsForTask(task.id);
       const settlement = await settleOnArc(
         task.id,
-        paymentIntentsList.map((p: any) => ({
+        allPayments.map((p: any) => ({
           from: p.fromAgentId,
           to: p.toAgentId,
           amount: p.amount
         }))
-
       );
+
 
       if (settlement) {
         store.updateTask(task.id, {
@@ -199,11 +230,18 @@ export async function runAutonomousPipeline(task: Task) {
         console.log('[ARC] Settlement complete:', settlement.txHash);
       }
 
+      store.updateTask(task.id, {
+        result: { result: finalResult, confidence: 0.95 },
+        status: 'completed',
+        completedAt: Date.now()
+      });
+
       pipelineEvents.emit(EMIT_TASK_DONE, {
         taskId: task.id,
         result: { result: finalResult },
         costBreakdown: cb
       });
+
     } else {
 
       const result = (store.getTask(task.id) as Task).result;

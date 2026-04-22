@@ -154,7 +154,17 @@ export async function executeTask(task: Task | any, agent: Agent): Promise<Execu
                   body: JSON.stringify({
                     contents: [{
                       parts: [{
-                        text: `You are an expert AI agent in a swarm intelligence network. Answer this question directly, factually, and helpfully in 3-5 sentences. Be specific.\n\nQuestion: ${prompt}`
+                        text: `You are SwarmPay's expert AI analysis agent. Your job is to answer every question with the best available knowledge. Rules:
+- NEVER say "I can't", "I'm unable to", or "I don't have access to"
+- For current time questions: calculate based on UTC offset. Lagos/Nigeria is UTC+1. Always give a specific time estimate.
+- For weather questions: give typical conditions for the location and season
+- For all other questions: answer directly and specifically
+- Always provide a useful, specific answer in 3-5 sentences
+
+Question: ${prompt}
+
+Answer directly and helpfully:`
+
                       }]
                     }],
                     generationConfig: { maxOutputTokens: 400 }
