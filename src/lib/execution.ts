@@ -140,15 +140,46 @@ export async function executeTask(task: Task | any, agent: Agent): Promise<Execu
           }
         } else if (taskTitle.includes('analyze') || taskTitle.includes('analysis')) {
           const topic = prompt;
+          const geminiKey = process.env.GEMINI_API_KEY;
           const groqKey = process.env.GROQ_API_KEY;
           const openaiKey = process.env.OPENAI_API_KEY;
-          const apiKey = groqKey || openaiKey;
-          const apiUrl = groqKey
-            ? 'https://api.groq.com/openai/v1/chat/completions'
-            : 'https://api.openai.com/v1/chat/completions';
-          const model = groqKey ? 'llama-3.1-8b-instant' : 'gpt-4o-mini';
 
-          if (apiKey) {
+          if (geminiKey) {
+            try {
+              const res = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
+                {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  body: JSON.stringify({
+                    contents: [{
+                      parts: [{
+                        text: `You are an expert AI agent in a swarm intelligence network. Answer this question directly, factually, and helpfully in 3-5 sentences. Be specific.\n\nQuestion: ${prompt}`
+                      }]
+                    }],
+                    generationConfig: { maxOutputTokens: 400 }
+                  })
+                }
+              );
+              const json = await res.json();
+              console.log('[GEMINI] status:', res.status);
+              const content = json.candidates?.[0]?.content?.parts?.[0]?.text;
+              if (content) {
+                resultText = content;
+                console.log('[GEMINI] answer received:', content.slice(0, 100));
+              }
+            } catch (e) {
+              console.error('[GEMINI] failed:', e);
+            }
+          }
+
+          if (!resultText && (groqKey || openaiKey)) {
+            const apiKey = groqKey || openaiKey;
+            const apiUrl = groqKey
+              ? 'https://api.groq.com/openai/v1/chat/completions'
+              : 'https://api.openai.com/v1/chat/completions';
+            const model = groqKey ? 'llama-3.1-8b-instant' : 'gpt-4o-mini';
+
             try {
               const res = await fetch(apiUrl, {
                 method: 'POST',
@@ -161,7 +192,7 @@ export async function executeTask(task: Task | any, agent: Agent): Promise<Execu
                   max_tokens: 300,
                   messages: [
                     { role: 'system', content: 'Answer questions directly and factually in 2-4 sentences. Be specific.' },
-                    { role: 'user', content: topic }
+                    { role: 'user', content: prompt }
                   ]
                 })
               });
@@ -175,6 +206,7 @@ export async function executeTask(task: Task | any, agent: Agent): Promise<Execu
               console.error('[AI] fetch failed:', e);
             }
           }
+
 
           if (!resultText) {
             // Hardcoded fallback — still a real answer, not "Fallback: Process"

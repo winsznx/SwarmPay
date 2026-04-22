@@ -3,6 +3,8 @@ import { store } from './store';
 import { executeTask, classifyPrompt } from './execution';
 import { decomposeTask } from './orchestration';
 import { pipelineEvents, EMIT_SUBTASK_START, EMIT_SUBTASK_DONE, EMIT_TASK_DONE, EMIT_PAYMENT, EMIT_AGENT_ACT } from './events';
+import { settleOnArc } from './arcSettlement';
+
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
 
@@ -140,45 +142,70 @@ export async function runAutonomousPipeline(task: Task) {
       // Re-fetch clean copy
       subTasks = store.getSubTasks(task.id);
       
-      console.log(`[PIPELINE] Finalizing result from ${subTasks.length} sub-tasks.`);
-      
-      const fetchResult   = subTasks.find((s: SubTask) => s.type === 'fetch_data' || s.title.toLowerCase().includes('fetch'))?.result?.result ?? '';
-      const analyzeResult = subTasks.find((s: SubTask) => s.type === 'analyze' || s.title.toLowerCase().includes('analyze'))?.result?.result ?? '';
-      const computeResult = subTasks.find((s: SubTask) => s.type === 'compute' || s.title.toLowerCase().includes('compute'))?.result?.result ?? '';
+      const subTaskList = store.getSubTasks(task.id);
+      const analyzeSub = subTaskList.find((s: SubTask) =>
+        s.type === 'analyze' || s.type === 'analysis' || s.title.toLowerCase().includes('analyze')
+      );
+      const fetchSub = subTaskList.find((s: SubTask) => 
+        s.type === 'fetch_data' || s.title.toLowerCase().includes('fetch')
+      );
+      const computeSub = subTaskList.find((s: SubTask) => 
+        s.type === 'compute' || s.title.toLowerCase().includes('compute')
+      );
 
-      const mainAnswer = analyzeResult || 'Analysis complete.';
-      let finalResultText = `## Executive Summary\n${mainAnswer}\n\n`;
-      
-      if (fetchResult) {
-        finalResultText += `**Sources:** ${fetchResult}\n\n`;
-      }
-      
-      if (computeResult) {
-        finalResultText += `**Computation:** ${computeResult}`;
-      }
+      const analyzeResult = analyzeSub?.result?.result
+        || (analyzeSub?.result as any)
+        || 'Analysis complete.';
+      const fetchResult   = fetchSub?.result?.result || (fetchSub?.result as any) || '';
+      const computeResult = computeSub?.result?.result || (computeSub?.result as any) || '';
+
+      const finalResult = `${analyzeResult}\n\n**Sources:** ${fetchResult}\n\n**Computation:** ${computeResult}`;
 
       // ── Phase 7: On-Chain Settlement ──────────────────────────────────────
-      console.log(`\n[PHASE 7] Batching 63 micropayments into 1 Arc transaction...`);
+      console.log(`\n[PHASE 7] Batching micopayments...`);
       store.updateTask(task.id, { status: 'settling' });
-      await delay(5000); // Dramatic pause for the high-impact animation
+      await delay(2000); 
 
-      store.updateTask(task.id, { 
-        costBreakdown: cb, 
-        status: 'completed', 
-        completedAt: Date.now(),
-        result: {
-          result: finalResultText,
-          confidence: 0.95,
-          cost: cb.totalCost
-        }
+      store.updateTask(task.id, {
+        result: { result: finalResult, confidence: 0.95 },
+        status: 'completed',
+        completedAt: Date.now()
       });
+
+
+      // ── Phase 8: Arc Settlement ──────────────────────────────────────────
+      const paymentIntentsList = store.getPaymentsForTask(task.id);
+      const settlement = await settleOnArc(
+        task.id,
+        paymentIntentsList.map((p: any) => ({
+          from: p.fromAgentId,
+          to: p.toAgentId,
+          amount: p.amount
+        }))
+
+      );
+
+      if (settlement) {
+        store.updateTask(task.id, {
+          settlement: {
+            txHash: settlement.txHash,
+            explorerUrl: settlement.explorerUrl,
+            intentsSettled: settlement.intentsSettled,
+            totalAmount: settlement.totalAmount,
+            gasCost: settlement.gasCost,
+            settledAt: Date.now()
+          }
+        });
+        console.log('[ARC] Settlement complete:', settlement.txHash);
+      }
 
       pipelineEvents.emit(EMIT_TASK_DONE, {
         taskId: task.id,
-        result: { result: finalResultText },
+        result: { result: finalResult },
         costBreakdown: cb
       });
     } else {
+
       const result = (store.getTask(task.id) as Task).result;
       store.updateTask(task.id, { status: 'completed', completedAt: Date.now() });
       pipelineEvents.emit(EMIT_TASK_DONE, { taskId: task.id, result, costBreakdown: (task as any).costBreakdown });
@@ -272,9 +299,10 @@ async function runSubTaskExecution(taskId: string, subTasks: SubTask[], leadAgen
         currency: 'USDC'
       });
 
-      console.log('[PIPELINE] emitting payment event', paymentIntent.amount);
-      pipelineEvents.emit(EMIT_PAYMENT, {
+      console.log('[PIPELINE] emitting payment event', paymentIntent.id);
+      pipelineEvents.emit('payment:intent', {
         taskId: taskId,
+        type: 'payment:intent',
         id: paymentIntent.id,
         fromAgent: paymentIntent.fromAgentId,
         fromAgentName: paymentIntent.fromAgentName,

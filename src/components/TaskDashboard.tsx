@@ -13,12 +13,22 @@ import { MissionSidebar } from './MissionSidebar';
 import { Menu, X } from 'lucide-react';
 import { FollowUpInput } from './FollowUpInput';
 import { MarginProofCard } from './MarginProofCard';
+import { SettlementProof } from './SettlementProof';
+
 
 export const TaskDashboard: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [balance] = useState(5.00); 
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!selectedTaskId && tasks.length > 0) {
+      setSelectedTaskId(tasks[tasks.length - 1].id)
+    }
+  }, [tasks, selectedTaskId])
+
+
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
@@ -46,19 +56,18 @@ export const TaskDashboard: React.FC = () => {
       if (response.ok) {
         const data = await response.json();
         setTasks(data);
-        if (!selectedTaskId && data.length > 0) {
-          setSelectedTaskId(data[0].id);
-        }
       }
     } catch (error) {
       console.error('Failed to fetch tasks:', error);
     }
   };
 
+
   const handleTaskCreated = (newTask: Task) => {
     setTasks((prev) => [newTask, ...prev]);
     setSelectedTaskId(newTask.id);
   };
+
 
   const handleCreateNewTask = async (prompt: string, budget: number, parentTaskId?: string) => {
     if (!prompt?.trim() || prompt.includes('undefined')) {
@@ -113,9 +122,12 @@ export const TaskDashboard: React.FC = () => {
               {isMobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
 
-            <div className="flex items-center gap-2">
-              <img src="/logo.png" alt="SwarmPay" className="w-6 h-6 drop-shadow-[0_0_8px_rgba(59,130,246,0.5)]" />
-              <span className="font-black text-xs uppercase tracking-[0.2em] hidden xs:inline">SwarmPay Node</span>
+            <div className="flex items-center gap-3">
+              <img src="/icon.png" alt="SwarmPay" className="w-8 h-8 drop-shadow-[0_0_10px_rgba(59,130,246,0.3)]" />
+              <div className="flex flex-col leading-none">
+                <span className="font-black text-[11px] uppercase tracking-[0.2em] text-white">SwarmPay</span>
+                <span className="text-[8px] font-black text-blue-500 uppercase tracking-widest mt-0.5">Node v1.2</span>
+              </div>
             </div>
             
             <div className="h-4 w-px bg-white/10 hidden lg:block" />
@@ -222,6 +234,8 @@ export const TaskDashboard: React.FC = () => {
                             agents={agents} 
                             onNewTask={handleCreateNewTask}
                           />
+                          <SettlementProof task={t} />
+
                         </div>
                       ))
                     ) : (
@@ -321,9 +335,9 @@ export const TaskDashboard: React.FC = () => {
             >
               <div className="p-6 h-full flex flex-col gap-8 overflow-y-auto custom-scrollbar">
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <img src="/logo.png" alt="SwarmPay" className="w-6 h-6" />
-                    <span className="font-black text-xs uppercase tracking-widest">SwarmPay</span>
+                  <div className="flex items-center gap-3">
+                    <img src="/icon.png" alt="SwarmPay" className="w-8 h-8" />
+                    <span className="font-black text-xs uppercase tracking-widest text-white">SwarmPay</span>
                   </div>
                   <button onClick={() => setIsMobileMenuOpen(false)}>
                     <X className="w-5 h-5 text-slate-500" />

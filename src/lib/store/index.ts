@@ -7,6 +7,15 @@ import { pipelineEvents, EMIT_PAYMENT } from '../events';
 const STORE_DIR = path.join(process.cwd(), '.data');
 const STORE_PATH = path.join(STORE_DIR, 'store.json');
 
+const SEED_AGENTS = [
+  { id: 'crypto-scout-x',  name: 'CryptoScout-X',  role: 'orchestrator' as any, reputation: 95, balance: 0.42, available: true },
+  { id: 'research-alpha',  name: 'Research-Alpha',  role: 'research' as any,     reputation: 92, balance: 0.19, available: true },
+  { id: 'data-miner-pro',  name: 'DataMiner-Pro',   role: 'research' as any,     reputation: 87, balance: 0.31, available: true },
+  { id: 'parser-x',        name: 'Parser-X',        role: 'clean_data' as any,   reputation: 88, balance: 0.07, available: true },
+  { id: 'analysis-node',   name: 'Analysis-Node',   role: 'analysis' as any,     reputation: 91, balance: 0.16, available: true },
+  { id: 'compute-grid-4',  name: 'Compute-Grid-4',  role: 'compute' as any,      reputation: 90, balance: 0.08, available: true },
+];
+
 class InMemoryStore {
   private tasks: Map<string, Task | SubTask> = new Map();
   private bids: Map<string, Bid | SubBid> = new Map();
@@ -17,7 +26,19 @@ class InMemoryStore {
   constructor() {
     this.init();
     this.cleanStaleTasks();
+    // Always reset on startup — never use stale balances from store.json
+    this.agents = new Map(SEED_AGENTS.map(a => [a.id, { 
+      ...a, 
+      walletAddress: `0x${Math.random().toString(16).slice(2, 42)}`,
+      wallet: a.balance,
+      totalEarned: 0,
+      tasksCompleted: 0,
+      avgResponseTimeMs: 1200,
+      capabilities: [a.role],
+      memory: { pastTasks: [], pastResults: [], successCount: 0, failureCount: 0 }
+    } as Agent]))
   }
+
 
   private init(): void {
     try {
@@ -41,15 +62,6 @@ class InMemoryStore {
 
   private seedAgents(): void {
     console.log('[SEED] Registry initializing in memory...');
-    const SEED_AGENTS = [
-      { id: 'crypto-scout-x',  name: 'CryptoScout-X',  role: 'orchestrator', reputation: 95, balance: 0.42, available: true },
-      { id: 'research-alpha',  name: 'Research-Alpha',  role: 'research',     reputation: 92, balance: 0.19, available: true },
-      { id: 'data-miner-pro',  name: 'DataMiner-Pro',   role: 'research',     reputation: 87, balance: 0.31, available: true },
-      { id: 'parser-x',        name: 'Parser-X',        role: 'clean_data',   reputation: 88, balance: 0.07, available: true },
-      { id: 'analysis-node',   name: 'Analysis-Node',   role: 'analysis',     reputation: 91, balance: 0.16, available: true },
-      { id: 'compute-grid-4',  name: 'Compute-Grid-4',  role: 'compute',      reputation: 90, balance: 0.08, available: true },
-    ];
-
     SEED_AGENTS.forEach(a => {
       const agent = {
         ...a,
@@ -58,7 +70,7 @@ class InMemoryStore {
         totalEarned: 0,
         tasksCompleted: 0,
         avgResponseTimeMs: 1200,
-        capabilities: [a.role.split('-')[0]],
+        capabilities: [a.role],
         memory: { pastTasks: [], pastResults: [], successCount: 0, failureCount: 0 },
       } as Agent;
       this.agents.set(agent.id, agent);

@@ -15,10 +15,28 @@ export const PaymentStream: React.FC<{ activeTaskId: string | null }> = ({ activ
     }
   }, [payments]);
 
-  const formatTime = (ts: number) => {
-    const d = new Date(ts);
-    return `${d.getMinutes().toString().padStart(2, '0')}:${d.getSeconds().toString().padStart(2, '0')}`;
+  const formatTime = (timestamp: number) => {
+    if (!timestamp || isNaN(timestamp)) return '--:--'
+    return new Date(timestamp).toLocaleTimeString([], {
+      hour: '2-digit',
+      minute: '2-digit',
+      second: '2-digit'
+    })
   };
+
+  const validPayments = payments.filter(p =>
+    (p.amount ?? 0) > 0 &&
+    p.fromAgent &&
+    p.toAgent &&
+    p.fromAgentName !== 'Agent' &&
+    p.toAgentName !== 'Node'
+  );
+
+  const displayPayments = validPayments.slice(0, 20);
+
+  const aggregated = validPayments
+    .reduce((sum, p) => sum + (p.amount ?? 0), 0)
+    .toFixed(6);
 
   return (
     <div className="flex flex-col h-[400px] glass-panel rounded-[2rem] border-white/5 overflow-hidden">
@@ -45,13 +63,13 @@ export const PaymentStream: React.FC<{ activeTaskId: string | null }> = ({ activ
         className="flex-1 overflow-y-auto p-4 space-y-2 scrollbar-hide custom-scrollbar"
       >
         <AnimatePresence initial={false}>
-          {payments.length === 0 ? (
+          {displayPayments.length === 0 ? (
             <div className="h-full flex flex-col items-center justify-center opacity-20 gap-2">
               <CreditCard className="w-8 h-8" />
               <span className="text-[9px] font-black uppercase tracking-widest">Awaiting Transactions...</span>
             </div>
           ) : (
-            payments.map((p) => (
+            displayPayments.map((p) => (
               <motion.div
                 key={p.id}
                 initial={{ opacity: 0, x: -20, height: 0 }}
@@ -86,12 +104,12 @@ export const PaymentStream: React.FC<{ activeTaskId: string | null }> = ({ activ
       {/* Footer Stats */}
       <div className="p-4 bg-slate-950/40 border-t border-white/5 flex items-center justify-between">
          <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-           Batched Intents: <span className="text-white ml-1">{payments.length}</span>
+           Batched Intents: <span className="text-white ml-1">{displayPayments.length}</span>
          </div>
          <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none text-right">
            Aggregated<br />
            <span className="text-blue-400 font-black font-mono text-xs">
-             ${payments.reduce((acc, curr) => acc + curr.amount, 0).toFixed(6)}
+             ${aggregated}
            </span>
          </div>
       </div>

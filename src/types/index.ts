@@ -57,7 +57,16 @@ export interface Task {
   parentTaskId?: string;
   createdAt: number;
   completedAt: number | null;
+  settlement?: {
+    txHash: string;
+    explorerUrl: string;
+    intentsSettled: number;
+    totalAmount: number;
+    gasCost: number;
+    settledAt: number;
+  };
 }
+
 
 export interface Bid {
   id: string;

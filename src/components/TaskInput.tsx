@@ -11,7 +11,8 @@ interface TaskInputProps {
 
 export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
   const [prompt, setPrompt] = useState('');
-  const [budget, setBudget] = useState('0.30');
+  const [budget, setBudget] = useState<number | ''>('')
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -23,7 +24,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
       const response = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, budget: parseFloat(budget) }),
+        body: JSON.stringify({ prompt, budget }),
       });
 
       if (response.ok) {
@@ -59,9 +60,10 @@ export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
               type="number"
               step="0.01"
               value={budget}
-              onChange={(e) => setBudget(e.target.value)}
+              onChange={(e) => setBudget(e.target.value === '' ? '' : parseFloat(e.target.value))}
               className="bg-transparent text-slate-100 focus:outline-none w-full text-base font-mono font-bold"
-              placeholder="Budget"
+              placeholder="0.30"
+
               required
             />
             <span className="text-[9px] md:text-[10px] font-black text-slate-600 uppercase ml-2 tracking-widest whitespace-nowrap">
@@ -71,7 +73,8 @@ export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || !prompt.trim() || !budget || Number(budget) <= 0}
+
             className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-900/40 group active:scale-95"
           >
             {isSubmitting ? (

@@ -49,16 +49,19 @@ export function usePaymentStream(taskId: string | null | undefined) {
             // Deduplicate
             if (prev.some(p => p.id === data.id)) return prev;
             return [{
-              id: data.id,
-              fromAgent: data.fromAgent,
+              id: data.id ?? crypto.randomUUID(),
+              fromAgent: data.fromAgent ?? 'Agent',
               fromAgentName: data.fromAgentName,
-              toAgent: data.toAgent,
+              toAgent: data.toAgent ?? 'Node',
               toAgentName: data.toAgentName,
-              amount: data.amount,
+              amount: data.amount ?? 0,
               timestamp: data.timestamp || Date.now()
-            }, ...prev].slice(0, 50);
+            }, ...prev]
+            .filter(p => p.amount > 0 && p.fromAgent !== 'Agent')
+            .slice(0, 20);
           });
         }
+
       } catch (e) {
         console.error('[SSE] parse error:', e);
       }
