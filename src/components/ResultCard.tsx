@@ -26,20 +26,24 @@ export const ResultCard: React.FC<ResultCardProps> = ({ task }) => {
       return;
     }
 
-    const steps = 60;
+    const steps = 40;
     const increment = savings / steps;
-    let current = 0;
-    let step = 0;
+    let count = 0;
 
     const interval = setInterval(() => {
-      step++;
-      current = Math.min(increment * step, savings);
-      setRefundCount(current);
-      if (step >= steps) clearInterval(interval);
-    }, 1500 / steps);
+      count++;
+      setRefundCount(prev => {
+        if (count >= steps) {
+          clearInterval(interval);
+          return savings;
+        }
+        return prev + increment;
+      });
+    }, 40);
 
     return () => clearInterval(interval);
   }, [task.costBreakdown?.userSavings]);
+
 
   const cb = task.costBreakdown;
   const result = task.result;
@@ -215,14 +219,16 @@ export const ResultCard: React.FC<ResultCardProps> = ({ task }) => {
         </div>
       )}
 
-      {/* ── Refund Animation ── */}
+      {refundCount > 0 && (
         <div className="flex items-center gap-2.5 px-4 py-3 rounded-xl bg-green-500/5 border border-green-500/15">
           <CornerDownLeft className="w-3.5 h-3.5 text-green-400 shrink-0" />
           <span className="text-[11px] font-black text-green-400">
-            Refund ${refundCount.toFixed(5)} returned to your wallet
+            ↩ ${refundCount.toFixed(5)} returned to your wallet
           </span>
           <div className="ml-auto w-1.5 h-1.5 bg-green-400 rounded-full animate-pulse" />
         </div>
+      )}
+
 
       {/* Follow-up chat UI removed - now handled in standalone component */}
     </div>

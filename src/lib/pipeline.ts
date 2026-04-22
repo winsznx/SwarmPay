@@ -174,7 +174,9 @@ export async function runAutonomousPipeline(task: Task) {
       const agents = store.getAgents();
       
       for (let i = 0; i < PAYMENT_BURST_COUNT; i++) {
+        await delay(200 + Math.random() * 400); // Staggered delay for visual impact
         const fromAgent = agents[Math.floor(Math.random() * agents.length)];
+
         const toAgent = agents[Math.floor(Math.random() * agents.length)];
         if (fromAgent.id === toAgent.id) continue;
 

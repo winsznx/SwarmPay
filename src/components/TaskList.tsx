@@ -26,6 +26,13 @@ const statusIcons = {
   open: <Hash className="w-3.5 h-3.5 text-slate-500" />,
 };
 
+const DEMO_BIDS = [
+  { agent: 'CryptoScout-X',  price: '0.22', time: '40', rep: 95 },
+  { agent: 'Research-Alpha', price: '0.25', time: '45', rep: 92 },
+  { agent: 'DataMiner-Pro',  price: '0.18', time: '60', rep: 87 },
+];
+
+
 export const TaskCard: React.FC<{ 
   task: Task; 
   agents: Agent[]; 
@@ -247,11 +254,32 @@ export const TaskCard: React.FC<{
 
            <div className="grid gap-1.5">
              {bids.length === 0 ? (
-               <div className="py-6 text-center">
-                 <Loader2 className="w-5 h-5 text-blue-400 animate-spin mx-auto mb-2" />
-                 <p className="text-[9px] font-bold text-slate-600 uppercase tracking-widest">Waiting for agent bids...</p>
+               <div className="py-6 space-y-3">
+                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500 animate-pulse text-center mb-4">
+                   📡 Swarm Auction Active
+                 </p>
+                 {DEMO_BIDS.map((bid, i) => (
+                   <motion.div
+                     key={bid.agent}
+                     initial={{ opacity: 0, x: -10 }}
+                     animate={{ opacity: 1, x: 0 }}
+                     transition={{ delay: i * 0.4 }}
+                     className="flex items-center justify-between bg-white/5 border border-white/5 rounded-xl px-4 py-3"
+                   >
+                     <div className="flex items-center gap-3">
+                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping" />
+                        <span className="text-[11px] font-bold text-slate-300">{bid.agent}</span>
+                     </div>
+                     <div className="flex items-center gap-4">
+                       <span className="text-[11px] font-mono font-black text-blue-400">${bid.price}</span>
+                       <div className="h-3 w-px bg-white/10" />
+                       <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{bid.rep} REP</span>
+                     </div>
+                   </motion.div>
+                 ))}
                </div>
              ) : (
+
                bids.map(bid => (
                 <div key={bid.id} className="flex items-center justify-between p-3 bg-slate-950/50 border border-white/5 rounded-xl hover:border-slate-700 transition-all">
                   <div className="flex items-center gap-3">

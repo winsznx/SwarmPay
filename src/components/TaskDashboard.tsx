@@ -14,13 +14,20 @@ import { Menu, X } from 'lucide-react';
 import { FollowUpInput } from './FollowUpInput';
 import { MarginProofCard } from './MarginProofCard';
 import { SettlementProof } from './SettlementProof';
+import { BudgetModal } from './BudgetModal';
+
 
 
 export const TaskDashboard: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [balance] = useState(5.00); 
+  const [walletBalance, setWalletBalance] = useState(5.00); 
+  const [displayBalance, setDisplayBalance] = useState(5.00);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [pendingTask, setPendingTask] = useState<{prompt: string, budget: number, parentTaskId?: string} | null>(null);
+  const [refundedTaskIds, setRefundedTaskIds] = useState<Set<string>>(new Set());
+
+
 
   useEffect(() => {
     if (!selectedTaskId && tasks.length > 0) {
@@ -40,6 +47,52 @@ export const TaskDashboard: React.FC = () => {
     }, 3000);
     return () => clearInterval(interval);
   }, []);
+
+  // Update animated balance
+  useEffect(() => {
+    const diff = walletBalance - displayBalance;
+    if (Math.abs(diff) < 0.001) return;
+    
+    const steps = 30;
+    const increment = diff / steps;
+    let count = 0;
+    
+    const interval = setInterval(() => {
+      setDisplayBalance(prev => {
+        count++;
+        if (count >= steps) {
+          clearInterval(interval);
+          return walletBalance;
+        }
+        return prev + increment;
+      });
+    }, 30);
+    
+    return () => clearInterval(interval);
+  }, [walletBalance, displayBalance]);
+
+  // Handle task completion savings refund
+  useEffect(() => {
+    const completedWithSavings = tasks.filter(t => 
+      t.status === 'completed' && 
+      t.settlement && // Ensure it's settled
+      (t as any).costBreakdown?.userSavings > 0 &&
+      !(t as any).refunded // We'll need to track this locally or via a ref to avoid infinite loops if the store doesn't persist it
+    );
+
+    if (completedWithSavings.length > 0) {
+      completedWithSavings.forEach(t => {
+        if (!refundedTaskIds.has(t.id)) {
+          const savings = (t as any).costBreakdown?.userSavings || 0;
+          console.log(`[REFUND] Returning $${savings} for task ${t.id}`);
+          setWalletBalance(prev => prev + savings);
+          setRefundedTaskIds(prev => new Set(prev).add(t.id));
+        }
+      });
+    }
+  }, [tasks, refundedTaskIds]);
+
+
 
   const fetchAgents = async () => {
     try {
@@ -70,10 +123,21 @@ export const TaskDashboard: React.FC = () => {
 
 
   const handleCreateNewTask = async (prompt: string, budget: number, parentTaskId?: string) => {
-    if (!prompt?.trim() || prompt.includes('undefined')) {
-      console.error('[TASK] blocked invalid prompt:', prompt);
+    if (!prompt?.trim() || !budget || budget <= 0) {
+      console.error('[TASK] blocked invalid launch:', { prompt, budget });
       return;
     }
+    setPendingTask({ prompt, budget, parentTaskId });
+  };
+
+  const handleApprove = async () => {
+    if (!pendingTask) return;
+    const { prompt, budget, parentTaskId } = pendingTask;
+    setPendingTask(null);
+    
+    // Optimistic balance deduction
+    setWalletBalance(prev => prev - budget);
+
     try {
       const response = await fetch('/api/tasks', {
         method: 'POST',
@@ -84,11 +148,16 @@ export const TaskDashboard: React.FC = () => {
       if (response.ok) {
         const newTask = await response.json();
         handleTaskCreated(newTask);
+      } else {
+        // Rollback balance if failed
+        setWalletBalance(prev => prev + budget);
       }
     } catch (error) {
       console.error('Failed to create task:', error);
+      setWalletBalance(prev => prev + budget);
     }
   };
+
 
   const buildThread = (activeTaskId: string): Task[] => {
     const thread: Task[] = [];
@@ -154,9 +223,10 @@ export const TaskDashboard: React.FC = () => {
             <div className="flex items-center gap-3 px-3 py-1 bg-white/5 border border-white/10 rounded-full">
               <Wallet className="w-3 h-3 text-blue-400" />
               <span className="font-mono text-[11px] font-black tracking-tighter">
-                ${balance.toFixed(2)} <span className="text-slate-500 ml-0.5">USDC</span>
+                <span className="text-blue-400">$</span>{displayBalance.toFixed(2)} <span className="text-slate-500 ml-0.5 uppercase">USDC</span>
               </span>
             </div>
+
           </div>
         </div>
 
@@ -391,6 +461,17 @@ export const TaskDashboard: React.FC = () => {
           </>
         )}
       </AnimatePresence>
+
+      {/* Budget Approval Modal */}
+      {pendingTask && (
+        <BudgetModal 
+          prompt={pendingTask.prompt}
+          budget={pendingTask.budget}
+          onApprove={handleApprove}
+          onCancel={() => setPendingTask(null)}
+        />
+      )}
     </div>
+
   );
 };
