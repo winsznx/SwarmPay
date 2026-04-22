@@ -1,73 +1,44 @@
 import { Task, SubTask, Agent } from '@/types';
 import { store } from './store';
 
+export type QueryCategory = 'crypto' | 'research' | 'code' | 'analysis' | 'general';
 const MAX_DEPTH = 3;
-const BLUEPRINT = ["fetch_data", "clean_data", "analyze", "compute"];
+const FIXED_SUBTASKS = [
+  { type: 'fetch_data',  label: 'Data Retrieval',      description: 'Fetch and retrieve relevant data from distributed sources' },
+  { type: 'clean_data',  label: 'Data Normalization',   description: 'Clean, deduplicate and normalize retrieved data' },
+  { type: 'analyze',     label: 'Intelligence Analysis', description: 'Analyze data and generate insights' },
+  { type: 'compute',     label: 'Statistical Compute',  description: 'Run statistical models and compute confidence scores' },
+];
 
 /**
  * Advanced Orchestration Engine
- * Supports depth 3 recursion and complexity-based triggers.
+ * Enforces exactly 4 fixed sub-tasks for every mission.
  */
 export async function decomposeTask(
   task: Task | SubTask, 
   depth: number = 0, 
   assignedAgentId?: string
 ): Promise<SubTask[]> {
-  const currentDepth = (task as any).depth ?? depth;
+  const currentDepth = (task as any).depth || depth;
   const prompt = (task as any).prompt || (task as any).description;
 
   if (currentDepth >= MAX_DEPTH) {
-    console.log(`[ORCHESTRATION] Max depth ${MAX_DEPTH} reached for "${prompt.substring(0, 20)}..."`);
     return [];
   }
 
-  console.log(`🧠 [ORCHESTRATION] Decomposing at depth ${currentDepth}: "${prompt.substring(0, 40)}..."`);
-
-  let descriptions: string[] = [];
-
-  try {
-    const apiKey = process.env.OPENAI_API_KEY;
-    if (!apiKey || apiKey === 'your_key_here') throw new Error('No API Key');
-
-    const response = await fetch('https://api.openai.com/v1/chat/completions', {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${apiKey}`
-      },
-      body: JSON.stringify({
-        model: 'gpt-4o',
-        messages: [
-          {
-            role: 'system',
-            content: `Decompose this task into 4 distinct phases: Research, Planning, Execution, and Validation. 
-            Return JSON with "descriptions" array.`
-          },
-          { role: 'user', content: `Task: "${prompt}"` }
-        ],
-        response_format: { type: 'json_object' }
-      })
-    });
-
-    const data = await response.json();
-    const parsed = JSON.parse(data.choices[0].message.content);
-    descriptions = parsed.descriptions;
-
-  } catch (err) {
-    descriptions = BLUEPRINT.map(title => `Execute ${title} to fulfill the primary mission requirements.`);
-  }
+  console.log(`🧠 [ORCHESTRATION] Deploying Fixed 4-Node Swarm for: "${prompt.substring(0, 40)}..."`);
 
   const parentBudget = (task as any).budget || 0;
-  const subTaskBudget = parentBudget > 0 ? parentBudget / 5 : 0.01; // Simple split
+  const subTaskBudget = parentBudget > 0 ? (parentBudget * 0.9) / FIXED_SUBTASKS.length : 0.01; 
 
-  const subTasks: SubTask[] = BLUEPRINT.map((title, index) => {
+  const subTasks: SubTask[] = FIXED_SUBTASKS.map((st) => {
     return {
       id: crypto.randomUUID(),
       parentTaskId: task.id,
       parentAgentId: assignedAgentId || (task as any).assignedAgentId || 'system',
-      type: title,
-      title,
-      description: descriptions[index] || `Process ${title}`,
+      type: st.type,
+      title: st.label,
+      description: st.description,
       budget: subTaskBudget,
       status: 'pending',
       depth: currentDepth + 1,
