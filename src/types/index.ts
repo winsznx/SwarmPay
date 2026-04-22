@@ -5,7 +5,8 @@
 
 export type TaskStatus = 'open' | 'pending' | 'bidding' | 'assigned' | 'executing' | 'settling' | 'completed' | 'failed';
 
-export type AgentRole = 'research-agent' | 'planning-agent' | 'execution-agent' | 'validation-agent' | 'orchestrator';
+export type AgentRole = 'research' | 'clean_data' | 'analysis' | 'compute' | 'orchestrator' | 'research-agent' | 'planning-agent' | 'execution-agent' | 'validation-agent';
+
 
 export interface ExecutionResult {
   result: string;

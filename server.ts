@@ -1,5 +1,5 @@
 import { createServer } from 'http'
-import { parse } from 'url'
+
 import next from 'next'
 import * as dotenv from 'dotenv'
 
@@ -12,9 +12,9 @@ const handle = app.getRequestHandler()
 
 app.prepare().then(() => {
   const server = createServer((req, res) => {
-    const parsedUrl = parse(req.url!, true)
-    handle(req, res, parsedUrl)
+    handle(req, res)
   })
+
 
   server.listen(3001, () => {
     console.log('[SERVER] Next.js ready on http://localhost:3001')

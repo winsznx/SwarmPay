@@ -3,10 +3,25 @@ import { store } from '@/lib/store';
 import { Task, CostBreakdown } from '@/types';
 import { runAutonomousPipeline } from '@/lib/pipeline';
 
-export async function GET() {
-  const tasks = store.getTasks();
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const status = searchParams.get('status');
+  const limit = parseInt(searchParams.get('limit') || '0');
+  
+  let tasks = store.getTasks();
+  
+  if (status) {
+    tasks = tasks.filter((t: any) => t.status === status);
+  }
+
+  
+  if (limit > 0) {
+    tasks = tasks.slice(0, limit);
+  }
+  
   return NextResponse.json(tasks);
 }
+
 
 export async function POST(request: Request) {
   try {

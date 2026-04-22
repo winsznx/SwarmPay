@@ -77,8 +77,13 @@ export async function executeTask(task: Task | any, agent: Agent): Promise<Execu
       'planning-agent': 'You are a Planning Agent. Design roadmaps and logic based on research inputs.',
       'execution-agent': 'You are an Execution Agent. Perform technical compute actions and produce concrete outputs.',
       'validation-agent': 'You are a Validation Agent. Review quality and ensure requirements are met.',
-      'orchestrator': 'You are a Lead Orchestrator. Manage the swarm and ensure quality.'
+      'orchestrator': 'You are a Lead Orchestrator. Manage the swarm and ensure quality.',
+      'research': 'You are a Research Agent. Your goal is to gather key insights and background knowledge.',
+      'clean_data': 'You are a Data Cleaning Agent. Normalize and structure raw intelligence.',
+      'analysis': 'You are an Intelligence Analyst. Extract patterns and confidence scores.',
+      'compute': 'You are a Statistical Compute Agent. Perform matrix operations and modeling.'
     };
+
    
     const systemContent = systemPrompts[role] || systemPrompts['orchestrator'];
     const baseInstructions = `${systemContent} Return a JSON object with "result" (string), "confidence" (number 0-1), and "cost" (number).`;
@@ -139,14 +144,17 @@ export async function executeTask(task: Task | any, agent: Agent): Promise<Execu
             resultText = `Processed retrieved data. Removed duplicates, structured into 4 categories. Quality score: 93/100.`;
           }
         } else if (taskTitle.includes('analyze') || taskTitle.includes('analysis')) {
-          const topic = prompt;
           const geminiKey = process.env.GEMINI_API_KEY;
           const groqKey = process.env.GROQ_API_KEY;
           const openaiKey = process.env.OPENAI_API_KEY;
 
           if (geminiKey) {
             try {
-              const res = await fetch(
+               const now = new Date();
+               const utcHour = now.getUTCHours();
+               const utcMinute = now.getUTCMinutes();
+
+               const res = await fetch(
                 `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${geminiKey}`,
                 {
                   method: 'POST',
@@ -154,23 +162,25 @@ export async function executeTask(task: Task | any, agent: Agent): Promise<Execu
                   body: JSON.stringify({
                     contents: [{
                       parts: [{
-                        text: `You are SwarmPay's expert AI analysis agent. Your job is to answer every question with the best available knowledge. Rules:
-- NEVER say "I can't", "I'm unable to", or "I don't have access to"
-- For current time questions: calculate based on UTC offset. Lagos/Nigeria is UTC+1. Always give a specific time estimate.
-- For weather questions: give typical conditions for the location and season
-- For all other questions: answer directly and specifically
-- Always provide a useful, specific answer in 3-5 sentences
+                        text: `You are SwarmPay's AI agent. Current UTC time is ${utcHour}:${utcMinute.toString().padStart(2,'0')}.
+
+Rules you must follow:
+- ALWAYS give a direct, specific answer
+- For time questions: calculate from UTC. Lagos=UTC+1, London=UTC+0/+1, New York=UTC-5/-4, Tokyo=UTC+9. Do the math and state the exact time.
+- For weather: give typical conditions for the location and season
+- NEVER say "I cannot", "I'm unable", "I don't have access", or "I recommend checking"
+- Answer in 2-4 sentences maximum
 
 Question: ${prompt}
 
-Answer directly and helpfully:`
-
+Answer:`
                       }]
                     }],
                     generationConfig: { maxOutputTokens: 400 }
                   })
                 }
               );
+
               const json = await res.json();
               console.log('[GEMINI] status:', res.status);
               const content = json.candidates?.[0]?.content?.parts?.[0]?.text;
