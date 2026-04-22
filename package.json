@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "ts-node --project tsconfig.server.json server.ts",
+    "dev": "set PORT=3001 && ts-node --project tsconfig.server.json server.ts",
     "dev:next": "next dev",
     "build": "next build",
     "start": "NODE_ENV=production ts-node --project tsconfig.server.json server.ts",
@@ -11,11 +11,13 @@
   },
   "dependencies": {
     "@circle-fin/developer-controlled-wallets": "^10.3.0",
+    "@gsap/react": "^2.1.2",
     "@types/dagre": "^0.7.54",
     "@xyflow/react": "^12.10.2",
     "dagre": "^0.8.5",
     "dotenv": "^17.4.2",
     "framer-motion": "^12.38.0",
+    "gsap": "^3.15.0",
     "lucide-react": "^1.8.0",
     "next": "16.2.4",
     "react": "19.2.4",

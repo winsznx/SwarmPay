@@ -16,7 +16,8 @@ app.prepare().then(() => {
   })
 
 
-  server.listen(3001, () => {
-    console.log('[SERVER] Next.js ready on http://localhost:3001')
+  const port = parseInt(process.env.PORT || '3001', 10)
+  server.listen(port, () => {
+    console.log(`[SERVER] Next.js ready on http://localhost:${port}`)
   })
 })

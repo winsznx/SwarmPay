@@ -6,6 +6,10 @@ async function debugSync() {
     console.log('--- Debug Sync Start ---');
     try {
         await store.refreshAgentWallets();
+        const balances = registry.reduce((acc: any, agent: any) => ({
+            ...acc,
+            [agent.id]: agent.wallet
+        }), {});
         const agents = store.getAgents();
         console.log('Final Agent States:');
         agents.forEach(agent => {
