@@ -99,7 +99,16 @@ export const TaskDashboard: React.FC = () => {
   const fetchAgents = async () => {
     try {
       const res = await fetch('/api/agents');
-      if (res.ok) setAgents(await res.json());
+      if (res.ok) {
+        const agentList = await res.json();
+        setAgents(agentList);
+        
+        // Sync user wallet balance with the orchestrator agent
+        const orchestrator = agentList.find((a: Agent) => a.id === 'crypto-scout-x');
+        if (orchestrator) {
+          setWalletBalance(orchestrator.wallet);
+        }
+      }
     } catch (err) {
       console.error('Failed to fetch agents:', err);
     }

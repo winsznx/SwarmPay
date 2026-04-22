@@ -1,4 +1,5 @@
 import { Task } from '@/types'
+import { Activity } from 'lucide-react'
 
 export function SettlementProof({ task }: { task: Task }) {
   if (!task.settlement) return null
@@ -35,16 +36,33 @@ export function SettlementProof({ task }: { task: Task }) {
       </div>
 
       <div className="border-t border-green-900/30 pt-3">
-        <p className="text-xs text-gray-500 mb-1">Transaction hash</p>
+        <div className="flex items-center justify-between mb-1">
+          <p className="text-xs text-gray-500">
+            {s.txHash.startsWith('0x') ? 'Transaction hash' : 'Settlement ID (Broadcasting)'}
+          </p>
+          {s.txHash.startsWith('0x') ? (
+            <span className="text-[9px] font-black bg-blue-500/10 text-blue-400 px-2 py-0.5 rounded border border-blue-500/20 uppercase tracking-widest">
+              Verified On-Chain
+            </span>
+          ) : (
+            <span className="text-[9px] font-black bg-yellow-500/10 text-yellow-500 px-2 py-0.5 rounded border border-yellow-500/20 uppercase tracking-widest animate-pulse">
+              Broadcasting to Arc
+            </span>
+          )}
+        </div>
         <a
           href={s.explorerUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs font-mono text-blue-400 hover:text-blue-300 underline break-all"
+          className={`text-[11px] font-mono underline break-all flex items-center gap-2 group ${
+            s.txHash.startsWith('0x') ? 'text-blue-400 hover:text-blue-300' : 'text-yellow-500/70 hover:text-yellow-500'
+          }`}
         >
           {s.txHash}
+          <Activity className="w-3 h-3 opacity-0 group-hover:opacity-100 transition-opacity" />
         </a>
       </div>
+
 
       <div className="mt-3 p-2 bg-gray-900/50 rounded-lg">
         <p className="text-xs text-gray-500 text-center">

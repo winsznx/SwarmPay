@@ -3,7 +3,7 @@
 import React, { useState, useEffect } from 'react';
 import { Task, Bid, SubTask, SubBid, Agent } from '@/types';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Clock, CheckCircle2, AlertCircle, Loader2, Gavel, TrendingUp, Hash, Layers, Zap, Code, Star } from 'lucide-react';
+import { Clock, CheckCircle2, AlertCircle, Loader2, Gavel, TrendingUp, Hash, Layers, Zap, Code, Star, ShieldAlert } from 'lucide-react';
 import { ExecutionGraph } from './ExecutionGraph';
 import { ResultCard } from './ResultCard';
 import { SettlementAnimation } from './SettlementAnimation';
@@ -155,6 +155,45 @@ export const TaskCard: React.FC<{
         </div>
       </div>
 
+      {/* MISSION RATIONALE & APPRAISAL */}
+      {(task.complexity || task.orchestratorRationale) && (
+        <div className="px-4 py-3 bg-blue-500/5 border border-blue-500/10 rounded-2xl flex items-start gap-3">
+          <Hash className="w-4 h-4 text-blue-400/40 mt-0.5" />
+          <div className="flex flex-col gap-1">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Orchestrator Intelligence Rationale</span>
+              {/* Guard Error Message (if failed) */}
+              {task.status === 'failed' && (
+                <div className="mx-4 mb-4 p-4 bg-red-500/5 border border-red-500/20 rounded-2xl flex items-start gap-4">
+                  <div className="w-10 h-10 rounded-xl bg-red-400/10 flex items-center justify-center flex-shrink-0 border border-red-400/20">
+                    <ShieldAlert className="w-5 h-5 text-red-400" />
+                  </div>
+                  <div className="flex flex-col">
+                    <div className="flex items-center gap-2">
+                      <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Orchestrator Guard Rejection</span>
+                      <span className="px-1.5 py-0.5 bg-red-500/10 text-red-500 text-[8px] font-black rounded uppercase">Violation Detected</span>
+                    </div>
+                    <span className="text-[13px] text-red-200/90 font-medium leading-relaxed mt-1">
+                      {task.errorReason || 'Mission aborted due to internal state inconsistency or secondary execution error.'}
+                    </span>
+                  </div>
+                </div>
+              )}
+              {task.complexity && (
+                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border ${
+                  task.complexity === 'high' ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-slate-800 border-white/5 text-slate-400'
+                }`}>
+                  {task.complexity.toUpperCase()} COMPLEXITY
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-400 font-medium leading-relaxed italic">
+              "{task.orchestratorRationale || 'Analyzing task semantics and optimizing execution graph.'}"
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* ASSIGNED / EXECUTING STATUS PANEL */}
       {(task.status === 'assigned' || task.status === 'executing') && (
         <motion.div 
@@ -221,8 +260,8 @@ export const TaskCard: React.FC<{
                            st.status === 'executing' ? 'bg-yellow-500/5 border-yellow-500/20 text-yellow-400' : 'text-slate-500 border-white/5'
                          }`}>
                            {st.status}
-                         </span>
-                      </div>
+                          </span>
+                        </div>
                       <h5 className="text-xs font-bold text-slate-200">{st.title}</h5>
                       <p className="text-[10px] text-slate-500 line-clamp-2">
                         {(() => {
@@ -279,27 +318,49 @@ export const TaskCard: React.FC<{
                  ))}
                </div>
              ) : (
-
                bids.map(bid => (
-                <div key={bid.id} className="flex items-center justify-between p-3 bg-slate-950/50 border border-white/5 rounded-xl hover:border-slate-700 transition-all">
-                  <div className="flex items-center gap-3">
-                    <div className="w-7 h-7 rounded-lg bg-blue-500/5 border border-blue-500/10 flex items-center justify-center text-blue-400 font-bold text-[9px]">
+                <div key={bid.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all duration-300
+                  ${bid.status === 'winner' ? 'bg-green-500/5 border-green-500/20' : 'bg-slate-950/40 border-white/5 opacity-80 hover:opacity-100'}
+                `}>
+                  <div className="flex items-center gap-4">
+                    <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-black text-xs
+                      ${bid.status === 'winner' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-slate-900 border-white/5 text-slate-500'}
+                    `}>
                       {bid.agentName?.slice(0, 1)}
                     </div>
-                    <div className="flex flex-col">
-                      <span className="text-slate-200 text-[11px] font-bold">{bid.agentName}</span>
-                      <span className="text-[9px] text-slate-500 flex items-center gap-1 uppercase font-black">
-                        <Clock className="w-2.5 h-2.5" /> {(bid.estimatedTimeMs / 1000).toFixed(0)}s
+                    <div className="flex flex-col gap-0.5">
+                      <div className="flex items-center gap-2">
+                        <div className="flex items-center gap-2">
+                          <span className={`text-[13px] font-bold ${bid.status === 'winner' ? 'text-white' : 'text-slate-400'}`}>
+                            {bid.agentName}
+                          </span>
+                          <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded
+                            ${bid.status === 'winner' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/5 text-red-400/60 border border-red-500/10'}
+                          `}>
+                            {bid.status === 'winner' ? 'Winner' : 'Rejected'}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-slate-400/60 font-mono tracking-tight font-black uppercase">
+                            {(bid.confidence * 100).toFixed(0)}% CONFIDENCE
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] text-slate-500 font-medium italic">
+                        {bid.status === 'winner' ? bid.selectionReason : (bid as any).rejectionReason || 'Competitive mismatch'}
                       </span>
                     </div>
                   </div>
                   <div className="text-right">
-                     <div className="text-xs font-mono font-black text-blue-400">${bid.price.toFixed(4)}</div>
-                     {bid.id === task.winningBid && (
-                       <div className="text-[8px] font-black text-green-400 uppercase flex items-center gap-1">
-                         <Star className="w-2.5 h-2.5 fill-green-400" /> Winner
-                       </div>
-                     )}
+                     <div className={`text-sm font-mono font-black ${bid.status === 'winner' ? 'text-green-400' : 'text-slate-500'}`}>
+                       ${bid.price.toFixed(4)}
+                     </div>
+                     <div className="text-[9px] font-black text-slate-600 uppercase tracking-widest mt-1">
+                        {(bid.estimatedTimeMs / 1000).toFixed(1)}s LATENCY
+                     </div>
+                     <div className="text-[8px] text-slate-500 font-medium italic mt-1 max-w-[120px] leading-tight text-right">
+                        "{(bid as any).reasoning || 'Optimized execution'}"
+                     </div>
                   </div>
                 </div>
                ))

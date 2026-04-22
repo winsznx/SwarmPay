@@ -190,6 +190,43 @@ export const ResultCard: React.FC<ResultCardProps> = ({ task }) => {
                 <span className="text-[11px] font-mono text-slate-300">${row.value.toFixed(4)}</span>
               </div>
             ))}
+          {/* Economic Audit Row */}
+          {cb.initialBalance !== undefined && (
+            <div className="mx-4 p-3 mb-3 bg-white/[0.02] border border-white/5 rounded-xl space-y-2">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Orchestrator Guard Audit</span>
+                  {cb.guardVerified && (
+                    <div className="flex items-center gap-1 px-1.5 py-0.5 bg-blue-500/10 border border-blue-500/20 rounded">
+                      <span className="text-[7px] font-black text-blue-400">SHIELD VERIFIED</span>
+                    </div>
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 px-2 py-0.5 bg-green-500/10 border border-green-500/20 rounded">
+                  <div className="w-1 h-1 bg-green-400 rounded-full" />
+                  <span className="text-[8px] font-black text-green-400 uppercase">Synced</span>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-y-3 gap-x-4 pt-1">
+                <div>
+                  <div className="text-[8px] font-black text-slate-600 uppercase">Initial Balance</div>
+                  <div className="text-xs font-mono font-bold text-slate-400">${cb.initialBalance.toFixed(4)}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[8px] font-black text-slate-600 uppercase">Total Cost</div>
+                  <div className="text-xs font-mono font-bold text-red-400">-${cb.totalCost.toFixed(4)}</div>
+                </div>
+                <div>
+                  <div className="text-[8px] font-black text-slate-600 uppercase">Refunded (Savings)</div>
+                  <div className="text-xs font-mono font-bold text-green-400">+${cb.userSavings.toFixed(4)}</div>
+                </div>
+                <div className="text-right">
+                  <div className="text-[8px] font-black text-slate-600 uppercase font-black text-white">Final Balance</div>
+                  <div className="text-sm font-mono font-black text-white">${((cb.initialBalance || 0) - cb.totalCost + cb.userSavings).toFixed(4)}</div>
+                </div>
+              </div>
+            </div>
+          )}
           </div>
 
           {/* Divider */}

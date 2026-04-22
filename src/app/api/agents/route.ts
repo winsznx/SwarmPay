@@ -3,6 +3,15 @@ import { store } from '@/lib/store';
 import { Agent, AgentRole } from '@/types';
 
 export async function GET() {
+  // Sync real Circle balances if keys are present
+  if (process.env.CIRCLE_API_KEY && process.env.CIRCLE_ENTITY_SECRET) {
+    try {
+      await store.refreshAgentWallets();
+    } catch (e) {
+      console.error('[API] Failed to refresh balances:', e);
+    }
+  }
+  
   const agents = store.getAgents();
   return NextResponse.json(agents);
 }

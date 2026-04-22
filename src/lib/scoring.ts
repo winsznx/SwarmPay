@@ -27,11 +27,12 @@ export function calculateBidScore(bid: Bid, agent: Agent): number {
 
   // Normalization for scoring stability
   const price = bid.price;
-  const reputation = agent.reputation;
+  const confidence = bid.confidence || (agent.reputation / 100);
   const timeSec = bid.estimatedTimeMs / 1000;
 
-  // score = (1/price) * reputation * (1/timeInSeconds)
-  const score = (1 / price) * reputation * (1 / timeSec);
+  // score = confidence / (price * timeInSeconds)
+  // Higher confidence, lower price, and faster time increase the score.
+  const score = confidence / (price * timeSec);
 
   return score;
 }
