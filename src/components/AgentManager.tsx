@@ -150,13 +150,21 @@ export const AgentManager: React.FC = () => {
                 </div>
               </div>
               
-              <div className="mt-4 flex items-center justify-between pt-3 border-t border-white/[0.03]">
-                 <div className="flex items-center gap-1.5">
-                    <div className="w-1 h-1 bg-green-500 rounded-full animate-pulse" />
-                    <span className="text-[9px] font-bold text-slate-500 uppercase">Available</span>
+              <div className="mt-4 pt-3 border-t border-white/[0.03] space-y-1">
+                 {/* Circle wallet balance - proves real integration */}
+                 <div className="flex items-center justify-between">
+                   <span className="text-[10px] font-bold text-slate-500 uppercase">Wallet</span>
+                   <span className="text-[10px] font-mono font-black text-slate-300">
+                     ${(agent.wallet || 0).toFixed(2)} USDC
+                   </span>
                  </div>
-                 <div className="text-[9px] font-mono font-black text-slate-400">
-                    BAL: ${agent.wallet.toFixed(2)}
+
+                 {/* SwarmPay earned balance */}
+                 <div className="flex items-center justify-between">
+                   <span className="text-[10px] font-bold text-slate-500 uppercase">Earned</span>
+                   <span className="text-[10px] font-mono font-black text-green-400">
+                     +${(agent.earned || 0).toFixed(4)} USDC
+                   </span>
                  </div>
               </div>
             </motion.div>
