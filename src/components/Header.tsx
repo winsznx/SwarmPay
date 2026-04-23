@@ -73,26 +73,28 @@ export const Header: React.FC<HeaderProps> = ({
              <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
              <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Network Live</span>
           </div>
-          <div className="flex items-center gap-3 px-3 py-1 bg-white/5 border border-white/10 rounded-full group/wallet">
-            <button 
-              onClick={async () => {
-                const btn = document.getElementById('sync-icon');
-                if (btn) btn.classList.add('animate-spin');
-                await fetch('/api/agents');
-                if (btn) setTimeout(() => btn.classList.remove('animate-spin'), 1000);
-              }}
-              className="p-1 hover:bg-white/5 rounded-full transition-colors"
-              title="Sync on-chain balance"
-            >
-               <RefreshCw id="sync-icon" className="w-3 h-3 text-slate-500 hover:text-blue-400 transition-colors" />
-            </button>
-            <div className="h-3 w-px bg-white/10" />
-            <Wallet className="w-3 h-3 text-blue-400" />
-            <span className="font-mono text-[11px] font-black tracking-tighter">
-              <span className="text-blue-400">$</span>{displayBalance.toFixed(2)} <span className="text-slate-500 ml-0.5 uppercase">USDC</span>
-            </span>
-          </div>
 
+          {pathname === '/dashboard' && (
+            <div className="flex items-center gap-3 px-3 py-1 bg-white/5 border border-white/10 rounded-full group/wallet">
+              <button 
+                onClick={async () => {
+                  const btn = document.getElementById('sync-icon');
+                  if (btn) btn.classList.add('animate-spin');
+                  await fetch('/api/agents');
+                  if (btn) setTimeout(() => btn.classList.remove('animate-spin'), 1000);
+                }}
+                className="p-1 hover:bg-white/5 rounded-full transition-colors"
+                title="Sync on-chain balance"
+              >
+                 <RefreshCw id="sync-icon" className="w-3 h-3 text-slate-500 hover:text-blue-400 transition-colors" />
+              </button>
+              <div className="h-3 w-px bg-white/10" />
+              <Wallet className="w-3 h-3 text-blue-400" />
+              <span className="font-mono text-[11px] font-black tracking-tighter">
+                <span className="text-blue-400">$</span>{displayBalance.toFixed(2)} <span className="text-slate-500 ml-0.5 uppercase">USDC</span>
+              </span>
+            </div>
+          )}
         </div>
       </div>
     </nav>
