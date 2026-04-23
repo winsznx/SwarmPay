@@ -26,11 +26,7 @@ const statusIcons = {
   open: <Hash className="w-3.5 h-3.5 text-slate-500" />,
 };
 
-const DEMO_BIDS = [
-  { agent: 'CryptoScout-X',  price: '0.22', time: '40', rep: 95 },
-  { agent: 'Research-Alpha', price: '0.25', time: '45', rep: 92 },
-  { agent: 'DataMiner-Pro',  price: '0.18', time: '60', rep: 87 },
-];
+// UI state management handled via real-time market synchronization
 
 
 export const TaskCard: React.FC<{ 
@@ -120,7 +116,7 @@ export const TaskCard: React.FC<{
                Task Layer 0{task.depth || 1}
              </div>
              <div className="w-1 h-1 bg-slate-700 rounded-full" />
-             <div className="text-[9px] sm:text-[10px] font-mono text-slate-500">{new Date(task.createdAt).toLocaleTimeString()}</div>
+             <div suppressHydrationWarning className="text-[9px] sm:text-[10px] font-mono text-slate-500">{new Date(task.createdAt).toLocaleTimeString()}</div>
           </div>
           
           <h3 className="text-base sm:text-xl font-bold text-white leading-tight tracking-tight group-hover:text-blue-400 transition-colors duration-300">
@@ -164,26 +160,31 @@ export const TaskCard: React.FC<{
               <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Orchestrator Intelligence Rationale</span>
               {/* Guard Error Message (if failed) */}
               {task.status === 'failed' && (
-                <div className="mx-4 mb-4 p-4 bg-red-500/5 border border-red-500/20 rounded-2xl flex items-start gap-4">
-                  <div className="w-10 h-10 rounded-xl bg-red-400/10 flex items-center justify-center flex-shrink-0 border border-red-400/20">
-                    <ShieldAlert className="w-5 h-5 text-red-400" />
+                <div className="mx-4 mb-4 p-5 bg-red-500/10 border border-red-500/30 rounded-[1.5rem] flex items-start gap-4 shadow-lg shadow-red-900/20">
+                  <div className="w-12 h-12 rounded-2xl bg-red-400/20 flex items-center justify-center flex-shrink-0 border border-red-400/30">
+                    <ShieldAlert className="w-6 h-6 text-red-400" />
                   </div>
-                  <div className="flex flex-col">
-                    <div className="flex items-center gap-2">
-                      <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Orchestrator Guard Rejection</span>
-                      <span className="px-1.5 py-0.5 bg-red-500/10 text-red-500 text-[8px] font-black rounded uppercase">Violation Detected</span>
+                  <div className="flex-1 flex flex-col">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Protocol Safeguard Rejection</span>
+                        <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-[8px] font-black rounded-full uppercase border border-red-500/20">Security Event</span>
+                      </div>
                     </div>
-                    <span className="text-[13px] text-red-200/90 font-medium leading-relaxed mt-1">
+                    <span className="text-[14px] text-red-100/90 font-bold leading-snug mt-2">
                       {task.errorReason || 'Mission aborted due to internal state inconsistency or secondary execution error.'}
                     </span>
+                    <p className="text-[10px] text-red-400/60 font-medium uppercase tracking-tight mt-1">Transaction voided. No budget deducted for failed intellectual delivery.</p>
                   </div>
                 </div>
               )}
               {task.complexity && (
-                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border ${
-                  task.complexity === 'high' ? 'bg-purple-500/10 border-purple-500/20 text-purple-400' : 'bg-slate-800 border-white/5 text-slate-400'
+                <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border uppercase tracking-widest ${
+                  task.complexity === 'HIGH' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 
+                  task.complexity === 'MEDIUM' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 
+                  'bg-slate-800 border-white/5 text-slate-400'
                 }`}>
-                  {task.complexity.toUpperCase()} COMPLEXITY
+                  {task.complexity} COMPLEXITY
                 </span>
               )}
             </div>
@@ -291,81 +292,70 @@ export const TaskCard: React.FC<{
               </div>
            </div>
 
-           <div className="grid gap-1.5">
-             {bids.length === 0 ? (
-               <div className="py-6 space-y-3">
-                 <p className="text-[10px] font-black uppercase tracking-[0.3em] text-blue-500 animate-pulse text-center mb-4">
-                   📡 Swarm Auction Active
-                 </p>
-                 {DEMO_BIDS.map((bid, i) => (
-                   <motion.div
-                     key={bid.agent}
-                     initial={{ opacity: 0, x: -10 }}
-                     animate={{ opacity: 1, x: 0 }}
-                     transition={{ delay: i * 0.4 }}
-                     className="flex items-center justify-between bg-white/5 border border-white/5 rounded-xl px-4 py-3"
-                   >
-                     <div className="flex items-center gap-3">
-                        <div className="w-1.5 h-1.5 bg-blue-500 rounded-full animate-ping" />
-                        <span className="text-[11px] font-bold text-slate-300">{bid.agent}</span>
-                     </div>
-                     <div className="flex items-center gap-4">
-                       <span className="text-[11px] font-mono font-black text-blue-400">${bid.price}</span>
-                       <div className="h-3 w-px bg-white/10" />
-                       <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">{bid.rep} REP</span>
-                     </div>
-                   </motion.div>
-                 ))}
-               </div>
-             ) : (
-               bids.map(bid => (
-                <div key={bid.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all duration-300
-                  ${bid.status === 'winner' ? 'bg-green-500/5 border-green-500/20' : 'bg-slate-950/40 border-white/5 opacity-80 hover:opacity-100'}
-                `}>
-                  <div className="flex items-center gap-4">
-                    <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-black text-xs
-                      ${bid.status === 'winner' ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-slate-900 border-white/5 text-slate-500'}
+            <div className="grid gap-1.5">
+              {bids.length === 0 ? (
+                <div className="py-6 flex flex-col items-center justify-center gap-3">
+                  <p className="text-[10px] font-black uppercase tracking-[0.4em] text-blue-500/50">
+                    Awaiting Network Resonance...
+                  </p>
+                </div>
+              ) : (
+                [...bids].sort((a, b) => {
+                  const scoreA = (a.reputation / 100) / (a.amount || a.price);
+                  const scoreB = (b.reputation / 100) / (b.amount || b.price);
+                  return scoreB - scoreA;
+                }).map((bid, i) => {
+                  const agent = agents.find(a => a.id === bid.agentId || a.name === bid.agentName);
+                  const roleDesc = agent?.role ? `${agent.role.charAt(0).toUpperCase()}${agent.role.slice(1)} protocol node` : 'Optimized execution node';
+
+                  return (
+                    <div key={bid.id} className={`flex items-center justify-between p-4 rounded-2xl border transition-all duration-300
+                      ${i === 0 ? 'bg-green-500/5 border-green-500/20' : 'bg-slate-950/40 border-white/5 opacity-80 hover:opacity-100'}
                     `}>
-                      {bid.agentName?.slice(0, 1)}
-                    </div>
-                    <div className="flex flex-col gap-0.5">
-                      <div className="flex items-center gap-2">
-                        <div className="flex items-center gap-2">
-                          <span className={`text-[13px] font-bold ${bid.status === 'winner' ? 'text-white' : 'text-slate-400'}`}>
-                            {bid.agentName}
-                          </span>
-                          <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded
-                            ${bid.status === 'winner' ? 'bg-green-500/10 text-green-400 border border-green-500/20' : 'bg-red-500/5 text-red-400/60 border border-red-500/10'}
-                          `}>
-                            {bid.status === 'winner' ? 'Winner' : 'Rejected'}
-                          </span>
+                      <div className="flex items-center gap-4">
+                        <div className={`w-10 h-10 rounded-xl border flex items-center justify-center font-black text-xs
+                          ${i === 0 ? 'bg-green-500/10 border-green-500/20 text-green-400' : 'bg-slate-900 border-white/5 text-slate-500'}
+                        `}>
+                          {bid.agentName?.slice(0, 1)}
                         </div>
-                        <div className="flex items-center gap-2">
-                          <span className="text-[10px] text-slate-400/60 font-mono tracking-tight font-black uppercase">
-                            {(bid.confidence * 100).toFixed(0)}% CONFIDENCE
+                        <div className="flex flex-col gap-0.5">
+                          <div className="flex items-center gap-2">
+                            <div className="flex items-center gap-2">
+                              <span className={`text-[13px] font-bold ${i === 0 ? 'text-white' : 'text-slate-400'}`}>
+                                {bid.agentName}
+                              </span>
+                              <span className={`text-[9px] font-black uppercase px-1.5 py-0.5 rounded
+                                ${i === 0 
+                                  ? 'bg-green-500/10 text-green-400 border border-green-500/20' 
+                                  : 'bg-slate-800 text-slate-500 border border-white/5'}
+                              `}>
+                                {i === 0 ? 'SELECTED' : 'OUTBID'}
+                              </span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-[10px] text-slate-400/60 font-mono tracking-tight font-black uppercase">
+                                {bid.reputation} REP
+                              </span>
+                            </div>
+                          </div>
+                          <span className="text-[10px] text-slate-500 font-medium italic">
+                            {roleDesc}
                           </span>
                         </div>
                       </div>
-                      <span className="text-[10px] text-slate-500 font-medium italic">
-                        {bid.status === 'winner' ? bid.selectionReason : (bid as any).rejectionReason || 'Competitive mismatch'}
-                      </span>
+                      <div className="text-right">
+                         <div className={`text-sm font-mono font-black ${i === 0 ? 'text-green-400' : 'text-slate-500'}`}>
+                           ${(bid.amount || bid.price).toFixed(4)}
+                         </div>
+                         <div className="text-[9px] font-black text-slate-600 uppercase tracking-widest mt-1">
+                            {(bid.latency || (bid.estimatedTimeMs / 1000)).toFixed(1)}s LATENCY
+                         </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="text-right">
-                     <div className={`text-sm font-mono font-black ${bid.status === 'winner' ? 'text-green-400' : 'text-slate-500'}`}>
-                       ${bid.price.toFixed(4)}
-                     </div>
-                     <div className="text-[9px] font-black text-slate-600 uppercase tracking-widest mt-1">
-                        {(bid.estimatedTimeMs / 1000).toFixed(1)}s LATENCY
-                     </div>
-                     <div className="text-[8px] text-slate-500 font-medium italic mt-1 max-w-[120px] leading-tight text-right">
-                        "{(bid as any).reasoning || 'Optimized execution'}"
-                     </div>
-                  </div>
-                </div>
-               ))
-             )}
-           </div>
+                  );
+                })
+              )}
+            </div>
         </div>
       )}
 
