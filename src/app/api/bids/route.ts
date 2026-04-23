@@ -24,8 +24,12 @@ export async function POST(request: Request) {
       id: crypto.randomUUID(),
       taskId,
       agentId,
+      agentName: agentId, // Fallback to ID if name not provided
+      amount: parseFloat(price),
       price: parseFloat(price),
       estimatedTimeMs,
+      latency: estimatedTimeMs / 1000,
+      reputation: 90, // Default for manual bids
       confidence: 0.95,
       strategy,
       submittedAt: Date.now(),
