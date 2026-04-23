@@ -162,7 +162,9 @@ class InMemoryStore {
   }
 
   getTasks(): (Task | SubTask)[] {
-    return Array.from(this.tasks.values()).sort((a, b) => b.createdAt - a.createdAt);
+    return Array.from(this.tasks.values())
+      .filter((t: any) => t.prompt && t.prompt.trim().length > 0)
+      .sort((a, b) => b.createdAt - a.createdAt);
   }
 
   getTask(id: string): (Task | SubTask) | undefined {
@@ -394,15 +396,21 @@ class InMemoryStore {
     console.log(`[STORE] On-chain sync complete for ${Object.keys(balances).length} agents.`);
   }
 
-  distributePayment(agentId: string, amount: number): void {
+  updateAgentEarned(agentId: string, amount: number) {
     const agent = this.agents.get(agentId);
     if (agent) {
-      this.updateAgent(agentId, { 
+      this.agents.set(agentId, {
+        ...agent,
         wallet: (agent.wallet || 0) + amount,
         earned: (agent.earned ?? 0) + amount,
         tasksCompleted: (agent.tasksCompleted || 0) + 1
       });
+      this.save();
     }
+  }
+
+  distributePayment(agentId: string, amount: number): void {
+    this.updateAgentEarned(agentId, amount);
   }
 
   calculateBudgetHeuristic(content: string): number {
