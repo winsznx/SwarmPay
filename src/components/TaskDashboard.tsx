@@ -23,8 +23,8 @@ import { Header } from './Header';
 export const TaskDashboard: React.FC = () => {
   const [tasks, setTasks] = useState<Task[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [walletBalance, setWalletBalance] = useState(5.00); 
-  const [displayBalance, setDisplayBalance] = useState(5.00);
+  const [walletBalance, setWalletBalance] = useState(0); 
+  const [displayBalance, setDisplayBalance] = useState(0);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [pendingTask, setPendingTask] = useState<{prompt: string, budget: number, parentTaskId?: string} | null>(null);
   const [refundedTaskIds, setRefundedTaskIds] = useState<Set<string>>(new Set());
@@ -33,7 +33,7 @@ export const TaskDashboard: React.FC = () => {
 
   useEffect(() => {
     if (!selectedTaskId && tasks.length > 0) {
-      setSelectedTaskId(tasks[tasks.length - 1].id)
+      setSelectedTaskId(tasks[0].id)
     }
   }, [tasks, selectedTaskId])
 
@@ -103,9 +103,9 @@ export const TaskDashboard: React.FC = () => {
         const agentList = await res.json();
         setAgents(agentList);
         
-        // Sync user wallet balance with the orchestrator agent
+        // Dashboard balance tracks the primary mission funding pool
         const orchestrator = agentList.find((a: Agent) => a.id === 'crypto-scout-x');
-        if (orchestrator) {
+        if (orchestrator && (walletBalance === 0 || walletBalance === 5.00)) {
           setWalletBalance(orchestrator.wallet);
         }
       }
@@ -202,7 +202,7 @@ export const TaskDashboard: React.FC = () => {
         {/* MISSION SIDEBAR - Dynamic Width controlled by child */}
         <div className="hidden lg:block h-full flex-shrink-0">
            <MissionSidebar 
-              tasks={tasks.filter(t => !t.parentTaskId)} 
+              tasks={tasks.filter(t => !t.parentTaskId && t.prompt && t.prompt.trim().length > 0)} 
               selectedTaskId={selectedTaskId} 
               onSelectTask={setSelectedTaskId} 
            />
@@ -307,7 +307,7 @@ export const TaskDashboard: React.FC = () => {
                   </h2>
                   <span className="text-[9px] font-black text-slate-500 uppercase border border-white/10 px-2 py-0.5 rounded">Verified Personnel</span>
                 </div>
-                <AgentManager />
+                <AgentManager agents={agents} />
               </section>
 
               <section>
@@ -317,7 +317,10 @@ export const TaskDashboard: React.FC = () => {
                       Network Nanopayments
                     </h2>
                 </div>
-                <PaymentStream activeTaskId={selectedTaskId} />
+                <PaymentStream 
+                  activeTaskId={selectedTaskId} 
+                  task={tasks.find(t => t.id === selectedTaskId)} 
+                />
               </section>
 
               <section className="glass-panel p-6 rounded-[1.5rem] border-white/5">
@@ -396,7 +399,7 @@ export const TaskDashboard: React.FC = () => {
                 <div className="pt-8 border-t border-white/5">
                   <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Mission History</h3>
                   <div className="flex flex-col gap-2 pr-2">
-                    {tasks.filter(t => !t.parentTaskId).map(t => (
+                    {tasks.filter(t => !t.parentTaskId && t.prompt && t.prompt.trim().length > 0).map(t => (
                       <button 
                         key={t.id}
                         onClick={() => {
