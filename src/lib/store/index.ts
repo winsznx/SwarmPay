@@ -164,6 +164,9 @@ class InMemoryStore {
     return sids.map((id: string) => this.tasks.get(id)).filter((t: any): t is SubTask => !!t);
   }
 
+  updateSubTask(id: string, updates: Partial<SubTask>): void { this.updateTask(id, updates as any); }
+  getSubBids(subTaskId: string): SubBid[] { return this.getBidsForTask(subTaskId) as SubBid[]; }
+
   addAgent(agent: Agent): void { this.agents.set(agent.id, agent); this.save(); }
   updateAgent(id: string, updates: Partial<Agent>): void {
     const agent = this.agents.get(id);
@@ -176,6 +179,18 @@ class InMemoryStore {
   addBid(bid: Bid | SubBid): void { this.bids.set(bid.id, bid); this.save(); }
   getBidsForTask(taskId: string): (Bid | SubBid)[] {
     return Array.from(this.bids.values()).filter(bid => (bid as any).taskId === taskId || (bid as any).subTaskId === taskId);
+  }
+
+  addMessage(msg: AgentMessage): void { this.messages.set(msg.id, msg); this.save(); }
+  getMessagesForTask(taskId: string): AgentMessage[] {
+    return Array.from(this.messages.values()).filter(m => m.taskId === taskId).sort((a, b) => a.createdAt - b.createdAt);
+  }
+
+  calculateBudgetHeuristic(prompt: string): number {
+    const len = prompt?.length || 0;
+    if (len < 20) return 0.05;
+    if (len < 100) return 0.15;
+    return 0.30;
   }
 
   selectWinningBid(taskId: string): { bid: Bid, agent: Agent, score: number } {
