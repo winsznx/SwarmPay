@@ -156,9 +156,13 @@ export default function LandingPage() {
         })
 
         // Move the pulse runner - Slower cadence (8s)
-        pulseTl.fromTo('.mission-pulse', 
-          { left: '0%' },
-          { left: '100%', duration: 8 }
+        pulseTl.fromTo(['.mission-pulse', '.mission-pulse-v'], 
+          { left: (i, target) => target.classList.contains('mission-pulse-v') ? 'auto' : '0%', top: (i, target) => target.classList.contains('mission-pulse-v') ? '0%' : 'auto' },
+          { 
+            left: (i, target) => target.classList.contains('mission-pulse-v') ? 'auto' : '100%', 
+            top: (i, target) => target.classList.contains('mission-pulse-v') ? '100%' : 'auto',
+            duration: 8 
+          }
         )
 
         // Illuminate the nodes and the segment lines
@@ -315,12 +319,17 @@ export default function LandingPage() {
         <section className="px-6 py-20 sm:py-24 max-w-[1200px] mx-auto border-t border-white/5 overflow-hidden">
           <h2 className="text-4xl sm:text-6xl font-black uppercase tracking-tighter mb-16 sm:mb-24 text-center">How It Works</h2>
           
-          <div ref={stepsRef} className="relative flex flex-col lg:flex-row items-center lg:items-start justify-between gap-16 lg:gap-0">
-            {/* Continuous Pulse Line - Precisely aligned to centers */}
+          <div ref={stepsRef} className="relative flex flex-col lg:flex-row items-center lg:items-start justify-between gap-24 lg:gap-0">
+            {/* Horizontal Line (Desktop) */}
             <div className="hidden lg:block absolute top-[48px] left-[12.5%] right-[12.5%] h-[2px] pointer-events-none">
               <div className="w-full h-full border-t-2 border-dashed border-blue-500/20" />
-              {/* The Traveling Pulse */}
               <div className="mission-pulse absolute top-[-1px] left-0 w-8 h-[2px] bg-blue-400 blur-[1px] shadow-[0_0_10px_#60a5fa] rounded-full" />
+            </div>
+
+            {/* Vertical Line (Mobile) */}
+            <div className="lg:hidden absolute left-1/2 -translate-x-1/2 top-[48px] bottom-[160px] w-[2px] pointer-events-none">
+              <div className="w-full h-full border-l-2 border-dashed border-blue-500/20" />
+              <div className="mission-pulse-v absolute top-0 left-[-1px] w-[2px] h-8 bg-blue-400 blur-[1px] shadow-[0_0_10px_#60a5fa] rounded-full" />
             </div>
 
             {/* Step Items */}
@@ -438,7 +447,7 @@ export default function LandingPage() {
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.06] select-none">
           <div className="flex flex-col items-center">
             <img src="/icon.png" alt="" className="w-[300px] h-auto grayscale mb-10" />
-            <h2 className="text-[1rem] md:text-[15rem] font-black uppercase tracking-tighter leading-none">SwarmPay</h2>
+            <h2 className="text-[5rem] md:text-[15rem] font-black uppercase tracking-tighter leading-none">SwarmPay</h2>
           </div>
         </div>
 
