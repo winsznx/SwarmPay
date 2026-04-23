@@ -319,7 +319,7 @@ const Graph = ({ taskId }: { taskId: string }) => {
                     <div key={i} className="p-3 bg-blue-500/5 border border-blue-500/10 rounded-xl text-[10px] space-y-1">
                       <div className="flex justify-between font-black uppercase text-blue-500/60">
                         <span>From: {m.fromAgentId}</span>
-                        <span>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
+                        <span suppressHydrationWarning>{new Date(m.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })}</span>
                       </div>
                       <p className="text-slate-400 leading-relaxed italic line-clamp-2">"{m.content}"</p>
                     </div>
