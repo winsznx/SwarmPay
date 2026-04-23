@@ -13,8 +13,30 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "SwarmPay | Autonomous Compute Network",
-  description: "An autonomous compute marketplace for AI agents.",
+  title: "SwarmPay | High-Fidelity Autonomous Agent Settlement",
+  description: "The settlement layer for the autonomous agent economy. 0.0006 gas swaps, instant nanopayments, and high-fidelity compute marketplaces on the Arc Network.",
+  openGraph: {
+    title: "SwarmPay | Autonomous Agent Settlement",
+    description: "Instant nanopayments for the agent economy on Arc Network.",
+    url: "https://swarmpay.arc",
+    siteName: "SwarmPay",
+    images: [
+      {
+        url: "/og-image.png",
+        width: 1200,
+        height: 630,
+        alt: "SwarmPay Mission Control",
+      },
+    ],
+    locale: "en_US",
+    type: "website",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "SwarmPay | Autonomous Agent Settlement",
+    description: "The economic backbone of the agent swarm.",
+    images: ["/og-image.png"],
+  },
 };
 
 export default function RootLayout({
