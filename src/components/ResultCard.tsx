@@ -71,9 +71,9 @@ export const ResultCard: React.FC<ResultCardProps> = ({ task }) => {
     : null;
   const elapsedSec = elapsedMs ? Math.round(elapsedMs / 1000) : 0;
 
-  const paymentCount = task.subTaskIds?.length
-    ? task.subTaskIds.length * 9 + Math.floor(Math.random() * 8) + 12
-    : 34;
+  const paymentCount = task.micropaymentCount || (task.subTaskIds?.length
+    ? task.subTaskIds.length * 9 + 12
+    : 34);
 
   const agentCount = task.subTaskIds?.length
     ? task.subTaskIds.length + 1
@@ -222,7 +222,7 @@ export const ResultCard: React.FC<ResultCardProps> = ({ task }) => {
                 </div>
                 <div className="text-right">
                   <div className="text-[8px] font-black text-slate-600 uppercase font-black text-white">Final Balance</div>
-                  <div className="text-sm font-mono font-black text-white">${((cb.initialBalance || 0) - cb.totalCost + cb.userSavings).toFixed(4)}</div>
+                  <div className="text-sm font-mono font-black text-white">${((cb.initialBalance || 0) - cb.totalCost).toFixed(4)}</div>
                 </div>
               </div>
             </div>
