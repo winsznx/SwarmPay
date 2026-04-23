@@ -23,18 +23,16 @@ class InMemoryStore {
   private agents: Map<string, Agent> = new Map();
   private messages: Map<string, AgentMessage> = new Map();
   private payments: Map<string, PaymentIntent> = new Map();
+  private userWallet: number = 50.00; // Seed with $50 for the user
 
   constructor() {
     this.init();
     this.cleanStaleTasks();
     
-    // Seed and sync if missing
     if (this.agents.size === 0) {
       this.seedAgents();
     }
   }
-
-
 
   private init(): void {
     try {
@@ -57,7 +55,6 @@ class InMemoryStore {
   }
 
   private seedAgents(): void {
-    console.log('[SEED] Registry initializing in memory...');
     SEED_AGENTS.forEach(a => {
       const agent = {
         ...a,
@@ -71,12 +68,10 @@ class InMemoryStore {
       } as Agent;
       this.agents.set(agent.id, agent);
     });
-    console.log('[SEED] Memory registry initialized.');
   }
 
   private save(): void {
     if (process.env.VERCEL) return;
-    
     try {
       const data = {
         tasks: Array.from(this.tasks.entries()),
@@ -84,11 +79,10 @@ class InMemoryStore {
         agents: Array.from(this.agents.entries()),
         messages: Array.from(this.messages.entries()),
         payments: Array.from(this.payments.entries()),
+        userWallet: this.userWallet,
       };
       fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2));
-    } catch (err) {
-      // Intentionally silent - persistence is best-effort in this architecture
-    }
+    } catch (err) {}
   }
 
   private load(): void {
@@ -102,18 +96,15 @@ class InMemoryStore {
         this.agents = new Map(data.agents || []);
         this.messages = new Map(data.messages || []);
         this.payments = new Map(data.payments || []);
+        this.userWallet = data.userWallet ?? 50.00;
 
         this.agents.forEach(agent => {
           if (!agent.memory) {
             agent.memory = { pastTasks: [], pastResults: [], successCount: 0, failureCount: 0 };
           }
         });
-
-        console.log(`[STORE] Database loaded: ${this.tasks.size} tasks.`);
       }
-    } catch (err) {
-      console.warn('[STORE] Persistence could not be loaded.');
-    }
+    } catch (err) {}
   }
 
   private cleanStaleTasks(): void {
@@ -123,31 +114,19 @@ class InMemoryStore {
       this.tasks.forEach((task, id) => {
         const isStale = (task.status === 'bidding' || task.status === 'executing') && 
                         (now - task.createdAt > 2 * 60 * 1000);
-        
         if (isStale) {
           task.status = 'failed';
           this.tasks.set(id, task);
           cleaned++;
         }
       });
-
-      if (cleaned > 0) {
-        this.save();
-      }
-    } catch (err) {
-      // silently ignore
-    }
+      if (cleaned > 0) this.save();
+    } catch (err) {}
   }
 
-  // Unified Task Management
   createTask(task: Task | SubTask): void {
-    const newTask = {
-      ...task,
-      subTaskIds: (task as any).subTaskIds || [],
-      depth: (task as any).depth || 0
-    };
+    const newTask = { ...task, subTaskIds: (task as any).subTaskIds || [], depth: (task as any).depth || 0 };
     this.tasks.set(task.id, newTask);
-    
     if ((task as any).parentTaskId) {
       const parent = this.tasks.get((task as any).parentTaskId);
       if (parent) {
@@ -167,233 +146,83 @@ class InMemoryStore {
       .sort((a, b) => b.createdAt - a.createdAt);
   }
 
-  getTask(id: string): (Task | SubTask) | undefined {
-    return this.tasks.get(id);
-  }
+  getTask(id: string): (Task | SubTask) | undefined { return this.tasks.get(id); }
 
   updateTask(id: string, updates: Partial<Task | SubTask>): void {
     const task = this.tasks.get(id);
     if (task) {
-      const updatedTask = { ...task, ...updates };
-      this.tasks.set(id, updatedTask);
-      
-      if ((updatedTask as any).parentTaskId) {
-        this.checkParentCompletion((updatedTask as any).parentTaskId);
-      }
-
-      // Note: Automatic parent completion removed to avoid conflicts with 'settling' phase in pipeline.
+      this.tasks.set(id, { ...task, ...updates });
       this.save();
     }
   }
 
-  private checkParentCompletion(parentId: string) {
-    // Note: Automatic parent completion removed to avoid conflicts with 'settling' phase in pipeline.
-    return;
-  }
-
-  // SubTask Helpers (Alias for unified map)
   createSubTask(st: SubTask) { this.createTask(st); }
-  getSubTask(id: string) { return this.getTask(id); }
   getSubTasks(taskId: string): SubTask[] {
     const task = this.tasks.get(taskId);
     if (!task) return [];
     const sids = (task as any).subTaskIds || [];
     return sids.map((id: string) => this.tasks.get(id)).filter((t: any): t is SubTask => !!t);
   }
-  updateSubTask(id: string, updates: Partial<SubTask>) { this.updateTask(id, updates); }
 
-  // Agents
-  addAgent(agent: Agent): void {
-    this.agents.set(agent.id, agent);
-    this.save();
-  }
-
+  addAgent(agent: Agent): void { this.agents.set(agent.id, agent); this.save(); }
   updateAgent(id: string, updates: Partial<Agent>): void {
     const agent = this.agents.get(id);
-    if (agent) {
-      this.agents.set(id, { ...agent, ...updates });
-      this.save();
-    }
+    if (agent) { this.agents.set(id, { ...agent, ...updates }); this.save(); }
   }
+  getAgents(): Agent[] { return Array.from(this.agents.values()); }
+  getUserWallet(): number { return this.userWallet; }
+  updateUserWallet(amount: number): void { this.userWallet = amount; this.save(); }
 
-  getAgents(): Agent[] {
-    return Array.from(this.agents.values());
-  }
-
-  // Bids (Unified)
-  addBid(bid: Bid | SubBid): void {
-    this.bids.set(bid.id, bid);
-    this.save();
-  }
-
+  addBid(bid: Bid | SubBid): void { this.bids.set(bid.id, bid); this.save(); }
   getBidsForTask(taskId: string): (Bid | SubBid)[] {
     return Array.from(this.bids.values()).filter(bid => (bid as any).taskId === taskId || (bid as any).subTaskId === taskId);
   }
 
-  addSubBid(sb: SubBid) { this.addBid(sb); }
-  getSubBids(sid: string) { return this.getBidsForTask(sid); }
-
-  // Selection Engine
   selectWinningBid(taskId: string): { bid: Bid, agent: Agent, score: number } {
-    const task = this.getTask(taskId);
-    if (!task) throw new Error('Task not found');
-
     const bids = this.getBidsForTask(taskId);
-    if (bids.length === 0) throw new Error('No bids available for this task');
-
+    if (bids.length === 0) throw new Error('No bids');
     const rankedBids = bids.map(bid => {
       const agent = this.agents.get(bid.agentId);
       if (!agent) return null;
-      try {
-        const score = calculateBidScore(bid as Bid, agent);
-        return { bid: bid as Bid, agent, score };
-      } catch (err) {
-        return null;
-      }
+      return { bid: bid as Bid, agent, score: calculateBidScore(bid as Bid, agent) };
     }).filter((item): item is { bid: Bid, agent: Agent, score: number } => item !== null);
-
-    if (rankedBids.length === 0) throw new Error('No valid agents found for bids');
-
-    const titleToRoleMap: Record<string, string> = {
-      'Research': 'research-agent',
-      'Planning': 'planning-agent',
-      'Execution': 'execution-agent',
-      'Validation': 'validation-agent'
-    };
-
-    const targetRole = titleToRoleMap[(task as any).title] || titleToRoleMap[(task as any).prompt] || '';
-
-    return rankedBids.sort((a, b) => {
-      const aMatches = a.agent.role === targetRole;
-      const bMatches = b.agent.role === targetRole;
-      if (aMatches !== bMatches) return aMatches ? -1 : 1;
-      if (Math.abs(b.score - a.score) > 0.000001) return b.score - a.score;
-      return a.bid.submittedAt - b.bid.submittedAt;
-    })[0];
+    
+    return rankedBids.sort((a, b) => b.score - a.score)[0];
   }
 
   assignWinningBid(taskId: string): void {
     const winner = this.selectWinningBid(taskId);
-    const bids = this.getBidsForTask(taskId);
-
-    // Update all bids for this task with their status and rationale
-    bids.forEach(bid => {
+    this.getBidsForTask(taskId).forEach(bid => {
       const isWinner = bid.id === winner.bid.id;
-      const agent = this.agents.get(bid.agentId);
-      
-      let reason = '';
-      if (isWinner) {
-        reason = `Selected as optimal winner (Score: ${winner.score.toFixed(2)}) for ${agent?.role} deployment. Highest confidence with lowest latency-cost ratio.`;
-      } else {
-        // Deterministic rejection reasons based on competitive scoring
-        const bidConf = (bid as any).confidence || (agent?.reputation || 0) / 100;
-        const bidTimeSec = (bid.estimatedTimeMs / 1000);
-        const bidScore = bidConf / (bid.price * bidTimeSec);
-
-        if (bid.price > winner.bid.price * 1.5) {
-          reason = 'Price efficiency: Bid exceeded winning node by >50%.';
-        } else if (bidScore < winner.score * 0.7) {
-          reason = 'Market competition: Low composite value score compared to winner.';
-        } else if (bid.estimatedTimeMs > winner.bid.estimatedTimeMs * 2) {
-          reason = 'Latency rejection: Response time below mission threshold.';
-        } else {
-          reason = 'Market competition: Higher utility candidate selected.';
-        }
-      }
-
-      this.bids.set(bid.id, {
-        ...bid,
-        status: isWinner ? 'winner' : 'rejected',
-        selectionReason: isWinner ? reason : undefined,
-        rejectionReason: !isWinner ? reason : undefined
-      } as any);
+      this.bids.set(bid.id, { ...bid, status: isWinner ? 'winner' : 'rejected' } as any);
     });
-
-    this.updateTask(taskId, {
-      winningBid: winner.bid.id,
-      assignedAgentId: winner.agent.id,
-      status: 'assigned',
-      orchestratorRationale: `Deployed ${winner.agent.name} as lead node based on ${winner.score.toFixed(2)} efficiency score. ${reasonMap(winner.agent.role)}`
-    });
-    
-    function reasonMap(role: string) {
-      if (role === 'orchestrator') return 'Optimized for high-level mission decomposition.';
-      if (role === 'compute') return 'Leveraging maximum FLOPS for statistical processing.';
-      return 'Specialized in complex analytical retrieval.';
-    }
-
+    this.updateTask(taskId, { winningBid: winner.bid.id, assignedAgentId: winner.agent.id, status: 'assigned' });
     this.save();
   }
 
-  // Inter-Agent Communication
-  addMessage(msg: AgentMessage): void {
-    this.messages.set(msg.id, msg);
-    this.save();
-  }
-
-  getMessagesForTask(taskId: string): AgentMessage[] {
-    return Array.from(this.messages.values())
-      .filter(m => m.taskId === taskId)
-      .sort((a, b) => a.createdAt - b.createdAt);
-  }
-
-  // Intelligence Evolution
   updateAgentIntelligence(agentId: string, task: Task | SubTask, result: ExecutionResult): void {
     const agent = this.agents.get(agentId);
     if (!agent) return;
-
-    if (!agent.memory) {
-      agent.memory = { pastTasks: [], pastResults: [], successCount: 0, failureCount: 0 };
-    }
-
-    if (result.confidence >= 0.7) {
-      agent.reputation = Math.min(100, agent.reputation + 1);
-      agent.memory.successCount += 1;
-    } else {
-      agent.reputation = Math.max(0, agent.reputation - 1);
-      agent.memory.failureCount += 1;
-    }
-
-    const taskTitle = (task as any).title || (task as any).prompt;
-    agent.memory.pastTasks = [taskTitle, ...agent.memory.pastTasks].slice(0, 10);
-    agent.memory.pastResults = [result.result.slice(0, 100), ...agent.memory.pastResults].slice(0, 10);
-
+    if (result.confidence >= 0.7) { agent.reputation = Math.min(100, agent.reputation + 1); }
+    else { agent.reputation = Math.max(0, agent.reputation - 1); }
     this.agents.set(agentId, agent);
     this.save();
   }
 
-  // Economy
   async refreshAgentWallets(): Promise<void> {
-    console.log('[STORE] Refreshing real on-chain balances and addresses from Circle...');
     const balances = await getAgentBalances();
-    
     for (const [agentId, amount] of Object.entries(balances)) {
       const agent = this.agents.get(agentId);
       if (agent) {
-        console.log(`[STORE] Updating agent ${agentId}: Balance ${agent.wallet} -> ${amount}`);
         agent.wallet = amount;
-        
-          // If address is missing or looks like a mock/short address, update it
-          if (!agent.walletAddress || agent.walletAddress.length < 40 || agent.walletAddress.includes('mock')) {
-           try {
-              const realAddress = await getAgentAddress(agentId);
-             if (realAddress) {
-               console.log(`[STORE] Updating agent ${agentId} address to: ${realAddress}`);
-               agent.walletAddress = realAddress;
-             }
-           } catch (e) {
-             console.warn(`[STORE] Could not update address for ${agentId}`);
-           }
+        if (!agent.walletAddress || agent.walletAddress.length < 10) {
+          const addr = await getAgentAddress(agentId);
+          if (addr) agent.walletAddress = addr;
         }
-        
         this.agents.set(agentId, agent);
-      } else {
-        console.warn(`[STORE] Sync error: Agent ${agentId} not found in registry!`);
       }
     }
-
     this.save();
-    console.log(`[STORE] On-chain sync complete for ${Object.keys(balances).length} agents.`);
   }
 
   updateAgentEarned(agentId: string, amount: number) {
@@ -409,45 +238,22 @@ class InMemoryStore {
     }
   }
 
-  distributePayment(agentId: string, amount: number): void {
-    this.updateAgentEarned(agentId, amount);
-  }
+  distributePayment(agentId: string, amount: number): void { this.updateAgentEarned(agentId, amount); }
 
-  calculateBudgetHeuristic(content: string): number {
-    const len = content?.length || 0;
-    return 0.01 + (len / 1000);
-  }
-
-  // Payments
   createPaymentIntent(data: Omit<PaymentIntent, 'id' | 'createdAt' | 'status'>): PaymentIntent {
-    const intent: PaymentIntent = {
-      ...data,
-      id: crypto.randomUUID(),
-      status: 'pending',
-      createdAt: Date.now(),
-    };
-    
+    const intent: PaymentIntent = { ...data, id: crypto.randomUUID(), status: 'pending', createdAt: Date.now() };
     this.payments.set(intent.id, intent);
     this.save();
-    
     pipelineEvents.emit(EMIT_PAYMENT, intent);
-    
     return intent;
   }
 
   getPaymentsForTask(taskId: string): PaymentIntent[] {
-    return Array.from(this.payments.values())
-      .filter(p => !taskId || p.taskId === taskId)
-      .sort((a, b) => b.createdAt - a.createdAt);
+    return Array.from(this.payments.values()).filter(p => !taskId || p.taskId === taskId).sort((a, b) => b.createdAt - a.createdAt);
   }
 
   getAllTasks(): Task[] {
-    return Array.from(this.tasks.values())
-      .filter((t: any) => !t.parentTaskId) as Task[];
-  }
-
-  getAllPayments(): PaymentIntent[] {
-    return Array.from(this.payments.values());
+    return Array.from(this.tasks.values()).filter((t: any) => !t.parentTaskId) as Task[];
   }
 }
 

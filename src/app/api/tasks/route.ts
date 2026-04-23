@@ -63,6 +63,11 @@ export async function POST(request: Request) {
     };
 
     store.createTask(newTask);
+
+    // DEDUCT budget from the USER'S wallet (not the lead agent)
+    const currentWallet = store.getUserWallet();
+    store.updateUserWallet(currentWallet - budget);
+    console.log(`[ECONOMY] User paid $${budget.toFixed(2)} for mission initialization. Balance: $${(currentWallet - budget).toFixed(2)}`);
     
     // 🎲 Initialize the market war SYNCHRONOUSLY 
     // This ensures real bids exist before the UI first polls.
