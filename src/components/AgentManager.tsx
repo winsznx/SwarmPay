@@ -13,22 +13,26 @@ const agentRoleIcons: Record<string, React.ReactNode> = {
   'orchestrator': <Cpu className="w-3.5 h-3.5" />,
 };
 
-export const AgentManager: React.FC = () => {
-  const [agents, setAgents] = useState<Agent[]>([]);
+export const AgentManager: React.FC<{ agents?: Agent[] }> = ({ agents: propAgents }) => {
+  const [localAgents, setLocalAgents] = useState<Agent[]>([]);
   const [showAddForm, setShowAddForm] = useState(false);
   const [name, setName] = useState('');
   const [role, setRole] = useState<AgentRole>('research-agent');
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(!propAgents);
+
+  const displayAgents = propAgents || localAgents;
 
   useEffect(() => {
-    fetchAgents();
-  }, []);
+    if (!propAgents) {
+      fetchAgents();
+    }
+  }, [propAgents]);
 
   const fetchAgents = async () => {
     try {
       const res = await fetch('/api/agents');
       if (res.ok) {
-        setAgents(await res.json());
+        setLocalAgents(await res.json());
       }
     } catch (err) {
       console.error('Failed to fetch agents:', err);
@@ -47,7 +51,7 @@ export const AgentManager: React.FC = () => {
       });
       if (res.ok) {
         const newAgent = await res.json();
-        setAgents((prev) => [...prev, newAgent]);
+        setLocalAgents((prev: Agent[]) => [...prev, newAgent]);
         setName('');
         setShowAddForm(false);
       }
@@ -61,7 +65,7 @@ export const AgentManager: React.FC = () => {
       <div className="flex items-center justify-between mb-8">
         <div className="flex flex-col">
            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Active Fleet</span>
-           <span className="text-xl font-bold text-slate-200">{agents.length} Qualified Agents</span>
+           <span className="text-xl font-bold text-slate-200">{displayAgents.length} Qualified Agents</span>
         </div>
         <button
           onClick={() => setShowAddForm(!showAddForm)}
@@ -121,10 +125,10 @@ export const AgentManager: React.FC = () => {
       <div className="grid grid-cols-1 gap-3">
         {isLoading ? (
           <div className="h-40 flex items-center justify-center text-[10px] font-black uppercase tracking-widest text-slate-600">Initializing registry...</div>
-        ) : agents.length === 0 ? (
+        ) : displayAgents.length === 0 ? (
           <div className="h-40 flex items-center justify-center text-[10px] font-black uppercase tracking-widest text-slate-700">No agents on deck.</div>
         ) : (
-          agents.map((agent) => (
+          displayAgents.map((agent) => (
             <motion.div
               layout
               key={agent.id}
