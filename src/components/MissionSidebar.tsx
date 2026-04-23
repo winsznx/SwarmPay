@@ -83,7 +83,10 @@ export const MissionSidebar: React.FC<MissionSidebarProps> = ({ tasks, selectedT
                 `}>
                   #{task.id.slice(0, 4)}
                 </span>
-                <span className="text-[8px] font-mono text-slate-600">
+                <span 
+                  className="text-[8px] font-mono text-slate-600"
+                  suppressHydrationWarning
+                >
                   {new Date(task.createdAt).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                 </span>
               </div>
