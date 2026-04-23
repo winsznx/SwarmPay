@@ -110,7 +110,7 @@ export function ExplainerAnimation() {
         </div>
       </div>
 
-      <div className="p-3 sm:p-8 grid grid-cols-2 gap-3 sm:gap-8 h-full items-start overflow-hidden">
+      <div className="p-2 sm:p-8 grid grid-cols-2 gap-2 sm:gap-8 h-full items-start overflow-hidden">
         {/* Left: Phase indicator */}
         <div className="space-y-4">
           {PHASES.map((p, i) => (

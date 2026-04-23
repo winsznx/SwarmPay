@@ -284,7 +284,7 @@ export default function LandingPage() {
             </div>
           </div>
 
-          <div className="w-full max-w-7xl mx-auto mb-20 px-4">
+          <div className="w-full max-w-7xl mx-auto mb-20 px-1 sm:px-4">
             <ExplainerAnimation />
           </div>
 
