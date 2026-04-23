@@ -359,7 +359,7 @@ export default function LandingPage() {
                   <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-5 font-black text-3xl sm:text-5xl -mr-1 sm:-mr-2 -mt-2 sm:-mt-4 group-hover:opacity-10 transition-opacity uppercase whitespace-nowrap">{chain.short}</div>
                   <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter text-white mb-4 sm:mb-6 italic">{chain.name}</h3>
                   <div className={`text-4xl sm:text-6xl font-black ${chain.color} mb-2 sm:mb-3 tracking-tighter font-mono`}>{chain.gas}</div>
-                  <p className="text-xs sm:text-sm font-bold text-gray-600 mb-6 sm:mb-10">{chain.ratio}</p>
+                  <p className="text-right sm:text-left text-xs sm:text-sm font-bold text-gray-600 mb-6 sm:mb-10">{chain.ratio}</p>
                   <div className={`inline-block px-4 py-1.5 sm:px-6 sm:py-2 rounded-full text-[9px] sm:text-[11px] font-black uppercase tracking-widest ${chain.color} border border-current bg-black/40`}>
                     {chain.verdict}
                   </div>
