@@ -63,9 +63,13 @@ export async function POST(request: Request) {
     };
 
     store.createTask(newTask);
-
-    // 🚀 Fire and forget — the autonomous pipeline runs entirely in the background.
-    // The user gets an immediate response while agents compete autonomously.
+    
+    // 🎲 Initialize the market war SYNCHRONOUSLY 
+    // This ensures real bids exist before the UI first polls.
+    const { runInitialBiddingWar } = await import('@/lib/pipeline');
+    await runInitialBiddingWar(newTask);
+    
+    // 🚀 Fire and forget — the autonomous pipeline continues in the background.
     setImmediate(() => {
       runAutonomousPipeline(newTask).catch(err =>
         console.error('[PIPELINE CRITICAL]', err)
