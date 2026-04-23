@@ -209,7 +209,7 @@ export const TaskDashboard: React.FC = () => {
         </div>
 
         {/* MAIN CONTENT - Scrollable */}
-        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar px-3 py-6 md:p-8">
+        <div className="flex-1 overflow-y-auto overflow-x-hidden custom-scrollbar px-2 py-4 md:p-8">
           {/* Page Hero */}
           <div className="mb-6 md:mb-12 flex flex-col sm:flex-row sm:items-end justify-between gap-6">
             <div>
@@ -229,15 +229,15 @@ export const TaskDashboard: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-12 gap-10 items-start">
+          <div className="grid grid-cols-12 gap-6 md:gap-10 items-start">
             
             {/* LEFT COLUMN: Tasks & Execution */}
-            <div className="col-span-12 lg:col-span-7 space-y-10">
-              <section className="glass-panel p-5 md:p-8 rounded-[1.5rem] md:rounded-[2rem] border-white/5 relative overflow-hidden">
+            <div className="col-span-12 lg:col-span-7 space-y-6 md:space-y-10">
+              <section className="glass-panel p-4 md:p-8 rounded-[1.25rem] md:rounded-[2rem] border-white/5 relative overflow-hidden">
                 <div className="absolute top-0 right-0 p-4 opacity-5 pointer-events-none">
                   <Zap className="w-12 h-12 md:w-20 md:h-20" />
                 </div>
-                <h2 className="text-[10px] md:text-xs font-black text-blue-500 uppercase tracking-[0.3em] mb-4 md:mb-6 flex items-center gap-2">
+                <h2 className="text-[10px] md:text-xs font-black text-blue-500 uppercase tracking-[0.3em] mb-3 md:mb-6 flex items-center gap-2">
                   <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
                   Initialize Compute Task
                 </h2>
@@ -298,9 +298,9 @@ export const TaskDashboard: React.FC = () => {
             </div>
 
             {/* RIGHT COLUMN: Agent Registry & Network Ops */}
-            <div className="col-span-12 lg:col-span-5 space-y-10">
-              <section className="bg-white/[0.02] border border-white/5 p-8 rounded-[2rem] relative">
-                <div className="flex items-center justify-between mb-8">
+            <div className="col-span-12 lg:col-span-5 space-y-6 md:space-y-10">
+              <section className="bg-white/[0.02] border border-white/5 p-5 md:p-8 rounded-[1.5rem] md:rounded-[2rem] relative">
+                <div className="flex items-center justify-between mb-6 md:mb-8">
                   <h2 className="text-xs font-black text-purple-500 uppercase tracking-[0.3em] flex items-center gap-2">
                     <div className="w-1.5 h-1.5 bg-purple-500 rounded-full" />
                     Agent Registry

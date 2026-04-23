@@ -41,21 +41,21 @@ export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
 
   return (
     <div className="w-full">
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
         <div className="group relative">
           <div className="absolute -inset-0.5 bg-gradient-to-r from-blue-500 to-purple-600 rounded-2xl blur opacity-10 group-focus-within:opacity-25 transition duration-1000"></div>
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
             placeholder="Describe the objective for the agent swarm..."
-            className="relative w-full h-32 md:h-36 px-4 md:px-6 py-4 md:py-5 bg-[#0a0f1e] border border-white/5 rounded-2xl text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 resize-none transition-all text-base leading-relaxed"
+            className="relative w-full h-24 md:h-36 px-3 md:px-6 py-3 md:py-5 bg-[#0a0f1e] border border-white/5 rounded-2xl text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 resize-none transition-all text-sm md:text-base leading-relaxed"
             required
           />
         </div>
         
-        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 md:gap-6">
-          <div className="flex-1 flex items-center bg-[#0a0f1e] border border-white/5 rounded-2xl px-4 md:px-5 py-3.5 group focus-within:border-blue-500/30 transition-all">
-            <DollarSign className="w-4 h-4 text-blue-500/60 mr-2" />
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-6">
+          <div className="flex-1 flex items-center bg-[#0a0f1e] border border-white/5 rounded-2xl px-3 md:px-5 py-2.5 md:py-3.5 group focus-within:border-blue-500/30 transition-all">
+            <DollarSign className="w-3.5 h-3.5 text-blue-500/60 mr-2" />
             <input
               type="number"
               step="0.01"
@@ -75,7 +75,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
             type="submit"
             disabled={isSubmitting || !prompt.trim() || !budget || Number(budget) <= 0}
 
-            className="w-full sm:w-auto flex items-center justify-center gap-3 px-8 py-3.5 bg-blue-600 hover:bg-blue-500 text-white text-[10px] md:text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-900/40 group active:scale-95"
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 md:px-8 md:py-3.5 bg-blue-600 hover:bg-blue-500 text-white text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-900/40 group active:scale-95"
           >
             {isSubmitting ? (
               <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
