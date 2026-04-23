@@ -110,13 +110,13 @@ export function ExplainerAnimation() {
         </div>
       </div>
 
-      <div className="p-4 sm:p-8 grid grid-cols-2 gap-4 sm:gap-8 h-full items-start">
+      <div className="p-3 sm:p-8 grid grid-cols-2 gap-3 sm:gap-8 h-full items-start overflow-hidden">
         {/* Left: Phase indicator */}
         <div className="space-y-4">
           {PHASES.map((p, i) => (
             <div
               key={p.id}
-              className={`border rounded-2xl p-4 transition-all duration-700 ${
+              className={`border rounded-xl p-2 sm:p-4 transition-all duration-700 ${
                 i === phase
                   ? `${p.borderColor} bg-white/5 scale-[1.02] opacity-100 shadow-lg shadow-${p.color.split('-')[1]}-500/20`
                   : i < phase
@@ -124,19 +124,19 @@ export function ExplainerAnimation() {
                   : 'border-white/5 opacity-10 scale-95'
               }`}
             >
-              <div className="flex items-center gap-4">
-                <div className={`w-10 h-10 rounded-xl flex items-center justify-center text-xl bg-gray-900 border border-white/5`}>
+              <div className="flex items-center gap-2 sm:gap-4">
+                <div className={`w-7 h-7 sm:w-10 sm:h-10 rounded-lg flex items-center justify-center text-sm sm:text-xl bg-gray-900 border border-white/5`}>
                   {p.icon}
                 </div>
-                <div className="flex-1">
-                  <p className={`text-sm font-bold tracking-tight ${i === phase ? p.color : 'text-gray-500'}`}>
+                <div className="flex-1 min-w-0">
+                  <p className={`text-[10px] sm:text-sm font-bold tracking-tight truncate ${i === phase ? p.color : 'text-gray-500'}`}>
                     {p.label}
                   </p>
-                  <p className="text-[11px] text-gray-500 mt-0.5">{p.sublabel}</p>
+                  <p className="text-[8px] sm:text-[11px] text-gray-500 mt-0.5 truncate">{p.sublabel}</p>
                 </div>
                 {i < phase && (
-                  <div className="w-6 h-6 rounded-full bg-green-500/20 flex items-center justify-center">
-                    <span className="text-green-400 text-xs">✓</span>
+                  <div className="w-4 h-4 sm:w-6 sm:h-6 rounded-full bg-green-500/20 flex items-center justify-center flex-shrink-0">
+                    <span className="text-green-400 text-[8px] sm:text-xs">✓</span>
                   </div>
                 )}
               </div>
@@ -150,14 +150,14 @@ export function ExplainerAnimation() {
           
           {/* Phase 0: Task input */}
           <div className={`transition-all duration-700 absolute inset-0 flex flex-col justify-center ${phase === 0 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
-            <div className="bg-gray-900/80 border border-white/10 rounded-2xl p-6 backdrop-blur-md">
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-3">Objective Submited</p>
-              <p className="text-base text-white font-semibold mb-4 leading-snug">
-                "Analyze yield strategies on Arc Network for USDC-denominated assets."
+            <div className="bg-gray-900/80 border border-white/10 rounded-xl sm:rounded-2xl p-3 sm:p-6 backdrop-blur-md">
+              <p className="text-[8px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-wider mb-2 sm:mb-3">Objective Submited</p>
+              <p className="text-xs sm:text-base text-white font-semibold mb-2 sm:mb-4 leading-snug">
+                "Analyze yield strategies on Arc"
               </p>
-              <div className="flex items-center justify-between p-3 bg-white/5 rounded-xl">
-                <span className="text-xs text-gray-400">Escrow Locked</span>
-                <span className="text-sm font-mono font-bold text-blue-400">$0.30 USDC</span>
+              <div className="flex items-center justify-between p-2 sm:p-3 bg-white/5 rounded-lg sm:rounded-xl">
+                <span className="text-[8px] sm:text-xs text-gray-400">Escrow Locked</span>
+                <span className="text-[10px] sm:text-sm font-mono font-bold text-blue-400">$0.30 USDC</span>
               </div>
             </div>
           </div>
@@ -180,19 +180,19 @@ export function ExplainerAnimation() {
 
           {/* Phase 2: Payment stream */}
           <div className={`transition-all duration-700 absolute inset-0 flex flex-col justify-center ${phase === 2 ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8 pointer-events-none'}`}>
-            <p className="text-[10px] text-purple-400 font-bold uppercase tracking-wider mb-4 px-2">⚡ X402 Micro-settlement</p>
-            <div className="space-y-2 overflow-hidden h-[240px]">
+            <p className="text-[8px] sm:text-[10px] text-purple-400 font-bold uppercase tracking-wider mb-2 px-1">⚡ X402 Micro-settlement</p>
+            <div className="space-y-1.5 overflow-hidden h-[180px] sm:h-[240px]">
               {payments.map((p, i) => (
                 <div
                   key={i}
-                  className="flex items-center justify-between bg-white/5 rounded-xl px-4 py-2 text-xs animate-in fade-in slide-in-from-top-2"
+                  className="flex items-center justify-between bg-white/5 rounded-lg px-2 sm:px-4 py-1.5 sm:py-2 text-[8px] sm:text-xs animate-in fade-in slide-in-from-top-2"
                 >
-                  <div className="flex items-center gap-2">
-                    <span className="text-gray-400 truncate max-w-[80px]">{p.from}</span>
+                  <div className="flex items-center gap-1 sm:gap-2 overflow-hidden">
+                    <span className="text-gray-400 truncate max-w-[40px] sm:max-w-[80px]">{p.from}</span>
                     <span className="text-gray-600">→</span>
-                    <span className="text-gray-400 truncate max-w-[80px]">{p.to}</span>
+                    <span className="text-gray-400 truncate max-w-[40px] sm:max-w-[80px]">{p.to}</span>
                   </div>
-                  <span className="text-green-400 font-mono font-bold ml-2">{p.amount}</span>
+                  <span className="text-green-400 font-mono font-bold ml-1 sm:ml-2">{p.amount}</span>
                 </div>
               ))}
             </div>
@@ -200,14 +200,14 @@ export function ExplainerAnimation() {
 
           {/* Phase 3: Settlement */}
           <div className={`transition-all duration-700 absolute inset-0 flex flex-col items-center justify-center text-center ${phase === 3 ? 'opacity-100 scale-100' : 'opacity-0 scale-95 pointer-events-none'}`}>
-            <div className="w-20 h-20 rounded-3xl bg-green-500/20 border border-green-500/50 flex items-center justify-center mb-6 shadow-2xl shadow-green-500/40">
-              <span className="text-3xl">⛓</span>
+            <div className="w-12 h-12 sm:w-20 sm:h-20 rounded-2xl sm:rounded-3xl bg-green-500/20 border border-green-500/50 flex items-center justify-center mb-4 sm:mb-6 shadow-xl sm:shadow-2xl shadow-green-500/40">
+              <span className="text-xl sm:text-3xl">⛓</span>
             </div>
-            <p className="text-green-400 font-bold text-lg mb-1 italic">Mission Success</p>
-            <p className="text-xs text-gray-400 mb-6">54 nanopayments batched to Arc</p>
-            <div className="bg-white/5 border border-white/10 rounded-2xl p-4 w-full">
-              <p className="text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-1">Total Network Gas</p>
-              <p className="text-3xl font-black text-green-400 font-mono tracking-tighter">$0.0006</p>
+            <p className="text-green-400 font-bold text-sm sm:text-lg mb-1 italic">Success</p>
+            <p className="text-[8px] sm:text-xs text-gray-500 mb-4 sm:mb-6">54 nanopayments to Arc</p>
+            <div className="bg-white/5 border border-white/10 rounded-xl p-2 sm:p-4 w-full">
+              <p className="text-[7px] sm:text-[10px] text-gray-500 font-bold uppercase tracking-widest mb-0.5 sm:mb-1">Network Gas</p>
+              <p className="text-xl sm:text-3xl font-black text-green-400 font-mono tracking-tighter">$0.0006</p>
             </div>
           </div>
         </div>
