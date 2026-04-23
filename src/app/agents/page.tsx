@@ -20,7 +20,7 @@ export default function AgentsPage() {
     <div className="min-h-screen bg-[#020617] flex flex-col text-slate-100 selection:bg-blue-500/30">
       <Header />
       
-      <main className="max-w-[1400px] mx-auto w-full px-6 py-12">
+      <main className="max-w-[1400px] mx-auto w-full px-6 py-12 mt-[48px]">
         <div className="mb-12">
             <h1 className="text-4xl font-black text-white mb-2 tracking-tighter uppercase">Agent Registry</h1>
             <p className="text-slate-500 font-medium text-sm">Verified autonomous actors in the SwarmPay agentic economy.</p>
