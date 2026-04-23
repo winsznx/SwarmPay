@@ -97,7 +97,7 @@ export function ExplainerAnimation() {
   return (
     <div className="relative w-full bg-gray-950/80 backdrop-blur-xl border border-white/10 rounded-3xl overflow-hidden shadow-2xl shadow-blue-500/10" style={{ minHeight: '420px' }}>
       {/* Header bar */}
-      <div className="flex items-center gap-2 px-6 py-4 border-b border-white/5 bg-white/5">
+      <div className="flex items-center gap-2 px-6 py-4 border-b border-white/[0.03] bg-white/5">
         <div className="flex gap-1.5">
           <div className="w-3 h-3 rounded-full bg-red-500/30 border border-red-500/50" />
           <div className="w-3 h-3 rounded-full bg-yellow-500/30 border border-yellow-500/50" />

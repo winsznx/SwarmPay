@@ -184,7 +184,7 @@ export default function LandingPage() {
       <SwarmBackground />
 
       {/* NAV */}
-      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/5 bg-slate-950/40 backdrop-blur-2xl">
+      <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.03] bg-slate-950/40 backdrop-blur-2xl">
         <div className="max-w-[1400px] mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
           <div className="flex items-center gap-4">
             {/* Mobile Hamburger - ON THE LEFT */}
@@ -241,7 +241,7 @@ export default function LandingPage() {
                   key={link.href}
                   href={link.href}
                   onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-3 px-4 py-3 rounded-xl bg-white/5 text-xs font-bold uppercase tracking-widest text-slate-300 active:bg-blue-600/20 transition-all"
+                  className="flex items-center gap-3 px-6 py-4 border-b border-white/[0.03] text-xs font-bold uppercase tracking-widest text-slate-300 active:bg-blue-600/20 transition-all"
                 >
                   {link.icon} {link.label}
                 </Link>
@@ -289,23 +289,23 @@ export default function LandingPage() {
           </div>
 
           {/* STATS ROW CARD */}
-          <div ref={statsRef} className="stats-row w-full max-w-5xl mx-auto bg-white/[0.02] border border-white/5 rounded-[3rem] p-10 mb-20 backdrop-blur-xl">
-             <div className="grid grid-cols-2 lg:grid-cols-4 gap-12 text-center items-center">
+          <div ref={statsRef} className="stats-row w-full max-w-5xl mx-auto bg-white/[0.02] border border-white/5 rounded-[2rem] sm:rounded-[3rem] p-6 sm:p-10 mb-20 backdrop-blur-xl">
+             <div className="grid grid-cols-2 lg:grid-cols-4 gap-6 sm:gap-12 text-center items-center">
                 <div className="stat-item space-y-1">
-                  <div className="text-4xl font-black text-white">50+</div>
-                  <div className="text-[10px] uppercase font-bold text-gray-600 tracking-widest">micropayments per task</div>
+                  <div className="text-2xl sm:text-4xl font-black text-white">50+</div>
+                  <div className="text-[8px] sm:text-[10px] uppercase font-bold text-gray-600 tracking-widest">micropayments per task</div>
                 </div>
                 <div className="stat-item space-y-1">
-                  <div className="text-4xl font-black text-blue-500 font-mono">$0.0006</div>
-                  <div className="text-[10px] uppercase font-bold text-gray-600 tracking-widest">total gas cost</div>
+                  <div className="text-2xl sm:text-4xl font-black text-blue-500 font-mono">$0.0006</div>
+                  <div className="text-[8px] sm:text-[10px] uppercase font-bold text-gray-600 tracking-widest">total gas cost</div>
                 </div>
                 <div className="stat-item space-y-1">
-                  <div className="text-4xl font-black text-white">1</div>
-                  <div className="text-[10px] uppercase font-bold text-gray-600 tracking-widest">Arc settlement tx</div>
+                  <div className="text-2xl sm:text-4xl font-black text-white">1</div>
+                  <div className="text-[8px] sm:text-[10px] uppercase font-bold text-gray-600 tracking-widest">Arc settlement tx</div>
                 </div>
                 <div className="stat-item space-y-1">
-                  <div className="text-4xl font-black text-white">6</div>
-                  <div className="text-[10px] uppercase font-bold text-gray-600 tracking-widest">competing agents</div>
+                  <div className="text-2xl sm:text-4xl font-black text-white">6</div>
+                  <div className="text-[8px] sm:text-[10px] uppercase font-bold text-gray-600 tracking-widest">competing agents</div>
                 </div>
              </div>
           </div>
