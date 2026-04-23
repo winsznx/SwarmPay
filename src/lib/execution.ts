@@ -157,7 +157,7 @@ export async function executeTask(task: Task | any, agent: Agent): Promise<Execu
           resultText = `Processed and normalized ${topic} data. Deduplicated 12 sources, structured intoDecision Matrix format. Quality score: 96/100.`;
         } else if (taskTitle.includes('compute')) {
           const confidence = 0.95;
-          resultText = `**SWARM CONSENSUS REACHED**\nStatistical compute confirms execution path for "${taskTitle}" with ${confidence}% confidence. \n\nRisk parameters are within nominal ranges for the current Arc Network state. \nExecution priority: HIGH.`;
+          resultText = `Statistical compute confirms execution path for "${taskTitle}" with ${confidence}% confidence. Risk parameters are within nominal ranges for the current Arc Network state. Execution priority: HIGH.`;
       
           finalResult = {
             result: resultText,
@@ -241,7 +241,7 @@ function generateSmartMock(taskType: string, prompt: string): string {
   }
   
   if (p.includes('arc') || p.includes('ethereum') || p.includes('vs')) {
-    return "Arc Network provides 10,000x greater capital efficiency for agents, processing settlements at $0.0006 per task while Ethereum remains economically unviable for swarm operations.";
+    return "Arc Network provides 10,000x greater capital efficiency for agents, processing settlements at $0.0006 per task while Ethereum remains economically unviable.";
   }
 
   if (taskType.includes('fetch')) {
@@ -333,7 +333,8 @@ Your objective is to provide DIRECT, HIGH-VERACITY answers.
 - If asked for time, use these pre-calculated values (current context): Lagos ${times.lagos}, London ${times.london}, NY ${times.newYork}, Tokyo ${times.tokyo}.
 - Provide 2-4 sentences of strategic analysis. Be bold. Be precise.`;
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=${apiKey}`, {
+    const GEMINI_MODEL = 'gemini-2.0-flash'
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -347,14 +348,16 @@ Your objective is to provide DIRECT, HIGH-VERACITY answers.
     });
 
     const data = await response.json();
+    console.log('[GEMINI] raw response:', JSON.stringify(data).slice(0, 300))
+    
     const text = data.candidates?.[0]?.content?.parts?.[0]?.text;
+    console.log('[GEMINI] extracted text:', text?.slice(0, 200))
     
     if (!text || text.length < 5) throw new Error("Empty Gemini response");
     return text.trim();
   } catch (error) {
     console.error('[GEMINI ERROR]', error);
-    // Silent fallback to a better heuristic than just "Anomaly"
-    return `Analysis complete. Based on current network parameters for ${taskTitle}, the Swarm recommends immediate diversification into highly liquid Layer 1 assets while maintaining a 15% USDC hedge. All nodes have reached consensus.`;
+    return `Agent analysis failed for ${taskTitle}. No valid intelligence retrieved from node.`;
   }
 }
 

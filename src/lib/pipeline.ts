@@ -1,4 +1,4 @@
-import { Task, SubTask, Agent, Bid } from '@/types';
+import { Task, SubTask, Agent, Bid, SubBid } from '@/types';
 import { store } from './store';
 import { executeTask, classifyPrompt } from './execution';
 import { decomposeTask } from './orchestration';
@@ -76,8 +76,8 @@ export async function runAutonomousPipeline(task: Task) {
     for (const agent of pool) {
       await delay(800 + Math.random() * 500); 
       
-      const priceModifier = 0.8 + Math.random() * 0.4; // 0.8x to 1.2x base
-      const price = parseFloat((basePrice * priceModifier).toFixed(4));
+      const maxBid = task.budget * 0.9 // max 90% of budget
+      const price = parseFloat((maxBid * (0.6 + Math.random() * 0.35)).toFixed(4));
       const estimatedTimeMs = taskType === 'simple' ? 200 + Math.random() * 800 : Math.floor(Math.random() * 20000) + 10000;
       const confidence = (agent.reputation / 100) - (Math.random() * 0.05);
 
@@ -141,6 +141,28 @@ export async function runAutonomousPipeline(task: Task) {
       store.updateTask(task.id, { status: 'failed' });
       return;
     }
+
+    // Fix 2 & 4: Orchestrator Intelligence Rationale
+    const winBid = store.getBidsForTask(task.id).find((b: Bid | SubBid) => b.id === updatedTask.winningBid);
+    if (winBid) {
+      const efficiencyScore = winBid.confidence / (winBid.price * (winBid.estimatedTimeMs / 1000));
+      const displayScore = Math.min(100, Math.round(efficiencyScore)).toFixed(1);
+      
+      const AGENT_RATIONALES: Record<string, string> = {
+        'crypto-scout-x':  'Optimized for high-level mission decomposition and bid coordination',
+        'research-alpha':  'Specialized in deep research and source cross-referencing',
+        'data-miner-pro':  'Specialized in data extraction and pattern mining',
+        'parser-x':        'Specialized in data normalization and structured parsing',
+        'analysis-node':   'Specialized in intelligence synthesis and insight generation',
+        'compute-grid-4':  'Optimized for statistical modeling and compute-intensive tasks',
+      }
+      const rationaleDescription = AGENT_RATIONALES[winner.id] ?? 'Selected based on efficiency score';
+      
+      store.updateTask(task.id, { 
+        orchestratorRationale: `Efficiency score: ${displayScore}. ${rationaleDescription}.` 
+      });
+    }
+
     console.log(`  [WINNER] ${winner.name} selected as lead agent.`);
 
     // ── Phase 3: Task Decomposition ────────────────────────────────────────
@@ -222,7 +244,7 @@ export async function runAutonomousPipeline(task: Task) {
     let subTasks = store.getSubTasks(task.id);
     
     // 1. Pipeline Integrity Scan
-    const hasFailure = subTasks.some((st: SubTask) => st.status === 'failed' && !st.result?.result.toLowerCase().includes('fallback'));
+    const hasFailure = subTasks.some((st: SubTask) => st.status === 'failed');
     if (hasFailure) {
       console.error('[GUARD] Pipeline violation: Required step failed without valid fallback.');
       store.updateTask(task.id, { 
@@ -250,7 +272,7 @@ export async function runAutonomousPipeline(task: Task) {
       return ''
     }
 
-    const analyzeResult = getResult(analyzeSub) || 'Analysis complete.'
+    const analyzeResult = getResult(analyzeSub) || 'Final analysis resolution pending.'
     const fetchResult   = getResult(fetchSub)
     const computeResult = getResult(computeSub)
 
@@ -408,11 +430,12 @@ async function runSubTaskBidding(
 
     for (const agent of candidates) {
       await delay(Math.random() * 600 + 300);
+      const maxBid = (st.budget || 0.01) * 0.9;
       store.addBid({
         id: crypto.randomUUID(),
         taskId: st.id,
         agentId: agent.id,
-        price: parseFloat((Math.random() * 0.05 + 0.001).toFixed(5)),
+        price: parseFloat((maxBid * (0.6 + Math.random() * 0.35)).toFixed(4)),
         estimatedTimeMs: Math.floor(Math.random() * 8000) + 3000,
         confidence: agent.reputation / 100,
         strategy: `Specialist ${agent.role} for ${st.title}`,
@@ -518,10 +541,10 @@ async function runSubTaskExecution(taskId: string, subTasks: SubTask[], leadAgen
 
       // RECORD AUTOMATED FALLBACK — Prevents Guard Rejection
       const fallbackResult = {
-        result: `Primary execution for '${st.title}' failed → Applied autonomous heuristic fallback based on swarm memory and previous patterns.`,
-        confidence: 0.42,
-        cost: 0.0001,
-        metadata: { role: (st as any).type, agentId: subAgent.id, fallbackTriggered: true }
+        result: `Primary execution for '${st.title}' failed locally. Sub-agent node unreachable.`,
+        confidence: 0.10,
+        cost: 0.0,
+        metadata: { role: (st as any).type, agentId: subAgent.id, nodeFailure: true }
       };
 
       store.updateSubTask(st.id, { 
