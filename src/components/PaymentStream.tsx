@@ -4,8 +4,9 @@ import React, { useState, useEffect, useRef } from 'react';
 import { usePaymentStream } from '@/hooks/useWebSocket';
 import { motion, AnimatePresence } from 'framer-motion';
 import { CreditCard, ArrowRight, Clock, Zap } from 'lucide-react';
+import { Task } from '@/types';
 
-export const PaymentStream: React.FC<{ activeTaskId: string | null }> = ({ activeTaskId }) => {
+export const PaymentStream: React.FC<{ activeTaskId: string | null; task?: Task }> = ({ activeTaskId, task }) => {
   const { payments, connected } = usePaymentStream(activeTaskId);
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -16,12 +17,16 @@ export const PaymentStream: React.FC<{ activeTaskId: string | null }> = ({ activ
   }, [payments]);
 
   const formatTime = (timestamp: number) => {
-    if (!timestamp || isNaN(timestamp)) return '--:--'
-    return new Date(timestamp).toLocaleTimeString([], {
-      hour: '2-digit',
-      minute: '2-digit',
-      second: '2-digit'
-    })
+    if (!timestamp || isNaN(timestamp)) return '--:--';
+    return (
+      <span suppressHydrationWarning>
+        {new Date(timestamp).toLocaleTimeString([], {
+          hour: '2-digit',
+          minute: '2-digit',
+          second: '2-digit'
+        })}
+      </span>
+    );
   };
 
   const validPayments = payments.filter(p =>
@@ -104,7 +109,7 @@ export const PaymentStream: React.FC<{ activeTaskId: string | null }> = ({ activ
       {/* Footer Stats */}
       <div className="p-4 bg-slate-950/40 border-t border-white/5 flex items-center justify-between">
          <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-           Batched Intents: <span className="text-white ml-1">{displayPayments.length}</span>
+           Live Intents: <span className="text-white ml-1">Showing {Math.min(20, payments.length)} of {task?.micropaymentCount ?? payments.length}</span>
          </div>
          <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none text-right">
            Aggregated<br />
