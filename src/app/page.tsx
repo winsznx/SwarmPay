@@ -3,7 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { gsap } from 'gsap'
 import { ScrollTrigger } from 'gsap/ScrollTrigger'
-import { LayoutDashboard, Boxes, Users, Shield, ArrowRight } from 'lucide-react'
+import { LayoutDashboard, Boxes, Users, Shield, Gavel, RefreshCw, ShieldCheck, Send } from 'lucide-react'
 import { ExplainerAnimation } from '@/components/ExplainerAnimation'
 import { SwarmBackground } from '@/components/SwarmBackground'
 
@@ -34,9 +34,9 @@ const STEPS = [
 ]
 
 const CHAINS = [
-  { name: 'Ethereum', gas: '$31.50', ratio: '10,500× the task value', verdict: 'Economically impossible', color: 'text-gray-500', border: 'border-white/5', bg: 'bg-white/5' },
-  { name: 'Polygon',  gas: '$0.63',  ratio: 'Destroys agent margins',  verdict: 'Unviable at scale',   color: 'text-gray-400', border: 'border-white/5', bg: 'bg-white/5' },
-  { name: 'Arc',      gas: '$0.0006', ratio: '0.002× the task value',   verdict: 'The only viable chain', color: 'text-blue-400', border: 'border-blue-500/50', bg: 'bg-blue-950/20' },
+  { name: 'Ethereum', short: 'On Eth', gas: '$31.50', ratio: '10,500× the task value', verdict: 'Economically impossible', color: 'text-gray-500', border: 'border-white/5', bg: 'bg-white/5' },
+  { name: 'Polygon',  short: 'On Poly', gas: '$0.63',  ratio: 'Destroys agent margins',  verdict: 'Unviable at scale',   color: 'text-gray-400', border: 'border-white/5', bg: 'bg-white/5' },
+  { name: 'Arc',      short: 'On Arc', gas: '$0.0006', ratio: '0.002× the task value',   verdict: 'The only viable chain', color: 'text-blue-400', border: 'border-blue-500/50', bg: 'bg-blue-950/20' },
 ]
 
 const AGENTS = [
@@ -119,18 +119,58 @@ export default function LandingPage() {
         })
       }
 
-      // Steps flow-in GSAP
+      // Stats row individual text entrance
+      gsap.from('.stat-item', {
+        scrollTrigger: {
+          trigger: '.stats-row',
+          start: 'top 95%'
+        },
+        opacity: 0,
+        y: 30,
+        duration: 1,
+        stagger: 0.15,
+        ease: 'power3.out'
+      })
+
+      // Steps Section - Dual Layer Animation
       if (stepsRef.current) {
+        // 1. Initial Entrance Reveal (ScrollTrigger)
         gsap.from('.step-item', {
           scrollTrigger: {
             trigger: stepsRef.current,
-            start: 'top 80%'
+            start: 'top 85%',
+            toggleActions: 'play none none none'
           },
           opacity: 0,
           y: 40,
           duration: 0.8,
           stagger: 0.2,
           ease: 'power2.out'
+        })
+
+        // 2. Continuous Loop Animation (Independent of ScrollTrigger)
+        const pulseTl = gsap.timeline({
+          repeat: -1,
+          defaults: { ease: 'none' }
+        })
+
+        // Move the pulse runner - Slower cadence (8s)
+        pulseTl.fromTo('.mission-pulse', 
+          { left: '0%' },
+          { left: '100%', duration: 8 }
+        )
+
+        // Illuminate the nodes and the segment lines
+        STEPS.forEach((_, i) => {
+          pulseTl.to(`.step-node-${i}`, {
+            borderColor: '#3b82f6',
+            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+            boxShadow: '0 0 30px rgba(59, 130, 246, 0.4)',
+            scale: 1.1,
+            duration: 0.8,
+            yoyo: true,
+            repeat: 1
+          }, (i * 2.66) - 0.4) // Sync with 8s duration
         })
       }
     })
@@ -214,21 +254,21 @@ export default function LandingPage() {
           </div>
 
           {/* STATS ROW CARD */}
-          <div ref={statsRef} className="w-full max-w-5xl mx-auto bg-white/[0.02] border border-white/5 rounded-[3rem] p-10 mb-32 backdrop-blur-xl">
+          <div ref={statsRef} className="stats-row w-full max-w-5xl mx-auto bg-white/[0.02] border border-white/5 rounded-[3rem] p-10 mb-20 backdrop-blur-xl">
              <div className="grid grid-cols-2 lg:grid-cols-4 gap-12 text-center items-center">
-                <div className="space-y-1">
-                  <div className="text-4xl font-black text-white">{counters.payments || "50+"}</div>
+                <div className="stat-item space-y-1">
+                  <div className="text-4xl font-black text-white">50+</div>
                   <div className="text-[10px] uppercase font-bold text-gray-600 tracking-widest">micropayments per task</div>
                 </div>
-                <div className="space-y-1">
+                <div className="stat-item space-y-1">
                   <div className="text-4xl font-black text-blue-500 font-mono">$0.0006</div>
                   <div className="text-[10px] uppercase font-bold text-gray-600 tracking-widest">total gas cost</div>
                 </div>
-                <div className="space-y-1">
+                <div className="stat-item space-y-1">
                   <div className="text-4xl font-black text-white">1</div>
                   <div className="text-[10px] uppercase font-bold text-gray-600 tracking-widest">Arc settlement tx</div>
                 </div>
-                <div className="space-y-1">
+                <div className="stat-item space-y-1">
                   <div className="text-4xl font-black text-white">6</div>
                   <div className="text-[10px] uppercase font-bold text-gray-600 tracking-widest">competing agents</div>
                 </div>
@@ -236,22 +276,38 @@ export default function LandingPage() {
           </div>
         </section>
 
-        {/* HOW IT WORKS - FLOW-IN ARRANGEMENT */}
-        <section className="px-6 py-32 max-w-[1300px] mx-auto border-t border-white/5">
-          <h2 className="text-5xl font-black uppercase tracking-tighter mb-24 text-center">How It Works</h2>
-          <div ref={stepsRef} className="flex flex-col lg:flex-row items-center lg:items-start justify-between gap-12 lg:gap-4 relative">
+        {/* HOW IT WORKS - REDESIGNED FLOW */}
+        <section className="px-6 py-24 max-w-[1200px] mx-auto border-t border-white/5 overflow-hidden">
+          <h2 className="text-6xl font-black uppercase tracking-tighter mb-24 text-center">How It Works</h2>
+          
+          <div ref={stepsRef} className="relative flex flex-col lg:flex-row items-center lg:items-start justify-between gap-16 lg:gap-0">
+            {/* Continuous Pulse Line (Desktop Only) - Precisely aligned to centers */}
+            <div className="hidden lg:block absolute top-[48px] left-[12.5%] right-[12.5%] h-[2px] pointer-events-none">
+              <div className="w-full h-full border-t-2 border-dashed border-blue-500/20" />
+              {/* The Traveling Pulse - Using x for better performance/reliability */}
+              <div className="mission-pulse absolute top-[-1px] left-0 w-8 h-[2px] bg-blue-400 blur-[1px] shadow-[0_0_10px_#60a5fa] rounded-full" />
+            </div>
+
+            {/* Step Items */}
             {STEPS.map((step, i) => (
-              <div key={step.id} className="step-item flex-1 relative z-10 text-center lg:text-left">
-                <div className="flex flex-col items-center lg:items-start">
-                  <span className="text-6xl font-black text-white/5 mb-[-1.5rem] select-none font-mono">{step.id}</span>
-                  <h3 className="text-2xl font-black mb-4 uppercase tracking-wide text-blue-500 italic relative z-10">{step.title}</h3>
-                  <p className="text-gray-500 text-sm leading-relaxed max-w-[280px]">{step.body}</p>
-                </div>
-                {i < STEPS.length - 1 && (
-                  <div className="hidden lg:flex absolute top-12 left-[90%] w-full h-px items-center justify-center pointer-events-none opacity-20">
-                     <ArrowRight className="w-8 h-8 text-blue-500" />
+              <div key={step.id} className="step-item flex-1 flex flex-col items-center relative group">
+                {/* Main Circle Component */}
+                <div className={`step-node step-node-${i} relative w-24 h-24 rounded-full flex items-center justify-center border-2 border-white/10 bg-white/5 backdrop-blur-md mb-10 transition-all duration-500 group-hover:border-blue-500 group-hover:bg-blue-600/10 group-hover:scale-110`}>
+                  <div className="w-20 h-20 rounded-full border border-blue-500/20 flex items-center justify-center overflow-hidden">
+                    {i === 0 && <Send className="w-8 h-8 text-blue-500" />}
+                    {i === 1 && <Gavel className="w-8 h-8 text-blue-500" />}
+                    {i === 2 && <RefreshCw className="w-8 h-8 text-blue-500" />}
+                    {i === 3 && <ShieldCheck className="w-8 h-8 text-blue-500" />}
                   </div>
-                )}
+                </div>
+
+                {/* Text Content */}
+                <div className="text-center px-4">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white mb-3">{step.title}</h3>
+                  <p className="text-gray-500 text-xs leading-relaxed max-w-[220px] mx-auto min-h-[4rem]">
+                    {step.body}
+                  </p>
+                </div>
               </div>
             ))}
           </div>
@@ -266,7 +322,7 @@ export default function LandingPage() {
             <div className="grid md:grid-cols-3 gap-8">
               {CHAINS.map(chain => (
                 <div key={chain.name} className={`p-10 border ${chain.border} ${chain.bg} rounded-[3rem] transition-all text-left relative overflow-hidden group hover:scale-[1.02]`}>
-                  <div className="absolute top-0 right-0 p-8 opacity-5 font-black text-8xl -mr-10 -mt-10 group-hover:opacity-10 transition-opacity uppercase">{chain.name}</div>
+                  <div className="absolute top-0 right-0 p-8 opacity-5 font-black text-5xl -mr-2 -mt-4 group-hover:opacity-10 transition-opacity uppercase whitespace-nowrap">{chain.short}</div>
                   <h3 className="text-2xl font-black uppercase tracking-tighter text-white mb-6 italic">{chain.name}</h3>
                   <div className={`text-6xl font-black ${chain.color} mb-3 tracking-tighter font-mono`}>{chain.gas}</div>
                   <p className="text-sm font-bold text-gray-600 mb-10">{chain.ratio}</p>
@@ -300,7 +356,7 @@ export default function LandingPage() {
         {/* AGENTS SECTION */}
         <section className="px-6 py-32 border-t border-white/5 text-center">
           <div className="max-w-7xl mx-auto">
-            <h2 className="text-5xl font-black uppercase tracking-tighter mb-24 italic">Meet the agents</h2>
+            <h2 className="text-6xl font-black uppercase tracking-tighter mb-24">Meet the agents</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
               {AGENTS.map((agent) => (
                 <div key={agent.name} className="group p-10 bg-white/5 border border-white/5 rounded-[3rem] hover:border-blue-500/40 transition-all flex flex-col items-center">
@@ -347,7 +403,7 @@ export default function LandingPage() {
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.06] select-none">
           <div className="flex flex-col items-center">
             <img src="/icon.png" alt="" className="w-[300px] h-auto grayscale mb-10" />
-            <h2 className="text-[18rem] md:text-[22rem] font-black uppercase tracking-tighter leading-none">SwarmPay</h2>
+            <h2 className="text-[12rem] md:text-[15rem] font-black uppercase tracking-tighter leading-none">SwarmPay</h2>
           </div>
         </div>
 
@@ -358,7 +414,7 @@ export default function LandingPage() {
                <span className="text-white font-black text-4xl uppercase tracking-tighter">SwarmPay</span>
             </div>
             <span className="text-sm font-bold text-gray-600 uppercase tracking-widest text-center md:text-left max-w-md">
-              Built for the Agentic Economy on Arc hackathon
+              Built for the Agentic Economy on Arc.
             </span>
           </div>
           <div className="flex flex-col md:flex-row items-center gap-12 font-black uppercase text-[12px] tracking-[0.3em] text-gray-400">
