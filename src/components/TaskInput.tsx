@@ -47,7 +47,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
           <textarea
             value={prompt}
             onChange={(e) => setPrompt(e.target.value)}
-            placeholder="Describe the objective for the agent swarm..."
+            placeholder="Analyze top 5 DeFi protocols on the Arc Network... or Compare Ethereum L2 gas costs vs Arc."
             className="relative w-full h-24 md:h-36 px-3 md:px-6 py-3 md:py-5 bg-[#0a0f1e] border border-white/5 rounded-2xl text-slate-100 placeholder:text-slate-600 focus:outline-none focus:border-blue-500/50 resize-none transition-all text-sm md:text-base leading-relaxed"
             required
           />
