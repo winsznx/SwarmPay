@@ -22,7 +22,7 @@ export const FollowUpInput: React.FC<FollowUpInputProps> = ({ task, onNewTask })
   };
 
   return (
-    <div className="mt-8 p-6 bg-slate-900/30 border border-white/5 rounded-[2rem] relative overflow-hidden group">
+    <div className="mt-8 p-4 md:p-6 bg-slate-900/30 border border-white/5 rounded-[1.5rem] md:rounded-[2rem] relative overflow-hidden group">
       {/* Background focus glow */}
       <div className="absolute inset-0 bg-blue-500/5 opacity-0 group-focus-within:opacity-100 transition-opacity duration-1000" />
       
@@ -38,13 +38,13 @@ export const FollowUpInput: React.FC<FollowUpInputProps> = ({ task, onNewTask })
             value={followUp}
             onChange={(e) => setFollowUp(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSubmit()}
-            placeholder={`Ask a follow-up... ($${followUpBudget.toFixed(2)} USDC)`}
-            className="flex-1 bg-[#0a0f1e] border border-white/5 rounded-2xl px-6 py-3.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/40 transition-all font-medium"
+            placeholder={`Ask follow-up...`}
+            className="flex-1 min-w-0 bg-[#0a0f1e] border border-white/5 rounded-xl md:rounded-2xl px-4 md:px-6 py-2.5 md:py-3.5 text-sm text-slate-200 placeholder-slate-600 focus:outline-none focus:border-blue-500/40 transition-all font-medium"
           />
           <button
             onClick={handleSubmit}
             disabled={!followUp.trim()}
-            className="px-6 py-3.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:hover:bg-blue-600 text-white text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all whitespace-nowrap flex items-center gap-2 group shadow-xl shadow-blue-900/40 active:scale-95"
+            className="px-4 md:px-6 py-2.5 md:py-3.5 bg-blue-600 hover:bg-blue-500 disabled:opacity-30 disabled:hover:bg-blue-600 text-white text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em] rounded-xl md:rounded-2xl transition-all whitespace-nowrap flex items-center gap-1.5 md:gap-2 group shadow-xl shadow-blue-900/40 active:scale-95"
           >
             Ask ↗
           </button>

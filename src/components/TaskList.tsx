@@ -109,39 +109,39 @@ export const TaskCard: React.FC<{
       className="glass-panel rounded-[1.5rem] md:rounded-[2rem] p-4 md:p-8 hover:border-blue-500/20 transition-all duration-500 group relative overflow-hidden flex flex-col gap-4 md:gap-6"
     >
       {/* Background ID Watermark */}
-      <div className="absolute top-4 right-4 text-[40px] font-black text-white/[0.02] pointer-events-none select-none italic tracking-tighter">
+      <div className="absolute top-2 sm:top-4 right-2 sm:right-4 text-[24px] sm:text-[40px] font-black text-white/[0.02] pointer-events-none select-none italic tracking-tighter">
         #{task.id.slice(0, 4)}
       </div>
 
-      <div className="flex items-start justify-between gap-6">
-        <div className="flex-1 space-y-4">
+      <div className="flex flex-col sm:flex-row items-start justify-between gap-4 sm:gap-6">
+        <div className="flex-1 space-y-3 sm:space-y-4">
           <div className="flex items-center gap-2">
-             <div className="px-2 py-0.5 bg-slate-800 rounded text-[9px] font-black text-slate-400 uppercase tracking-widest border border-white/5">
+             <div className="px-1.5 py-0.5 bg-slate-800 rounded text-[8px] sm:text-[9px] font-black text-slate-400 uppercase tracking-widest border border-white/5">
                Task Layer 0{task.depth || 1}
              </div>
              <div className="w-1 h-1 bg-slate-700 rounded-full" />
-             <div className="text-[10px] font-mono text-slate-500">{new Date(task.createdAt).toLocaleTimeString()}</div>
+             <div className="text-[9px] sm:text-[10px] font-mono text-slate-500">{new Date(task.createdAt).toLocaleTimeString()}</div>
           </div>
           
-          <h3 className="text-xl font-bold text-white leading-tight tracking-tight group-hover:text-blue-400 transition-colors duration-300">
+          <h3 className="text-base sm:text-xl font-bold text-white leading-tight tracking-tight group-hover:text-blue-400 transition-colors duration-300">
             {task.prompt}
           </h3>
 
-          <div className="flex items-center gap-4">
-             <div className="flex items-center gap-2 bg-blue-500/5 px-3 py-1.5 rounded-xl border border-blue-500/10">
-                <span className="text-[10px] font-black text-blue-500/60 uppercase">Budget</span>
-                <span className="text-sm font-mono font-black text-blue-400">${(task.budget ?? 0).toFixed(2)}</span>
+          <div className="flex items-center gap-3 sm:gap-4">
+             <div className="flex items-center gap-1.5 sm:gap-2 bg-blue-500/5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl border border-blue-500/10">
+                <span className="text-[8px] sm:text-[10px] font-black text-blue-500/60 uppercase">Budget</span>
+                <span className="text-xs sm:text-sm font-mono font-black text-blue-400">${(task.budget ?? 0).toFixed(2)}</span>
              </div>
              {task.subTaskIds && task.subTaskIds.length > 0 && (
-               <div className="flex items-center gap-2 bg-purple-500/5 px-3 py-1.5 rounded-xl border border-purple-500/10">
-                  <Layers className="w-3 h-3 text-purple-400" />
-                  <span className="text-xs font-bold text-purple-400">{(task.subTaskIds || []).length} Nodes</span>
+               <div className="flex items-center gap-1.5 sm:gap-2 bg-purple-500/5 px-2 py-1 sm:px-3 sm:py-1.5 rounded-lg sm:rounded-xl border border-purple-500/10">
+                  <Layers className="w-2.5 h-2.5 sm:w-3 sm:h-3 text-purple-400" />
+                  <span className="text-[10px] sm:text-xs font-bold text-purple-400">{(task.subTaskIds || []).length} Nodes</span>
                </div>
              )}
           </div>
         </div>
 
-        <div className={`flex items-center gap-2.5 px-4 py-2 rounded-2xl border-2 font-black text-[11px] uppercase tracking-wider h-fit
+        <div className={`flex items-center gap-2 px-2.5 py-1 sm:px-4 sm:py-2 rounded-xl sm:rounded-2xl border-2 font-black text-[9px] sm:text-[11px] uppercase tracking-wider h-fit
           ${task.status === 'pending' ? 'bg-slate-950 border-slate-800 text-slate-400' : ''}
           ${task.status === 'bidding' ? 'bg-blue-500/10 border-blue-500/30 text-blue-400 shadow-[0_0_15px_rgba(59,130,246,0.1)]' : ''}
           ${task.status === 'assigned' ? 'bg-purple-500/10 border-purple-500/30 text-purple-400' : ''}
