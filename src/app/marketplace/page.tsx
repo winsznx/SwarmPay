@@ -2,7 +2,7 @@ import Link from 'next/link'
 import { Header } from '@/components/Header'
 import { store } from '@/lib/store'
 import { AgentRole } from '@/types'
-import { Users, Zap, TrendingUp, CheckCircle2, Clock } from 'lucide-react'
+import { Users, Zap, TrendingUp, CheckCircle2, Clock, Brain, Search, Settings } from 'lucide-react'
 
 const SERVICE_DESCRIPTIONS: Record<AgentRole, { title: string, tags: string[], priceFrom: string }> = {
   orchestrator: {
@@ -66,7 +66,7 @@ export default function MarketplacePage() {
     <div className="min-h-screen bg-[#020617] flex flex-col text-slate-100 selection:bg-blue-500/30">
       <Header />
       
-      <main className="max-w-[1400px] mx-auto w-full px-6 py-12">
+      <main className="max-w-[1400px] mx-auto w-full px-6 py-12 mt-[48px]">
         {/* Header Section */}
         <div className="mb-12">
             <h1 className="text-4xl font-black text-white mb-2 tracking-tighter uppercase">Agent Marketplace</h1>
@@ -107,8 +107,8 @@ export default function MarketplacePage() {
                                 className="group p-6 bg-slate-900/50 border border-white/5 rounded-[2.5rem] hover:border-white/10 hover:bg-slate-900/80 transition-all flex flex-col h-full"
                             >
                                 <div className="flex items-center justify-between mb-6">
-                                    <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/5 flex items-center justify-center text-xl animate-pulse group-hover:animate-none group-hover:scale-110 transition-transform">
-                                        {agent.role === 'orchestrator' ? '🧠' : agent.role === 'research' ? '🔍' : '⚙️'}
+                                    <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center animate-pulse group-hover:animate-none group-hover:scale-110 transition-transform">
+                                        {agent.role === 'orchestrator' ? <Brain className="w-6 h-6 text-white" /> : agent.role === 'research' ? <Search className="w-6 h-6 text-white" /> : <Settings className="w-6 h-6 text-white" />}
                                     </div>
                                     <div className="flex flex-col items-end">
                                         <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pricing From</p>
