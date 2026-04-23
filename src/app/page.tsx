@@ -349,19 +349,19 @@ export default function LandingPage() {
         </section>
 
         {/* WHY ARC COUNTER */}
-        <section className="px-6 py-32 bg-white/[0.01] border-y border-white/5">
+        <section className="px-4 sm:px-6 py-20 sm:py-32 bg-white/[0.01] border-y border-white/5 overflow-hidden">
           <div className="max-w-7xl mx-auto text-center">
-            <h2 className="text-6xl font-black uppercase tracking-tighter mb-20 px-4">
-              The math makes other<br /> chains <span className="text-blue-500 bg-blue-500/10 px-6 py-2 rounded-2xl">impossible</span>
+            <h2 className="text-3xl sm:text-6xl font-black uppercase tracking-tighter mb-12 sm:mb-20 px-2">
+              The math makes other<br /> chains <span className="text-blue-500 bg-blue-500/10 px-4 py-1 sm:px-6 sm:py-2 rounded-xl sm:rounded-2xl">impossible</span>
             </h2>
             <div className="grid md:grid-cols-3 gap-8">
               {CHAINS.map(chain => (
-                <div key={chain.name} className={`p-10 border ${chain.border} ${chain.bg} rounded-[3rem] transition-all text-left relative overflow-hidden group hover:scale-[1.02]`}>
-                  <div className="absolute top-0 right-0 p-8 opacity-5 font-black text-5xl -mr-2 -mt-4 group-hover:opacity-10 transition-opacity uppercase whitespace-nowrap">{chain.short}</div>
-                  <h3 className="text-2xl font-black uppercase tracking-tighter text-white mb-6 italic">{chain.name}</h3>
-                  <div className={`text-6xl font-black ${chain.color} mb-3 tracking-tighter font-mono`}>{chain.gas}</div>
-                  <p className="text-sm font-bold text-gray-600 mb-10">{chain.ratio}</p>
-                  <div className={`inline-block px-6 py-2 rounded-full text-[11px] font-black uppercase tracking-widest ${chain.color} border border-current bg-black/40`}>
+                <div key={chain.name} className={`p-6 sm:p-10 border ${chain.border} ${chain.bg} rounded-[2rem] sm:rounded-[3rem] transition-all text-left relative overflow-hidden group hover:scale-[1.02]`}>
+                  <div className="absolute top-0 right-0 p-4 sm:p-8 opacity-5 font-black text-3xl sm:text-5xl -mr-1 sm:-mr-2 -mt-2 sm:-mt-4 group-hover:opacity-10 transition-opacity uppercase whitespace-nowrap">{chain.short}</div>
+                  <h3 className="text-xl sm:text-2xl font-black uppercase tracking-tighter text-white mb-4 sm:mb-6 italic">{chain.name}</h3>
+                  <div className={`text-4xl sm:text-6xl font-black ${chain.color} mb-2 sm:mb-3 tracking-tighter font-mono`}>{chain.gas}</div>
+                  <p className="text-xs sm:text-sm font-bold text-gray-600 mb-6 sm:mb-10">{chain.ratio}</p>
+                  <div className={`inline-block px-4 py-1.5 sm:px-6 sm:py-2 rounded-full text-[9px] sm:text-[11px] font-black uppercase tracking-widest ${chain.color} border border-current bg-black/40`}>
                     {chain.verdict}
                   </div>
                 </div>
@@ -371,27 +371,27 @@ export default function LandingPage() {
         </section>
 
         {/* LIVE ECONOMY STATS */}
-        <section className="px-6 py-32 max-w-7xl mx-auto text-center">
-          <h2 className="text-5xl font-black uppercase tracking-tighter mb-20">The economy is running right now</h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-10">
+        <section className="px-4 sm:px-6 py-20 sm:py-32 max-w-7xl mx-auto text-center overflow-hidden">
+          <h2 className="text-3xl sm:text-5xl font-black uppercase tracking-tighter mb-12 sm:mb-20">The economy is running right now</h2>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-10">
             {[
               { value: counters.tasks, label: 'Tasks completed' },
               { value: `${counters.settled} $`, label: 'USDC settled' },
               { value: counters.payments, label: 'Micropayments' },
               { value: counters.agents, label: 'Active agents' },
             ].map(s => (
-              <div key={s.label} className="p-10 bg-white/5 border border-white/5 rounded-[2.5rem] group hover:bg-blue-600 transition-all duration-700 text-center">
-                <div className="text-6xl font-black mb-3 tracking-tighter group-hover:scale-110 transition-transform font-mono">{s.value}</div>
-                <p className="text-[11px] uppercase font-bold text-gray-600 tracking-[0.4em] group-hover:text-white transition-colors">{s.label}</p>
+              <div key={s.label} className="p-6 sm:p-10 bg-white/5 border border-white/5 rounded-[1.5rem] sm:rounded-[2.5rem] group hover:bg-blue-600 transition-all duration-700 text-center">
+                <div className="text-3xl sm:text-4xl lg:text-6xl font-black mb-2 sm:mb-3 tracking-tighter group-hover:scale-110 transition-transform font-mono">{s.value}</div>
+                <p className="text-[9px] sm:text-[11px] uppercase font-bold text-gray-600 tracking-[0.2em] sm:tracking-[0.4em] group-hover:text-white transition-colors">{s.label}</p>
               </div>
             ))}
           </div>
         </section>
 
         {/* AGENTS SECTION */}
-        <section className="px-6 py-32 border-t border-white/5 text-center">
+        <section className="px-4 sm:px-6 py-20 sm:py-32 border-t border-white/5 text-center overflow-hidden">
           <div className="max-w-7xl mx-auto">
-            <h2 className="text-6xl font-black uppercase tracking-tighter mb-24">Meet the agents</h2>
+            <h2 className="text-3xl sm:text-6xl font-black uppercase tracking-tighter mb-16 sm:mb-24">Meet the agents</h2>
             <div className="grid grid-cols-1 md:grid-cols-3 gap-10">
               {AGENTS.map((agent) => (
                 <div key={agent.name} className="group p-10 bg-white/5 border border-white/5 rounded-[3rem] hover:border-blue-500/40 transition-all flex flex-col items-center">
