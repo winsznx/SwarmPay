@@ -312,12 +312,12 @@ export default function LandingPage() {
         </section>
 
         {/* HOW IT WORKS - REDESIGNED FLOW */}
-        <section className="px-6 py-24 max-w-[1200px] mx-auto border-t border-white/5 overflow-hidden">
-          <h2 className="text-6xl font-black uppercase tracking-tighter mb-24 text-center">How It Works</h2>
+        <section className="px-6 py-20 sm:py-24 max-w-[1200px] mx-auto border-t border-white/5 overflow-hidden">
+          <h2 className="text-4xl sm:text-6xl font-black uppercase tracking-tighter mb-16 sm:mb-24 text-center">How It Works</h2>
           
-          <div ref={stepsRef} className="relative flex flex-row items-start justify-between gap-0">
+          <div ref={stepsRef} className="relative flex flex-col lg:flex-row items-center lg:items-start justify-between gap-16 lg:gap-0">
             {/* Continuous Pulse Line - Precisely aligned to centers */}
-            <div className="absolute top-[24px] sm:top-[48px] left-[12.5%] right-[12.5%] h-[2px] pointer-events-none">
+            <div className="hidden lg:block absolute top-[48px] left-[12.5%] right-[12.5%] h-[2px] pointer-events-none">
               <div className="w-full h-full border-t-2 border-dashed border-blue-500/20" />
               {/* The Traveling Pulse */}
               <div className="mission-pulse absolute top-[-1px] left-0 w-8 h-[2px] bg-blue-400 blur-[1px] shadow-[0_0_10px_#60a5fa] rounded-full" />
@@ -327,19 +327,19 @@ export default function LandingPage() {
             {STEPS.map((step, i) => (
               <div key={step.id} className="step-item flex-1 flex flex-col items-center relative group min-w-0">
                 {/* Main Circle Component */}
-                <div className={`step-node step-node-${i} relative w-12 h-12 sm:w-24 sm:h-24 rounded-full flex items-center justify-center border-2 border-white/10 bg-white/5 backdrop-blur-md mb-6 sm:mb-10 transition-all duration-500 group-hover:border-blue-500 group-hover:bg-blue-600/10 active:scale-95`}>
-                  <div className="w-10 h-10 sm:w-20 sm:h-20 rounded-full border border-blue-500/20 flex items-center justify-center overflow-hidden">
-                    {i === 0 && <Send className="w-4 h-4 sm:w-8 sm:h-8 text-blue-500" />}
-                    {i === 1 && <Gavel className="w-4 h-4 sm:w-8 sm:h-8 text-blue-500" />}
-                    {i === 2 && <RefreshCw className="w-4 h-4 sm:w-8 sm:h-8 text-blue-500" />}
-                    {i === 3 && <ShieldCheck className="w-4 h-4 sm:w-8 sm:h-8 text-blue-500" />}
+                <div className={`step-node step-node-${i} relative w-24 h-24 rounded-full flex items-center justify-center border-2 border-white/10 bg-white/5 backdrop-blur-md mb-8 sm:mb-10 transition-all duration-500 group-hover:border-blue-500 group-hover:bg-blue-600/10 active:scale-95`}>
+                  <div className="w-20 h-20 rounded-full border border-blue-500/20 flex items-center justify-center overflow-hidden">
+                    {i === 0 && <Send className="w-8 h-8 text-blue-500" />}
+                    {i === 1 && <Gavel className="w-8 h-8 text-blue-500" />}
+                    {i === 2 && <RefreshCw className="w-8 h-8 text-blue-500" />}
+                    {i === 3 && <ShieldCheck className="w-8 h-8 text-blue-500" />}
                   </div>
                 </div>
 
                 {/* Text Content */}
-                <div className="text-center px-1 sm:px-4">
-                  <h3 className="text-[7px] sm:text-xs font-black uppercase tracking-widest text-white mb-2 sm:mb-3">{step.title}</h3>
-                  <p className="hidden sm:block text-gray-500 text-xs leading-relaxed max-w-[220px] mx-auto min-h-[4rem]">
+                <div className="text-center px-4">
+                  <h3 className="text-sm font-black uppercase tracking-widest text-white mb-3">{step.title}</h3>
+                  <p className="text-gray-500 text-xs sm:text-xs leading-relaxed max-w-[220px] mx-auto min-h-[4rem]">
                     {step.body}
                   </p>
                 </div>
@@ -372,7 +372,7 @@ export default function LandingPage() {
 
         {/* LIVE ECONOMY STATS */}
         <section className="px-4 sm:px-6 py-20 sm:py-32 max-w-7xl mx-auto text-center overflow-hidden">
-          <h2 className="text-3xl sm:text-5xl font-black uppercase tracking-tighter mb-12 sm:mb-20">The economy is running right now</h2>
+          <h2 className="text-4xl sm:text-5xl font-black uppercase tracking-tighter mb-12 sm:mb-20">The economy is running right now</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4 sm:gap-10">
             {[
               { value: counters.tasks, label: 'Tasks completed' },
@@ -438,7 +438,7 @@ export default function LandingPage() {
         <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-[0.06] select-none">
           <div className="flex flex-col items-center">
             <img src="/icon.png" alt="" className="w-[300px] h-auto grayscale mb-10" />
-            <h2 className="text-[12rem] md:text-[15rem] font-black uppercase tracking-tighter leading-none">SwarmPay</h2>
+            <h2 className="text-[1rem] md:text-[15rem] font-black uppercase tracking-tighter leading-none">SwarmPay</h2>
           </div>
         </div>
 
