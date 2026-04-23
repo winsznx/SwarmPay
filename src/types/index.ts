@@ -63,7 +63,7 @@ export interface Task {
   parentTaskId?: string;
   createdAt: number;
   completedAt: number | null;
-  complexity?: 'low' | 'high';
+  complexity?: 'LOW' | 'MEDIUM' | 'HIGH';
   orchestratorRationale?: string;
   agentCount?: number;
   errorReason?: string;
@@ -75,6 +75,12 @@ export interface Task {
     gasCost: number;
     settledAt: number;
   };
+  micropaymentCount?: number;
+  stats?: {
+    micropayments: number;
+    agents: number;
+    duration: number;
+  };
 }
 
 
@@ -82,15 +88,19 @@ export interface Bid {
   id: string;
   taskId: string;
   agentId: string;
-  price: number;
+  agentName: string;
+  amount: number;
+  price: number;              // Maintain compatibility
   estimatedTimeMs: number;
+  latency: number;           // User requested
+  reputation: number;        // User requested
   confidence: number;
   strategy: string;
-  reasoning?: string;         // Why this agent is best
+  reasoning?: string;
   submittedAt: number;
   status?: 'winner' | 'rejected';
   selectionReason?: string;
-  rejectionReason?: string;   // Explicit rationale for rejection
+  rejectionReason?: string;
 }
 
 export interface SubTask {
