@@ -208,6 +208,7 @@ export default function LandingPage() {
           <div className="hidden lg:flex items-center gap-8">
             {[
               { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-3 h-3" /> },
+              { href: '/why', label: 'Why SwarmPay', icon: <img src="/icon.png" className="w-3 h-3" /> },
               { href: '/marketplace', label: 'Marketplace', icon: <Boxes className="w-3 h-3" /> },
               { href: '/agents', label: 'Agents', icon: <Users className="w-3 h-3" /> },
               { href: '/security', label: 'Security', icon: <Shield className="w-3 h-3" /> },
@@ -233,6 +234,7 @@ export default function LandingPage() {
             <div className="flex flex-col p-6 gap-4">
               {[
                 { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4" /> },
+                { href: '/why', label: 'Why SwarmPay', icon: <img src="/icon.png" className="w-4 h-4" /> },
                 { href: '/marketplace', label: 'Marketplace', icon: <Boxes className="w-4 h-4" /> },
                 { href: '/agents', label: 'Agents', icon: <Users className="w-4 h-4" /> },
                 { href: '/security', label: 'Security', icon: <Shield className="w-4 h-4" /> },
