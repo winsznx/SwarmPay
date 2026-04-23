@@ -5,7 +5,7 @@ import { TaskInput } from './TaskInput';
 import { TaskList } from './TaskList';
 import { AgentManager } from './AgentManager';
 import { Task } from '@/types';
-import { Wallet, Zap, Activity, Shield, Users, Boxes } from 'lucide-react';
+import { Wallet, Zap, Activity, Shield, Users, Boxes, LayoutDashboard } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { PaymentStream } from './PaymentStream';
 import { Agent } from '@/types';
@@ -16,11 +16,14 @@ import { MarginProofCard } from './MarginProofCard';
 import { SettlementProof } from './SettlementProof';
 import { BudgetModal } from './BudgetModal';
 import { Header } from './Header';
+import Link from 'next/link';
+import { usePathname } from 'next/navigation';
 
 
 
 
 export const TaskDashboard: React.FC = () => {
+  const pathname = usePathname();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
   const [walletBalance, setWalletBalance] = useState(0); 
@@ -29,16 +32,11 @@ export const TaskDashboard: React.FC = () => {
   const [pendingTask, setPendingTask] = useState<{prompt: string, budget: number, parentTaskId?: string} | null>(null);
   const [refundedTaskIds, setRefundedTaskIds] = useState<Set<string>>(new Set());
 
-
-
   useEffect(() => {
     if (!selectedTaskId && tasks.length > 0) {
       setSelectedTaskId(tasks[0].id)
     }
   }, [tasks, selectedTaskId])
-
-
-  const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
   useEffect(() => {
     fetchTasks();
@@ -73,26 +71,6 @@ export const TaskDashboard: React.FC = () => {
     return () => clearInterval(interval);
   }, [walletBalance, displayBalance]);
 
-  // Handle task completion savings refund
-  useEffect(() => {
-    const completedWithSavings = tasks.filter(t => 
-      t.status === 'completed' && 
-      t.settlement && // Ensure it's settled
-      (t as any).costBreakdown?.userSavings > 0 &&
-      !(t as any).refunded // We'll need to track this locally or via a ref to avoid infinite loops if the store doesn't persist it
-    );
-
-    if (completedWithSavings.length > 0) {
-      completedWithSavings.forEach(t => {
-        if (!refundedTaskIds.has(t.id)) {
-          const savings = (t as any).costBreakdown?.userSavings || 0;
-          console.log(`[REFUND] Returning $${savings} for task ${t.id}`);
-          setWalletBalance(prev => prev + savings);
-          setRefundedTaskIds(prev => new Set(prev).add(t.id));
-        }
-      });
-    }
-  }, [tasks, refundedTaskIds]);
 
 
 
@@ -102,15 +80,16 @@ export const TaskDashboard: React.FC = () => {
       if (res.ok) {
         const agentList = await res.json();
         setAgents(agentList);
-        
-        // Dashboard balance tracks the primary mission funding pool
-        const orchestrator = agentList.find((a: Agent) => a.id === 'crypto-scout-x');
-        if (orchestrator && (walletBalance === 0 || walletBalance === 5.00)) {
-          setWalletBalance(orchestrator.wallet);
-        }
+      }
+
+      // Fetch Global User Wallet (Independent of agents)
+      const userRes = await fetch('/api/user/wallet');
+      if (userRes.ok) {
+        const { balance } = await userRes.json();
+        setWalletBalance(balance);
       }
     } catch (err) {
-      console.error('Failed to fetch agents:', err);
+      console.error('Failed to fetch user state:', err);
     }
   };
 
@@ -193,8 +172,6 @@ export const TaskDashboard: React.FC = () => {
       {/* Top Navigation Bar */}
       <Header 
         displayBalance={displayBalance} 
-        onToggleMobileMenu={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-        isMobileMenuOpen={isMobileMenuOpen}
       />
 
 
@@ -350,85 +327,7 @@ export const TaskDashboard: React.FC = () => {
         <div className="absolute bottom-[-10%] right-[-10%] w-[50%] h-[50%] bg-purple-600/10 rounded-full blur-[150px]" />
       </div>
 
-      {/* Mobile Side Drawer - Placed at root for highest stacking context */}
-      <AnimatePresence>
-        {isMobileMenuOpen && (
-          <>
-            {/* Backdrop */}
-            <motion.div
-              initial={{ opacity: 0 }}
-              animate={{ opacity: 1 }}
-              exit={{ opacity: 0 }}
-              onClick={() => setIsMobileMenuOpen(false)}
-              className="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-[150] lg:hidden"
-            />
-            
-            {/* Drawer */}
-            <motion.div
-              initial={{ x: '-100%' }}
-              animate={{ x: 0 }}
-              exit={{ x: '-100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="fixed inset-y-0 left-0 w-[280px] bg-slate-950 border-r border-white/10 z-[200] lg:hidden shadow-2xl"
-            >
-              <div className="p-6 h-full flex flex-col gap-8 overflow-y-auto custom-scrollbar">
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <img src="/icon.png" alt="SwarmPay" className="w-8 h-8" />
-                    <span className="font-black text-xs uppercase tracking-widest text-white">SwarmPay</span>
-                  </div>
-                  <button onClick={() => setIsMobileMenuOpen(false)}>
-                    <X className="w-5 h-5 text-slate-500" />
-                  </button>
-                </div>
 
-                <div className="space-y-4">
-                  {[
-                    { icon: Boxes, label: 'Marketplace' },
-                    { icon: Shield, label: 'Security' },
-                    { icon: Users, label: 'Agents' },
-                    { icon: Activity, label: 'Network Stats' },
-                  ].map((item, i) => (
-                    <div key={i} className="flex items-center gap-4 text-xs font-black text-slate-400 uppercase tracking-widest hover:text-blue-400 transition-colors cursor-pointer group">
-                      <item.icon className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                      {item.label}
-                    </div>
-                  ))}
-                </div>
-                
-                <div className="pt-8 border-t border-white/5">
-                  <h3 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.2em] mb-4">Mission History</h3>
-                  <div className="flex flex-col gap-2 pr-2">
-                    {tasks.filter(t => !t.parentTaskId && t.prompt && t.prompt.trim().length > 0).map(t => (
-                      <button 
-                        key={t.id}
-                        onClick={() => {
-                          setSelectedTaskId(t.id);
-                          setIsMobileMenuOpen(false);
-                        }}
-                        className={`flex items-center justify-between p-3 rounded-xl border transition-all text-left
-                          ${selectedTaskId === t.id ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 'bg-white/5 border-transparent text-slate-400'}
-                        `}
-                      >
-                        <span className="text-[11px] font-bold truncate pr-4">{t.prompt}</span>
-                        <span className="text-[9px] font-mono opacity-60">#{t.id.slice(0,4)}</span>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                <div className="mt-auto pt-6 border-t border-white/5">
-                    <div className="flex items-center gap-2">
-                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-                      <span className="text-[10px] text-slate-400 font-black tracking-widest uppercase">Node Online</span>
-                    </div>
-                    <div className="mt-2 text-[10px] font-mono font-bold text-slate-600">v1.2.4-stable</div>
-                </div>
-              </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
 
       {/* Budget Approval Modal */}
       {pendingTask && (
