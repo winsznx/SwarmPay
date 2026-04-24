@@ -88,7 +88,7 @@ export async function runAutonomousPipeline(task: Task) {
     // Final update for Phase 1
     await store.updateTask(task.id, { bids, currentBids: bids });
     await store.logPipelineStep(task.id, 'Phase 1: Auto Bidding War', 'completed', `Bidding war closed. ${bids.length} nodes received.`);
-    await delay(300); // Short pause before selection
+    await delay(2000); // Hold bidding state for UI visibility
 
     // ── Phase 2: Select winner ───────────────────────────────────────────────
     await store.logPipelineStep(task.id, 'Phase 2: Auto-Select Winner', 'pending', 'Ranking bids based on reputation, price, and latency.');
@@ -112,7 +112,7 @@ export async function runAutonomousPipeline(task: Task) {
     });
     
     // Deliberate delay for UI to show assigned
-    await delay(800);
+    await delay(2000);
 
     // ── Phase 3: Start executing ─────────────────────────────────────────────
     await store.updateTask(task.id, { status: 'executing' });
@@ -246,8 +246,8 @@ export async function runAutonomousPipeline(task: Task) {
           taskId: task.id,
           type: 'payment:intent',
           id: intent.id,
-          fromAgent: intent.fromAgentName ?? store.getAgent(intent.fromAgentId)?.name ?? intent.fromAgentId,
-          toAgent: intent.toAgentName ?? store.getAgent(intent.toAgentId)?.name ?? intent.toAgentId,
+          fromAgent: fromAgent.name,
+          toAgent: toAgentObj.name,
           amount: intent.amount,
           timestamp: Date.now()
         });
@@ -428,8 +428,8 @@ export async function runInitialBiddingWar(task: Task) {
   const bids: any[] = [];
   
   for (const name of agentNames) {
-    // Burst bids
-    await delay(400); 
+    // Burst bids - slowed for UI polling catch
+    await delay(800); 
     const amount = parseFloat((task.budget * (0.55 + Math.random() * 0.30)).toFixed(4));
     const bid = {
       id: Math.random().toString(36).substring(7), 

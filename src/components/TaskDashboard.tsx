@@ -55,7 +55,7 @@ export const TaskDashboard: React.FC = () => {
     const interval = setInterval(() => {
       fetchTasks();
       fetchAgents();
-    }, 800);
+    }, 500);
     return () => clearInterval(interval);
   }, []);
 
