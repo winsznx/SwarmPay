@@ -85,22 +85,25 @@ export async function runAutonomousPipeline(task: Task) {
     // Generate bids during this window - they will be added one by one
     const bids = await runInitialBiddingWar(task);
     
-    // Final update for Phase 1
+    // Final update for Phase 1 - hold the full market view
     await store.updateTask(task.id, { bids, currentBids: bids });
-    await store.logPipelineStep(task.id, 'Phase 1: Auto Bidding War', 'completed', `Bidding war closed. ${bids.length} nodes received.`);
-    await delay(2000); // Hold bidding state for UI visibility
+    await store.logPipelineStep(task.id, 'Phase 1: Auto Bidding War', 'completed', `Bidding war closed. ${bids.length} agents analyzed and submitted proposals.`);
+    await delay(3500); // UI breathing room
 
     // ── Phase 2: Select winner ───────────────────────────────────────────────
-    await store.logPipelineStep(task.id, 'Phase 2: Auto-Select Winner', 'pending', 'Ranking bids based on reputation, price, and latency.');
+    await store.logPipelineStep(task.id, 'Phase 2: Winning Bid Selection', 'pending', 'Autonomous auction resolver ranking bids by Price, Reputation, and Estimated Latency.');
+    await delay(2000); // Visualizing the 'Selection' thinking process
+    
     const winnerBid = await store.selectWinningBid(task.id);
     const winner = (await store.getAgents()).find(a => a.id === winnerBid.bid.agentId);
     
     if (!winner) {
-      await store.logPipelineStep(task.id, 'Phase 2: Auto-Select Winner', 'failed', 'Auction failed to resolve a viable winner.');
+      await store.logPipelineStep(task.id, 'Phase 2: Winning Bid Selection', 'failed', 'Auction failed to resolve a viable winner.');
       await store.updateTask(task.id, { status: 'failed' });
       return;
     }
 
+    await store.logPipelineStep(task.id, 'Phase 2: Winning Bid Selection', 'completed', `Swarm winner identified: ${winner.name} (Lead Agent). Finalizing allocation.`);
     await store.assignWinningBid(task.id); 
     const updatedTask = await store.getTask(task.id) as Task;
     
@@ -110,9 +113,11 @@ export async function runAutonomousPipeline(task: Task) {
       winningBid: winnerBid.bid.id,
       winningBidId: winnerBid.bid.id
     });
+    // Atomic persistence of assigned state
+    await saveTaskToSupabase(await store.getTask(task.id));
     
-    // Deliberate delay for UI to show assigned
-    await delay(2000);
+    // Deliberate delay for UI to show winner selection
+    await delay(3000);
 
     // ── Phase 3: Start executing ─────────────────────────────────────────────
     await store.updateTask(task.id, { status: 'executing' });
@@ -424,12 +429,15 @@ async function runDirectExecution(task: Task, agent: Agent) {
 }
 
 export async function runInitialBiddingWar(task: Task) {
-  const agentNames = ['CryptoScout-X', 'Research-Alpha', 'DataMiner-Pro'];
+  const agentNames = [
+    'CryptoScout-X', 'Research-Alpha', 'DataMiner-Pro', 
+    'Parser-X', 'Analysis-Node', 'Compute-Grid-4'
+  ];
   const bids: any[] = [];
   
   for (const name of agentNames) {
-    // Burst bids - slowed for UI polling catch
-    await delay(800); 
+    // Burst bids - slightly faster arrival but more of them
+    await delay(600); 
     const amount = parseFloat((task.budget * (0.55 + Math.random() * 0.30)).toFixed(4));
     const bid = {
       id: Math.random().toString(36).substring(7), 

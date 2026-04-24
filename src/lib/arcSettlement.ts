@@ -46,7 +46,7 @@ function mockSettlement(
   console.log('[ARC] Mock settlement — hash:', mockHash)
   return {
     txHash: mockHash,
-    explorerUrl: `https://explorer.arc.io/tx/${mockHash}`,
+    explorerUrl: `https://testnet.arcscan.app/tx/${mockHash}`,
     intentsSettled: paymentIntents.length,
     totalAmount: paymentIntents.reduce((sum, p) => sum + p.amount, 0),
     gasCost: 0.0006

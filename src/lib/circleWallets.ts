@@ -125,7 +125,7 @@ export async function batchSettleOnArc(
   if (!txHash) return null
   
   const explorerUrl = txHash.startsWith('0x')
-    ? `https://explorer.arc.io/tx/${txHash}`
+    ? `https://testnet.arcscan.app/tx/${txHash}`
     : `https://app.circle.com/transactions/${txHash}`
 
   return {
