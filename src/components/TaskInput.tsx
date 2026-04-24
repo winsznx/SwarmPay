@@ -39,6 +39,17 @@ export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
     }
   };
 
+  const getMinBudget = (p: string): number => {
+    const words = p.trim().split(' ').length;
+    const hasComplexKeywords = /analyz|research|compar|invest|strateg|market|crypto|defi|blockchain|predict|forecast|explain|comprehensive|detailed/i.test(p);
+    if (words <= 5 && !hasComplexKeywords) return 0.05;
+    if (words <= 10 || !hasComplexKeywords) return 0.10;
+    return 0.20;
+  };
+
+  const minBudget = getMinBudget(prompt);
+  const budgetTooLow = budget !== '' && budget < minBudget;
+
   return (
     <div className="w-full">
       <form onSubmit={handleSubmit} className="space-y-4 md:space-y-6">
@@ -54,27 +65,34 @@ export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
         </div>
         
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 md:gap-6">
-          <div className="flex-1 flex items-center bg-[#0a0f1e] border border-white/5 rounded-2xl px-3 md:px-5 py-2.5 md:py-3.5 group focus-within:border-blue-500/30 transition-all">
-            <DollarSign className="w-3.5 h-3.5 text-blue-500/60 mr-2" />
-            <input
-              type="number"
-              step="0.01"
-              value={budget}
-              onChange={(e) => setBudget(e.target.value === '' ? '' : parseFloat(e.target.value))}
-              className="bg-transparent text-slate-100 focus:outline-none w-full text-base font-mono font-bold"
-              placeholder="0.30"
-
-              required
-            />
-            <span className="text-[9px] md:text-[10px] font-black text-slate-600 uppercase ml-2 tracking-widest whitespace-nowrap">
-              USDC <span className="hidden xs:inline">Allocated</span>
-            </span>
+          <div className="flex-1 flex flex-col">
+            <div className={`flex items-center bg-[#0a0f1e] border rounded-2xl px-3 md:px-5 py-2.5 md:py-3.5 group focus-within:border-blue-500/30 transition-all ${budgetTooLow ? 'border-amber-500/50' : 'border-white/5'}`}>
+              <DollarSign className="w-3.5 h-3.5 text-blue-500/60 mr-2" />
+              <input
+                type="number"
+                step="0.01"
+                value={budget}
+                onChange={(e) => setBudget(e.target.value === '' ? '' : parseFloat(e.target.value))}
+                className="bg-transparent text-slate-100 focus:outline-none w-full text-base font-mono font-bold"
+                placeholder="0.30"
+                required
+              />
+              <span className="text-[9px] md:text-[10px] font-black text-slate-600 uppercase ml-2 tracking-widest whitespace-nowrap">
+                USDC <span className="hidden xs:inline">Allocated</span>
+              </span>
+            </div>
+            <p className={`text-[9px] md:text-[10px] font-bold mt-2 ml-1 uppercase tracking-tight transition-colors ${budgetTooLow ? 'text-amber-400' : 'text-slate-600'}`}>
+              {budgetTooLow 
+                ? `⚠ Minimum $${minBudget.toFixed(2)} USDC required for this complexity`
+                : `Suggested minimum: $${minBudget.toFixed(2)} USDC`
+              }
+            </p>
           </div>
 
           <button
             type="submit"
-            disabled={isSubmitting || !prompt.trim() || !budget}
-            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 md:px-8 md:py-3.5 bg-blue-600 hover:bg-blue-500 text-white text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-900/40 group active:scale-95"
+            disabled={isSubmitting || !prompt.trim() || budget === '' || budget < minBudget}
+            className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 md:px-8 md:py-3.5 bg-blue-600 hover:bg-blue-500 text-white text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-900/40 group active:scale-95 self-start sm:self-center"
           >
             {isSubmitting ? (
               <span className="flex items-center gap-2">

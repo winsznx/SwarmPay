@@ -18,9 +18,20 @@ const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
  */
 export async function runAutonomousPipeline(task: Task) {
   try {
-    await store.updateTask(task.id, { status: 'executing' });
+    // await store.updateTask(task.id, { status: 'executing' }); // REMOVED: Bidding comes first
     console.log(`\n[START] [PIPELINE] Starting autonomous pipeline for task: "${task.prompt.slice(0, 40)}..."`);
-    await store.logPipelineStep(task.id, 'Initialization', 'completed', 'Mission lifecycle started, refreshing agent telemetry.');
+    
+    // Safety Net: Build Effective Budget based on complexity (5c / 10c / 20c)
+    const words = task.prompt.trim().split(' ').length;
+    const hasComplexKeywords = /analyz|research|compar|invest|strateg|market|crypto|defi|blockchain|predict|forecast|explain|comprehensive|detailed/i.test(task.prompt);
+    
+    let minBudget = 0.20;
+    if (words <= 5 && !hasComplexKeywords) minBudget = 0.05;
+    else if (words <= 10 || !hasComplexKeywords) minBudget = 0.10;
+    
+    const effectiveBudget = Math.max(task.budget || 0, minBudget);
+    
+    await store.logPipelineStep(task.id, 'Initialization', 'completed', `Mission lifecycle started. Verified effective budget: $${effectiveBudget.toFixed(2)}.`);
     
     // Refresh balances at start
     await store.refreshAgentWallets();
@@ -36,9 +47,9 @@ export async function runAutonomousPipeline(task: Task) {
     const complexity: 'LOW' | 'MEDIUM' | 'HIGH' = wordCount <= 4 ? 'LOW' : wordCount <= 8 ? 'MEDIUM' : 'HIGH';
 
     // Recalculate cost breakdown early
-    const platformFee = parseFloat((task.budget * 0.10).toFixed(6));
+    const platformFee = parseFloat((effectiveBudget * 0.10).toFixed(6));
     const EFFICIENCY_RATIO = 0.75 + (Math.random() * 0.13); // 75-88%
-    const spendable = parseFloat((task.budget * EFFICIENCY_RATIO - platformFee).toFixed(6));
+    const spendable = parseFloat((effectiveBudget * EFFICIENCY_RATIO - platformFee).toFixed(6));
 
     // Split spendable budget across categories
     const research     = parseFloat((spendable * 0.30).toFixed(6));
@@ -48,15 +59,15 @@ export async function runAutonomousPipeline(task: Task) {
     const agentMargins = parseFloat((spendable * 0.31).toFixed(6));
 
     const totalCost = parseFloat((research + cleaning + analysis + compute + agentMargins + platformFee).toFixed(6));
-    const userSavings = parseFloat(Math.max(0, task.budget - totalCost).toFixed(6));
-    const savingsPercent = Math.round((userSavings / task.budget) * 100);
+    const userSavings = parseFloat(Math.max(0, effectiveBudget - totalCost).toFixed(6));
+    const savingsPercent = Math.round((userSavings / effectiveBudget) * 100);
 
     const startBalance = await store.getUserWallet();
 
     await store.updateTask(task.id, { 
       status: 'bidding',
       complexity,
-      budget: task.budget,
+      budget: effectiveBudget,
       agentCount: appraisal?.suggestedAgents || 4,
       costBreakdown: { 
         research, cleaning, analysis, compute, agentMargins, platformFee, 
@@ -65,7 +76,7 @@ export async function runAutonomousPipeline(task: Task) {
       }
     });
 
-    await store.logPipelineStep(task.id, 'Phase 0: Intelligence Appraisal', 'completed', `Mission Cost locked: $${totalCost.toFixed(4)} | Complexity: ${complexity} | Budget: $${task.budget}`);
+    await store.logPipelineStep(task.id, 'Phase 0: Intelligence Appraisal', 'completed', `Mission Cost locked: $${totalCost.toFixed(4)} | Complexity: ${complexity} | Budget: $${effectiveBudget}`);
 
     // ── Phase 1: Set bidding status and wait ─────────────────────────────────
     await store.updateTask(task.id, { status: 'bidding', bids: [], currentBids: [] });
