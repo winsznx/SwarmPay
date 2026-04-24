@@ -75,6 +75,8 @@ export async function runAutonomousPipeline(task: Task) {
         initialBalance: startBalance
       }
     });
+    // Persist appraisal results
+    await saveTaskToSupabase(await store.getTask(task.id));
 
     await store.logPipelineStep(task.id, 'Phase 0: Intelligence Appraisal', 'completed', `Mission Cost locked: $${totalCost.toFixed(4)} | Complexity: ${complexity} | Budget: $${effectiveBudget}`);
 
@@ -87,6 +89,7 @@ export async function runAutonomousPipeline(task: Task) {
     
     // Final update for Phase 1 - hold the full market view
     await store.updateTask(task.id, { bids, currentBids: bids });
+    await saveTaskToSupabase(await store.getTask(task.id));
     await store.logPipelineStep(task.id, 'Phase 1: Auto Bidding War', 'completed', `Bidding war closed. ${bids.length} agents analyzed and submitted proposals.`);
     await delay(3500); // UI breathing room
 
@@ -121,6 +124,7 @@ export async function runAutonomousPipeline(task: Task) {
 
     // ── Phase 3: Start executing ─────────────────────────────────────────────
     await store.updateTask(task.id, { status: 'executing' });
+    await saveTaskToSupabase(await store.getTask(task.id));
     await store.logPipelineStep(task.id, 'Phase 3: Task Decomposition', 'pending', 'Decomposing mission into atomic specialized sub-tasks.');
     await delay(300); // UI catch decomposition start
     
@@ -457,6 +461,9 @@ export async function runInitialBiddingWar(task: Task) {
     
     // Update task object in real-time so polling UI sees the new bids immediately
     await store.updateTask(task.id, { bids: [...bids], currentBids: [...bids] });
+    
+    // PERSISTENCE: Must save to Supabase every bit on Vercel so the polling dashboard sees the activity
+    await saveTaskToSupabase(await store.getTask(task.id));
   }
   return bids;
 }
