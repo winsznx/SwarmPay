@@ -1,20 +1,15 @@
-import { store } from '@/lib/store'
-import { NextResponse } from 'next/server'
+import { NextResponse } from 'next/server';
+import { getGlobalStats } from '@/lib/supabase';
+import { store } from '@/lib/store';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET() {
-  const tasks = await store.getAllTasks()
-  const completed = tasks.filter((t: any) => t.status === 'completed')
-  const payments = await store.getAllPayments()
-  const agents = await store.getAgents()
-
-  const totalSettled = completed.reduce((sum: number, t: any) =>
-    sum + (t.costBreakdown?.totalCost ?? 0), 0
-  )
-
+  const stats = await getGlobalStats();
+  const agents = await store.getAgents();
+  
   return NextResponse.json({
-    tasksCompleted: completed.length,
-    totalSettled: totalSettled.toFixed(4),
-    totalMicropayments: payments.length,
-    activeAgents: agents.filter((a: any) => a.available || true).length
-  })
+    ...stats,
+    activeAgents: agents.length
+  });
 }

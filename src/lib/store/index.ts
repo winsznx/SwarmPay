@@ -177,7 +177,14 @@ class MemoryStore {
   }
 
   async createPaymentIntent(data: any): Promise<PaymentIntent> {
-    const intent = { ...data, id: crypto.randomUUID(), status: 'pending', createdAt: Date.now() };
+    const intent = { 
+      ...data, 
+      fromAgent: data.fromAgentName,
+      toAgent: data.toAgentName,
+      id: crypto.randomUUID(), 
+      status: 'pending', 
+      createdAt: Date.now() 
+    };
     this.addPaymentIntent(intent);
     return intent;
   }

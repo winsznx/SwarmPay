@@ -1,10 +1,13 @@
+'use client';
+
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { Header } from '@/components/Header'
-import { store } from '@/lib/store'
-import { AgentRole } from '@/types'
+import { AgentRole, Agent } from '@/types'
 import { Users, Zap, TrendingUp, CheckCircle2, Clock, Brain, Search, Settings } from 'lucide-react'
+import { usePaymentStream } from '@/hooks/useWebSocket'
 
-const SERVICE_DESCRIPTIONS: Record<AgentRole, { title: string, tags: string[], priceFrom: string }> = {
+const SERVICE_DESCRIPTIONS: Record<string, { title: string, tags: string[], priceFrom: string }> = {
   orchestrator: {
     title: 'Task Orchestration & Coordination',
     tags: ['Multi-agent', 'Bid management', 'Result synthesis'],
@@ -52,15 +55,40 @@ const SERVICE_DESCRIPTIONS: Record<AgentRole, { title: string, tags: string[], p
   }
 }
 
+export default function MarketplacePage() {
+  const [agents, setAgents] = useState<Agent[]>([])
+  const [stats, setStats] = useState({
+    activeAgents: 6,
+    completedTasks: 0,
+    totalSettled: 0,
+    avgGas: 0.0006
+  })
+  const [isLoading, setIsLoading] = useState(true)
 
-export default async function MarketplacePage() {
-  const agents = await store.getAgents();
-  const tasks = await store.getTasks();
-  const totalSettled = agents.reduce((acc: number, a: any) => acc + (a.totalEarned || 0), 0);
+  // Global payment stream (non-task specific)
+  const { payments } = usePaymentStream('global')
 
-  
-  // Recent payments
-  const payments = (store as any).getPaymentsForTask ? await store.getPaymentsForTask('') : [];
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const [agentsRes, statsRes] = await Promise.all([
+          fetch('/api/agents'),
+          fetch('/api/stats')
+        ])
+        
+        if (agentsRes.ok) setAgents(await agentsRes.json())
+        if (statsRes.ok) setStats(await statsRes.json())
+      } catch (err) {
+        console.error('Marketplace fetch error:', err)
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    fetchData()
+    const interval = setInterval(fetchData, 10000) // Refresh every 10s
+    return () => clearInterval(interval)
+  }, [])
 
   return (
     <div className="min-h-screen bg-[#020617] flex flex-col text-slate-100 selection:bg-blue-500/30">
@@ -76,13 +104,11 @@ export default async function MarketplacePage() {
         {/* Stats Section */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
             {[
-                { label: 'Active Agents', value: agents.length, icon: <Users className="w-4 h-4" /> },
-                { label: 'Tasks Completed', value: tasks.filter((t: any) => (t as any).status === 'completed').length, icon: <CheckCircle2 className="w-4 h-4" /> },
-
-                { label: 'Total USDC Settled', value: `$${totalSettled.toFixed(4)}`, icon: <TrendingUp className="w-4 h-4" /> },
-                { label: 'Avg Gas / Task', value: '$0.0006', icon: <Zap className="w-4 h-4 text-blue-400" /> },
+                { label: 'Active Agents', value: stats.activeAgents, icon: <Users className="w-4 h-4" /> },
+                { label: 'Tasks Completed', value: stats.completedTasks, icon: <CheckCircle2 className="w-4 h-4" /> },
+                { label: 'Total USDC Settled', value: `$${stats.totalSettled.toFixed(4)}`, icon: <TrendingUp className="w-4 h-4" /> },
+                { label: 'Avg Gas / Task', value: `$${stats.avgGas.toFixed(4)}`, icon: <Zap className="w-4 h-4 text-blue-400" /> },
             ].map((stat: any) => (
-
                 <div key={stat.label} className="p-6 bg-slate-900/30 border border-white/5 rounded-[2rem] group hover:border-blue-500/20 transition-all">
                     <div className="flex items-center gap-3 text-slate-500 mb-3 group-hover:text-blue-400 transition-colors">
                         {stat.icon}
@@ -98,46 +124,51 @@ export default async function MarketplacePage() {
             <div className="lg:col-span-2">
                 <h2 className="text-[10px] font-black text-slate-500 uppercase tracking-[0.3em] mb-6">Available Services</h2>
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                    {agents.map((agent: any) => {
-                        const service = SERVICE_DESCRIPTIONS[agent.role as AgentRole] || SERVICE_DESCRIPTIONS.orchestrator;
-                        return (
-                            <Link 
-                                href="/dashboard" 
-                                key={agent.id}
-                                className="group p-6 bg-slate-900/50 border border-white/5 rounded-[2.5rem] hover:border-white/10 hover:bg-slate-900/80 transition-all flex flex-col h-full"
-                            >
-                                <div className="flex items-center justify-between mb-6">
-                                    <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center animate-pulse group-hover:animate-none group-hover:scale-110 transition-transform">
-                                        {agent.role === 'orchestrator' ? <Brain className="w-6 h-6 text-white" /> : agent.role === 'research' ? <Search className="w-6 h-6 text-white" /> : <Settings className="w-6 h-6 text-white" />}
+                    {isLoading ? (
+                         Array(6).fill(0).map((_, i) => (
+                            <div key={i} className="h-[280px] bg-white/5 border border-white/5 rounded-[2.5rem] animate-pulse" />
+                         ))
+                    ) : (
+                        agents.map((agent: any) => {
+                            const service = SERVICE_DESCRIPTIONS[agent.role] || SERVICE_DESCRIPTIONS.orchestrator;
+                            return (
+                                <Link 
+                                    href="/dashboard" 
+                                    key={agent.id}
+                                    className="group p-6 bg-slate-900/50 border border-white/5 rounded-[2.5rem] hover:border-white/10 hover:bg-slate-900/80 transition-all flex flex-col h-full"
+                                >
+                                    <div className="flex items-center justify-between mb-6">
+                                        <div className="w-12 h-12 rounded-2xl bg-white/5 border border-white/10 flex items-center justify-center group-hover:scale-110 transition-transform">
+                                            {agent.role.includes('planning') || agent.role.includes('orchestrator') ? <Brain className="w-6 h-6 text-white" /> : agent.role.includes('research') ? <Search className="w-6 h-6 text-white" /> : <Settings className="w-6 h-6 text-white" />}
+                                        </div>
+                                        <div className="flex flex-col items-end">
+                                            <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pricing From</p>
+                                            <p className="text-xl font-mono font-black text-blue-400">{service.priceFrom}</p>
+                                        </div>
                                     </div>
-                                    <div className="flex flex-col items-end">
-                                        <p className="text-[9px] font-black text-slate-500 uppercase tracking-widest mb-1">Pricing From</p>
-                                        <p className="text-xl font-mono font-black text-blue-400">{service.priceFrom}</p>
+
+                                    <h3 className="text-lg font-black text-white mb-2 leading-tight">{service.title}</h3>
+                                    <p className="text-xs text-slate-500 mb-6 font-medium leading-relaxed">Operated by <span className="text-slate-300">@{agent.name}</span></p>
+
+                                    <div className="flex flex-wrap gap-2 mb-8">
+                                        {service.tags.map((tag: string) => (
+                                            <span key={tag} className="px-3 py-1 bg-white/5 border border-white/5 rounded-full text-[9px] font-black text-slate-400 uppercase tracking-wider">{tag}</span>
+                                        ))}
                                     </div>
-                                </div>
 
-                                <h3 className="text-lg font-black text-white mb-2 leading-tight">{service.title}</h3>
-                                <p className="text-xs text-slate-500 mb-6 font-medium leading-relaxed">Operated by <span className="text-slate-300">@{agent.name}</span></p>
-
-                                <div className="flex flex-wrap gap-2 mb-8">
-                                    {service.tags.map((tag: string) => (
-                                        <span key={tag} className="px-3 py-1 bg-white/5 border border-white/5 rounded-full text-[9px] font-black text-slate-400 uppercase tracking-wider">{tag}</span>
-                                    ))}
-                                </div>
-
-
-                                <div className="mt-auto flex items-center justify-between pt-6 border-t border-white/5">
-                                    <div className="flex items-center gap-2">
-                                        <div className={`w-1.5 h-1.5 rounded-full ${agent.available ? 'bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]' : 'bg-slate-600'}`} />
-                                        <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">{agent.available ? 'Available' : 'Busy'}</span>
+                                    <div className="mt-auto flex items-center justify-between pt-6 border-t border-white/5">
+                                        <div className="flex items-center gap-2">
+                                            <div className={`w-1.5 h-1.5 rounded-full bg-green-500 shadow-[0_0_8px_rgba(34,197,94,0.4)]`} />
+                                            <span className="text-[10px] font-black text-slate-500 uppercase tracking-widest">Available</span>
+                                        </div>
+                                        <div className="flex items-center gap-2 text-[10px] font-black text-blue-500 uppercase tracking-widest group-hover:translate-x-1 transition-transform">
+                                            Hire Agent →
+                                        </div>
                                     </div>
-                                    <div className="flex items-center gap-2 text-[10px] font-black text-blue-500 uppercase tracking-widest group-hover:translate-x-1 transition-transform">
-                                        Hire Agent →
-                                    </div>
-                                </div>
-                            </Link>
-                        );
-                    })}
+                                </Link>
+                            );
+                        })
+                    )}
                 </div>
             </div>
 
@@ -154,21 +185,21 @@ export default async function MarketplacePage() {
                                 <p className="text-[10px] font-black text-slate-600 uppercase tracking-[0.2em]">Waiting for economic activity...</p>
                             </div>
                         ) : (
-                            payments.slice(0, 15).map((p: any) => (
+                            payments.map((p: any) => (
                                 <div key={p.id} className="group border-b border-white/5 last:border-0 pb-6 last:pb-0 animate-in fade-in slide-in-from-right-4 duration-500">
                                     <div className="flex items-center justify-between mb-2">
                                         <div className="flex items-center gap-2">
-                                            <span className="text-[10px] font-black text-slate-500 truncate max-w-[80px] uppercase">@{p.fromAgentName}</span>
+                                            <span className="text-[10px] font-black text-slate-500 truncate max-w-[80px] uppercase">@{p.fromAgentName || p.fromAgent}</span>
                                             <span className="text-slate-800 text-[10px]">→</span>
-                                            <span className="text-[10px] font-black text-slate-500 truncate max-w-[80px] uppercase">@{p.toAgentName}</span>
+                                            <span className="text-[10px] font-black text-slate-500 truncate max-w-[80px] uppercase">@{p.toAgentName || p.toAgent}</span>
                                         </div>
                                         <span className="text-[11px] font-mono font-black text-green-400">+${p.amount.toFixed(4)}</span>
                                     </div>
                                     <div className="flex items-center gap-2">
                                         <div className="px-2 py-0.5 bg-blue-500/10 rounded-md">
-                                            <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest">x402 protocol</p>
+                                            <p className="text-[8px] font-black text-blue-400 uppercase tracking-widest">Nanopayment</p>
                                         </div>
-                                        <p className="text-[8px] text-slate-600 font-mono">{(p as any).id.slice(0, 8)}</p>
+                                        <p className="text-[8px] text-slate-600 font-mono italic">Settlement On Chain</p>
                                     </div>
                                 </div>
                             ))

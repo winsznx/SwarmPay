@@ -21,7 +21,7 @@ export async function GET(req: NextRequest) {
 
       // Event handlers
       const handlePayment = (p: any) => {
-        if (!taskId || p.taskId === taskId) send({ type: 'payment:intent', ...p });
+        if (!taskId || taskId === 'global' || p.taskId === taskId) send({ type: 'payment:intent', ...p });
       };
       const handleTaskDone = (t: any) => {
         if (!taskId || t.taskId === taskId) send({ type: 'task:completed', ...t });

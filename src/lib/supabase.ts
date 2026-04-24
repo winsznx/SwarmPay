@@ -108,3 +108,29 @@ export async function loadPaymentsFromSupabase(taskId: string): Promise<any[]> {
     return []
   }
 }
+
+export async function getGlobalStats() {
+  if (!supabase) return { completedTasks: 0, totalSettled: 0, avgGas: 0.0006 };
+  try {
+    const { data: tasks, error } = await supabase
+      .from('tasks')
+      .select('status, settlement, cost_breakdown')
+      .eq('status', 'completed');
+    
+    if (error) throw error;
+
+    const completedTasks = tasks?.length || 0;
+    const totalSettled = tasks?.reduce((acc: number, t: any) => {
+      const settledAmt = t.settlement?.totalAmount || t.cost_breakdown?.totalCost || 0;
+      return acc + settledAmt;
+    }, 0) || 0;
+
+    return {
+      completedTasks,
+      totalSettled,
+      avgGas: 0.0006
+    };
+  } catch (e) {
+    return { completedTasks: 0, totalSettled: 0, avgGas: 0.0006 };
+  }
+}

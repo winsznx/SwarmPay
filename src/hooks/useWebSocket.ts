@@ -20,28 +20,21 @@ export function usePaymentStream(taskId: string | null | undefined) {
   useEffect(() => {
     if (!taskId) return;
 
-    // 1. Initial State Load (Catch-up)
-    // Try reaching memory API first, then fallback to Supabase if empty or completed
-    fetch(`/api/tasks/${taskId}/payments`)
-      .then(res => res.ok ? res.json() : [])
-      .then(data => {
-        if (data && data.length > 0) {
-          setPayments(data);
-        } else {
-          // Fallback to Supabase for historical/completed tasks
-          loadPaymentsFromSupabase(taskId).then(supabasePayments => {
-            if (supabasePayments.length > 0) {
-              setPayments(supabasePayments);
-            }
-          }).catch(() => {});
-        }
-      })
-      .catch(err => {
-        console.error('[SSE] Initial fetch failed, trying Supabase fallback:', err);
-        loadPaymentsFromSupabase(taskId).then(supabasePayments => {
-           if (supabasePayments.length > 0) setPayments(supabasePayments);
-        }).catch(() => {});
-      });
+    if (taskId !== 'global') {
+      // 1. Initial State Load (Catch-up) - only for specific tasks
+      fetch(`/api/tasks/${taskId}/payments`)
+        .then(res => res.ok ? res.json() : [])
+        .then(data => {
+          if (data && data.length > 0) {
+            setPayments(data);
+          } else {
+            loadPaymentsFromSupabase(taskId).then(supabasePayments => {
+              if (supabasePayments.length > 0) setPayments(supabasePayments);
+            }).catch(() => {});
+          }
+        })
+        .catch(() => {});
+    }
 
     // 2. Initialize EventSource for real-time stream
     const url = `/api/stream?taskId=${taskId}`;
@@ -67,8 +60,8 @@ export function usePaymentStream(taskId: string | null | undefined) {
             
             return [{
               id,
-              fromAgent: data.fromAgent ?? 'Agent',
-              toAgent: data.toAgent ?? 'Node',
+              fromAgent: data.fromAgentName ?? data.fromAgent ?? 'Agent',
+              toAgent: data.toAgentName ?? data.toAgent ?? 'Node',
               amount: data.amount ?? 0,
               timestamp: data.timestamp ?? Date.now()
             }, ...prev].filter(p => p.amount > 0).slice(0, 50);
