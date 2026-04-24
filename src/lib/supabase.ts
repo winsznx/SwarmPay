@@ -1,13 +1,15 @@
 import { createClient } from '@supabase/supabase-js'
 
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || 'https://placeholder.supabase.co'
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || 'placeholder-key'
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-export const supabase = createClient(supabaseUrl, supabaseKey)
+export const supabase = (supabaseUrl && supabaseKey) 
+  ? createClient(supabaseUrl, supabaseKey) 
+  : null
 
 // Task persistence helpers
 export async function saveTaskToSupabase(task: any) {
-  if (!task) return;
+  if (!task || !supabase) return;
   try {
     const { error } = await supabase.from('tasks').upsert({
       id: task.id,
@@ -31,7 +33,7 @@ export async function saveTaskToSupabase(task: any) {
 }
 
 export async function savePaymentToSupabase(payment: any) {
-  if (!payment) return;
+  if (!payment || !supabase) return;
   try {
     const { error } = await supabase.from('payment_intents').upsert({
       id: payment.id,
@@ -51,6 +53,7 @@ export async function savePaymentToSupabase(payment: any) {
 }
 
 export async function loadTasksFromSupabase(): Promise<any[]> {
+  if (!supabase) return [];
   try {
     const { data, error } = await supabase
       .from('tasks')
@@ -85,6 +88,7 @@ export async function loadTasksFromSupabase(): Promise<any[]> {
 }
 
 export async function loadPaymentsFromSupabase(taskId: string): Promise<any[]> {
+  if (!supabase) return [];
   try {
     const { data, error } = await supabase
       .from('payment_intents')

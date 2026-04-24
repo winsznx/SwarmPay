@@ -112,12 +112,12 @@ export async function runAutonomousPipeline(task: Task) {
     });
     
     // Deliberate delay for UI to show assigned
-    await delay(2000);
+    await delay(1000);
 
     // ── Phase 3: Start executing ─────────────────────────────────────────────
     await store.updateTask(task.id, { status: 'executing' });
     await store.logPipelineStep(task.id, 'Phase 3: Task Decomposition', 'pending', 'Decomposing mission into atomic specialized sub-tasks.');
-    await delay(1500); // 1.5s for UI to catch decomposition start
+    await delay(800); // UI catch decomposition start
     
     const subTasks = await decomposeTask({ ...updatedTask, assignedAgentId: winner.id, status: 'executing' } as any, 0, winner.id);
     await store.updateTask(task.id, { subTaskIds: subTasks.map(st => st.id) });
@@ -125,7 +125,7 @@ export async function runAutonomousPipeline(task: Task) {
 
     if (subTasks.length > 0) {
       await store.logPipelineStep(task.id, 'Phase 3: Task Decomposition', 'completed', `Mission split into ${subTasks.length} nodes for parallel execution.`);
-      await delay(1000); // Cinematic pause
+      await delay(500); // Cinematic pause
 
       // ── Phase 4: Sub-Agent Bidding ───────────────────────────────────────
       await store.logPipelineStep(task.id, 'Phase 4: Sub-Agent Bidding', 'pending', 'Opening sub-markets for specialized network nodes.');
@@ -147,7 +147,7 @@ export async function runAutonomousPipeline(task: Task) {
 
     // ── Phase 6: Finalize (Guard Protocol) ──────────────────────────────────
     await store.logPipelineStep(task.id, 'Phase 6: Finalize (Guard Protocol)', 'pending', 'Initializing final mission validation and output synthesis.');
-    await delay(800); 
+    await delay(500); 
     
     // Refresh subTasks from store after execution
     const finalizedSubTasks = await store.getSubTasks(task.id);
