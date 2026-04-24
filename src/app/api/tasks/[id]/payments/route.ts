@@ -1,5 +1,8 @@
 import { NextResponse } from 'next/server';
 import { store } from '@/lib/store';
+import { loadPaymentsFromSupabase } from '@/lib/supabase';
+
+export const dynamic = 'force-dynamic';
 
 export async function GET(
   request: Request,
@@ -7,7 +10,14 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const payments = await store.getPaymentsForTask(id);
+    
+    // 1. Try Memory Store first (for live/local dev)
+    let payments = await store.getPaymentsForTask(id);
+    
+    // 2. If empty or on Vercel, fallback to Supabase
+    if (!payments || payments.length === 0) {
+      payments = await loadPaymentsFromSupabase(id);
+    }
     
     return NextResponse.json(payments, {
       headers: {

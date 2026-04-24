@@ -78,10 +78,32 @@ export function usePaymentStream(taskId: string | null | undefined) {
       setConnected(false);
     };
 
+    // 3. Fallback Polling (For Vercel Serverless instances where SSE EventEmitter might be isolated)
+    // We poll every 2s to ensure we get payments even if SSE fails to broadcast across instances
+    const pollInterval = setInterval(() => {
+      const pollUrl = taskId === 'global' ? '/api/payments/recent' : `/api/tasks/${taskId}/payments`;
+      fetch(pollUrl)
+        .then(res => res.ok ? res.json() : [])
+        .then(data => {
+          if (data && data.length > 0) {
+            setPayments(prev => {
+              // Merge and deduplicate
+              const merged = [...data];
+              prev.forEach(p => {
+                if (!merged.some(m => m.id === p.id)) merged.push(p);
+              });
+              return merged.sort((a, b) => b.timestamp - a.timestamp).slice(0, 50);
+            });
+          }
+        })
+        .catch(() => {});
+    }, 2500);
+
     return () => {
       console.log('[SSE] closing connection');
       es.close();
       setConnected(false);
+      clearInterval(pollInterval);
     };
   }, [taskId]);
 
