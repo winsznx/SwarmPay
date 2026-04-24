@@ -325,17 +325,17 @@ export async function runAutonomousPipeline(task: Task) {
       console.error('[SUPABASE] background save failed:', e)
     );
 
-    } catch (err) {
-    console.error('[PIPELINE FATAL ERROR]', (err as any).message);
+  } catch (err: any) {
+    console.error('[PIPELINE FATAL ERROR]', err.message);
     
     // PROBLEM: Emergency Failure Reset
     // Rule 5: User wasn't charged, so no refund needed.
     await store.logPipelineStep(task.id, 'Financial Safety', 'completed', 'Rule 5 Verification: No funds were deducted for failed mission.');
 
-    await store.logPipelineStep(task.id, 'Execution Breach', 'failed', (err as any).message);
+    await store.logPipelineStep(task.id, 'Execution Breach', 'failed', err.message);
     await store.updateTask(task.id, { 
       status: 'failed',
-      errorReason: `System Breach: ${(err as any).message || 'An unexpected execution error occurred.'}`
+      errorReason: `System Breach: ${err.message || 'An unexpected execution error occurred.'}`
     });
     // Save to Supabase
     saveTaskToSupabase(store.getTask(task.id)).catch(() => {});
