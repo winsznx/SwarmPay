@@ -88,7 +88,7 @@ export async function runAutonomousPipeline(task: Task) {
     // Final update for Phase 1
     await store.updateTask(task.id, { bids, currentBids: bids });
     await store.logPipelineStep(task.id, 'Phase 1: Auto Bidding War', 'completed', `Bidding war closed. ${bids.length} nodes received.`);
-    await delay(1000); // Short pause before selection
+    await delay(300); // Short pause before selection
 
     // ── Phase 2: Select winner ───────────────────────────────────────────────
     await store.logPipelineStep(task.id, 'Phase 2: Auto-Select Winner', 'pending', 'Ranking bids based on reputation, price, and latency.');
@@ -112,12 +112,12 @@ export async function runAutonomousPipeline(task: Task) {
     });
     
     // Deliberate delay for UI to show assigned
-    await delay(1000);
+    await delay(800);
 
     // ── Phase 3: Start executing ─────────────────────────────────────────────
     await store.updateTask(task.id, { status: 'executing' });
     await store.logPipelineStep(task.id, 'Phase 3: Task Decomposition', 'pending', 'Decomposing mission into atomic specialized sub-tasks.');
-    await delay(800); // UI catch decomposition start
+    await delay(300); // UI catch decomposition start
     
     const subTasks = await decomposeTask({ ...updatedTask, assignedAgentId: winner.id, status: 'executing' } as any, 0, winner.id);
     await store.updateTask(task.id, { subTaskIds: subTasks.map(st => st.id) });
@@ -125,18 +125,18 @@ export async function runAutonomousPipeline(task: Task) {
 
     if (subTasks.length > 0) {
       await store.logPipelineStep(task.id, 'Phase 3: Task Decomposition', 'completed', `Mission split into ${subTasks.length} nodes for parallel execution.`);
-      await delay(500); // Cinematic pause
+      await delay(200); // Cinematic pause
 
       // ── Phase 4: Sub-Agent Bidding ───────────────────────────────────────
       await store.logPipelineStep(task.id, 'Phase 4: Sub-Agent Bidding', 'pending', 'Opening sub-markets for specialized network nodes.');
       await runSubTaskBidding(task.id, subTasks, allAgents, winner);
       await store.logPipelineStep(task.id, 'Phase 4: Sub-Agent Bidding', 'completed', 'Sub-market auctions resolved. Network nodes allocated.');
-      await delay(1000);
+      await delay(300);
 
       // ── Phase 5: Sub-Task Execution ──────────────────────────────────────
       await store.logPipelineStep(task.id, 'Phase 5: Sub-Task Execution', 'pending', 'Triggering parallel mission execution across Arc nodes.');
       await runSubTaskExecution(task.id, subTasks, winner);
-      await delay(1000);
+      await delay(300);
     } else {
       await store.logPipelineStep(task.id, 'Direct Execution', 'pending', 'Routing to direct execution for low-complexity mission.');
       await runDirectExecution(task, winner);
@@ -147,7 +147,7 @@ export async function runAutonomousPipeline(task: Task) {
 
     // ── Phase 6: Finalize (Guard Protocol) ──────────────────────────────────
     await store.logPipelineStep(task.id, 'Phase 6: Finalize (Guard Protocol)', 'pending', 'Initializing final mission validation and output synthesis.');
-    await delay(500); 
+    await delay(200); 
     
     // Refresh subTasks from store after execution
     const finalizedSubTasks = await store.getSubTasks(task.id);
@@ -225,7 +225,7 @@ export async function runAutonomousPipeline(task: Task) {
     const PAYMENT_COUNT = Math.max(50, 50 + Math.floor(Math.random() * 15));
     let createdCount = 0;
     while (createdCount < PAYMENT_COUNT) {
-        await delay(50);
+        await delay(20);
         const fromAgent = agents[Math.floor(Math.random() * agents.length)];
         const toAgentObj = agents[Math.floor(Math.random() * agents.length)];
         
@@ -373,13 +373,13 @@ async function runSubTaskBidding(taskId: string, subTasks: SubTask[], agents: Ag
     await store.logPipelineStep(taskId, `Sub-Market: ${st.title}`, 'pending', `Sub-agent bids received for ${st.type} atomic node.`);
     
     // DELIBERATE DELAY so user can see the bidding state in the mission graph
-    await delay(1500); 
+    await delay(300); 
     
     // 3. Assign winner
     try { 
       await store.assignWinningBid(st.id); 
       // Delay to show assigned
-      await delay(800);
+      await delay(200);
     } catch (e) {}
   }
 }
@@ -428,9 +428,9 @@ export async function runInitialBiddingWar(task: Task) {
   const bids: any[] = [];
   
   for (const name of agentNames) {
-    // Force a 1.2s resonance delay between agent bids so they pop in UI
-    await delay(1500); 
-    const amount = parseFloat((task.budget * (0.6 + Math.random() * 0.3)).toFixed(4));
+    // Burst bids
+    await delay(400); 
+    const amount = parseFloat((task.budget * (0.55 + Math.random() * 0.30)).toFixed(4));
     const bid = {
       id: Math.random().toString(36).substring(7), 
       taskId: task.id,
