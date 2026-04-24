@@ -18,6 +18,7 @@ import { BudgetModal } from './BudgetModal';
 import { Header } from './Header';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
+import { loadTasksFromSupabase } from '@/lib/supabase';
 
 
 
@@ -26,44 +27,35 @@ export const TaskDashboard: React.FC = () => {
   const pathname = usePathname();
   const [tasks, setTasks] = useState<Task[]>([]);
   const [agents, setAgents] = useState<Agent[]>([]);
-  const [walletBalance, setWalletBalance] = useState(50.0);
-  const [displayBalance, setDisplayBalance] = useState(50.0);
+  const [walletBalance, setWalletBalance] = useState(0); 
+  const [displayBalance, setDisplayBalance] = useState(0);
   const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
   const [pendingTask, setPendingTask] = useState<{prompt: string, budget: number, parentTaskId?: string} | null>(null);
-
-  // Initialize from LocalStorage to prevent history loss on Vercel
-  useEffect(() => {
-    try {
-      const cachedTasks = localStorage.getItem('swarmpay_tasks_v2');
-      const cachedAgents = localStorage.getItem('swarmpay_agents_v2');
-      const cachedSelectedId = localStorage.getItem('swarmpay_selected_id_v2');
-      
-      if (cachedTasks) setTasks(JSON.parse(cachedTasks));
-      if (cachedAgents) setAgents(JSON.parse(cachedAgents));
-      if (cachedSelectedId) setSelectedTaskId(cachedSelectedId);
-    } catch (e) {}
-  }, []);
 
   useEffect(() => {
     if (!selectedTaskId && tasks.length > 0) {
       setSelectedTaskId(tasks[0].id)
     }
-    // Update LocalStorage cache whenever tasks change
-    if (tasks.length > 0) {
-      localStorage.setItem('swarmpay_tasks_v2', JSON.stringify(tasks));
-    }
-    if (selectedTaskId) {
-      localStorage.setItem('swarmpay_selected_id_v2', selectedTaskId);
-    }
   }, [tasks, selectedTaskId])
 
   useEffect(() => {
+    // Load persisted tasks from Supabase on page load
+    loadTasksFromSupabase().then(supabaseTasks => {
+      if (supabaseTasks.length > 0) {
+        setTasks(prev => {
+          const existingIds = new Set(prev.map(t => t.id));
+          const newTasks = supabaseTasks.filter(t => !existingIds.has(t.id));
+          return [...prev, ...newTasks].sort((a, b) => b.createdAt - a.createdAt);
+        });
+      }
+    }).catch(() => {});
+
     fetchTasks();
     fetchAgents();
     const interval = setInterval(() => {
       fetchTasks();
       fetchAgents();
-    }, 4000); // Polling for Vercel
+    }, 1000);
     return () => clearInterval(interval);
   }, []);
 
@@ -98,20 +90,18 @@ export const TaskDashboard: React.FC = () => {
       const res = await fetch('/api/agents');
       if (res.ok) {
         const agentList = await res.json();
-        // Only update if we actually got agents (prevents flickering)
-        if (agentList && agentList.length > 0) {
-          setAgents(agentList);
-          localStorage.setItem('swarmpay_agents_v2', JSON.stringify(agentList));
-        }
+        setAgents(agentList);
       }
 
       // Fetch Global User Wallet (Independent of agents)
       const userRes = await fetch('/api/user/wallet');
       if (userRes.ok) {
         const { balance } = await userRes.json();
-        if (balance !== undefined) setWalletBalance(balance);
+        setWalletBalance(balance);
       }
-    } catch (err) {}
+    } catch (err) {
+      console.error('Failed to fetch user state:', err);
+    }
   };
 
   const fetchTasks = async () => {
@@ -119,18 +109,33 @@ export const TaskDashboard: React.FC = () => {
       const response = await fetch('/api/tasks');
       if (response.ok) {
         const data = await response.json();
-        // DE-FLICKERING: Only update if the server actually returned tasks.
-        // Vercel cold starts often return [] because the in-memory store was reset.
         if (data && data.length > 0) {
-          setTasks(data);
+          setTasks(prev => {
+            // Deduplicate incoming data first
+            const uniqueIncoming = data.reduce((acc: any[], current: any) => {
+              if (!acc.find(item => item.id === current.id)) {
+                acc.push(current);
+              }
+              return acc;
+            }, []);
+            
+            const incomingIds = new Set(uniqueIncoming.map((t: any) => t.id));
+            const persistedOnly = prev.filter(t => !incomingIds.has(t.id));
+            return [...uniqueIncoming, ...persistedOnly].sort((a, b) => b.createdAt - a.createdAt);
+          });
         }
       }
-    } catch (error) {}
+    } catch (error) {
+      console.error('Failed to fetch tasks:', error);
+    }
   };
 
 
   const handleTaskCreated = (newTask: Task) => {
-    setTasks((prev) => [newTask, ...prev]);
+    setTasks((prev) => {
+      if (prev.some(t => t.id === newTask.id)) return prev;
+      return [newTask, ...prev];
+    });
     setSelectedTaskId(newTask.id);
   };
 

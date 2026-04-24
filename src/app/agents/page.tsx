@@ -3,9 +3,9 @@ import { Header } from '@/components/Header'
 import { store } from '@/lib/store'
 import { Trophy, Star, Zap, DollarSign, Activity, ChevronRight } from 'lucide-react'
 
-export default function AgentsPage() {
-  const agents = store.getAgents().sort((a: any, b: any) => (b.reputation || 0) - (a.reputation || 0));
-  const tasks = store.getTasks().filter((t: any) => t.status === 'completed');
+export default async function AgentsPage() {
+  const agents = (await store.getAgents()).sort((a: any, b: any) => (b.reputation || 0) - (a.reputation || 0));
+  const tasks = (await store.getTasks()).filter((t: any) => t.status === 'completed');
 
   
   const stats = [

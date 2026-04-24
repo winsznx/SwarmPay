@@ -15,21 +15,20 @@ export async function POST(
     }
 
     // Verify sub-task exists
-    const subTask = store.getTask(subTaskId); 
+    const subTask = await store.getTask(subTaskId); 
     if (!subTask) {
         return NextResponse.json({ error: 'Sub-task not found' }, { status: 404 });
     }
-    // Wait, I need a getSubTask method in store.
     
     const bidId = crypto.randomUUID();
-    store.addSubBid({
+    await store.addBid({
       id: bidId,
       subTaskId,
       agentId,
       price,
       estimatedTimeMs,
       createdAt: Date.now()
-    });
+    } as any);
 
     return NextResponse.json({ message: 'Sub-bid submitted', bidId });
   } catch (err: any) {

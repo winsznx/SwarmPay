@@ -8,7 +8,7 @@ export async function GET(request: Request) {
   const status = searchParams.get('status');
   const limit = parseInt(searchParams.get('limit') || '0');
   
-  let tasks = store.getTasks();
+  let tasks = await store.getTasks();
   
   if (status) {
     tasks = tasks.filter((t: any) => t.status === status);
@@ -45,6 +45,12 @@ export async function POST(request: Request) {
       savingsPercent: 0
     };
 
+    let depth = 0;
+    if (parentTaskId) {
+      const parentTask = await store.getTask(parentTaskId);
+      if (parentTask) depth = (parentTask.depth || 0) + 1;
+    }
+
     const newTask: Task = {
       id: crypto.randomUUID(),
       userId,
@@ -54,7 +60,7 @@ export async function POST(request: Request) {
       winningBid: null,
       assignedAgentId: null,
       subTaskIds: [],
-      depth: 0,
+      depth,
       result: null,
       costBreakdown: initialCostBreakdown,
       parentTaskId,
@@ -62,17 +68,11 @@ export async function POST(request: Request) {
       completedAt: null,
     };
 
-    store.createTask(newTask);
+    await store.createTask(newTask);
 
-    // DEDUCT budget from the USER'S wallet (not the lead agent)
-    const currentWallet = store.getUserWallet();
-    store.updateUserWallet(currentWallet - budget);
-    console.log(`[ECONOMY] User paid $${budget.toFixed(2)} for mission initialization. Balance: $${(currentWallet - budget).toFixed(2)}`);
-    
-    // 🎲 Initialize the market war SYNCHRONOUSLY 
-    // This ensures real bids exist before the UI first polls.
-    const { runInitialBiddingWar } = await import('@/lib/pipeline');
-    await runInitialBiddingWar(newTask);
+    // MISSION INTEGRITY: No upfront deduction allowed per RESTRICTED PROTOCOL rules.
+    // Charges occur ONLY on mission success or partial completion.
+    console.log(`[ECONOMY] Mission ${newTask.id} initialized. Pending execution completion.`);
     
     // 🚀 Fire and forget — the autonomous pipeline continues in the background.
     setImmediate(() => {

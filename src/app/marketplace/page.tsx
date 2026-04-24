@@ -53,14 +53,14 @@ const SERVICE_DESCRIPTIONS: Record<AgentRole, { title: string, tags: string[], p
 }
 
 
-export default function MarketplacePage() {
-  const agents = store.getAgents();
-  const tasks = store.getTasks();
+export default async function MarketplacePage() {
+  const agents = await store.getAgents();
+  const tasks = await store.getTasks();
   const totalSettled = agents.reduce((acc: number, a: any) => acc + (a.totalEarned || 0), 0);
 
   
   // Recent payments
-  const payments = (store as any).getPaymentsForTask ? store.getPaymentsForTask('') : [];
+  const payments = (store as any).getPaymentsForTask ? await store.getPaymentsForTask('') : [];
 
   return (
     <div className="min-h-screen bg-[#020617] flex flex-col text-slate-100 selection:bg-blue-500/30">

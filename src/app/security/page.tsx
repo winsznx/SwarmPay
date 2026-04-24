@@ -3,8 +3,9 @@ import { Header } from '@/components/Header'
 import { store } from '@/lib/store'
 import { Lock, Cpu, Globe, ShieldCheck, ExternalLink, ArrowRight } from 'lucide-react'
 
-export default function SecurityPage() {
-  const completedTasks = store.getTasks()
+export default async function SecurityPage() {
+  const tasks = await store.getTasks();
+  const completedTasks = tasks
     .filter((t: any) => t.status === 'completed')
     .slice(0, 10);
 

@@ -12,7 +12,7 @@ export async function GET() {
     }
   }
   
-  const agents = store.getAgents();
+  const agents = await store.getAgents();
   return NextResponse.json(agents);
 }
 
@@ -39,7 +39,7 @@ export async function POST(request: Request) {
       memory: { pastTasks: [], pastResults: [], successCount: 0, failureCount: 0 },
     };
 
-    store.addAgent(newAgent);
+    await store.addAgent(newAgent);
 
     return NextResponse.json(newAgent, { status: 201 });
   } catch (error) {

@@ -7,11 +7,12 @@ export async function GET(
   { params }: { params: Promise<{ id: string }> }
 ) {
   const { id } = await params;
-  const bids = store.getBidsForTask(id);
+  const bids = await store.getBidsForTask(id);
+  const agents = await store.getAgents();
   
   // Also get agent names for the UI to display
-  const bidsWithAgentInfo = bids.map((bid: Bid) => {
-    const agent = store.getAgents().find((a: Agent) => a.id === bid.agentId);
+  const bidsWithAgentInfo = (bids as any[]).map((bid: Bid) => {
+    const agent = agents.find((a: Agent) => a.id === bid.agentId);
     return {
       ...bid,
       agentName: agent ? agent.name : 'Unknown Agent'

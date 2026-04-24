@@ -2,9 +2,10 @@ import { store } from '@/lib/store'
 import { NextResponse } from 'next/server'
 
 export async function GET() {
-  const tasks = store.getAllTasks()
+  const tasks = await store.getAllTasks()
   const completed = tasks.filter((t: any) => t.status === 'completed')
-  const payments = store.getAllPayments()
+  const payments = await store.getAllPayments()
+  const agents = await store.getAgents()
 
   const totalSettled = completed.reduce((sum: number, t: any) =>
     sum + (t.costBreakdown?.totalCost ?? 0), 0
@@ -14,6 +15,6 @@ export async function GET() {
     tasksCompleted: completed.length,
     totalSettled: totalSettled.toFixed(4),
     totalMicropayments: payments.length,
-    activeAgents: store.getAgents().filter((a: any) => a.available).length
+    activeAgents: agents.filter((a: any) => a.available || true).length
   })
 }

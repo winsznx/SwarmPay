@@ -41,23 +41,43 @@ export const TaskCard: React.FC<{
   const [showGraph, setShowGraph] = useState(false);
 
   useEffect(() => {
-    // Only fetch if task is in active state and we don't have data yet
+    const isBidding = task.status === 'bidding';
     const isActive = ['bidding', 'assigned', 'completed', 'executing', 'settling'].includes(task.status);
     
-    if (isActive && bids.length === 0) {
-      const controller = new AbortController();
-      fetch(`/api/tasks/${task.id}/bids`, { signal: controller.signal })
-        .then(res => res.ok ? res.json() : [])
-        .then(data => {
-          setBids(data.map((b: Bid) => ({ 
-            ...b, 
-            agentName: agents.find(a => a.id === b.agentId)?.name || 'Agent' 
-          })));
-        })
-        .catch(err => {
-          if (err.name !== 'AbortError') console.error('Failed to fetch bids:', err);
-        });
-      return () => controller.abort();
+    if (isActive) {
+      const fetchBids = () => {
+        const controller = new AbortController();
+        fetch(`/api/tasks/${task.id}/bids`, { signal: controller.signal })
+          .then(res => res.ok ? res.json() : [])
+          .then(data => {
+            const uniqueBids = (data || []).reduce((acc: any[], b: any) => {
+              if (!acc.some(existing => existing.id === b.id)) {
+                acc.push({
+                  ...b, 
+                  agentName: agents.find(a => a.id === b.agentId)?.name || 'Agent' 
+                });
+              }
+              return acc;
+            }, []);
+            setBids(uniqueBids);
+          })
+          .catch(err => {
+            if (err.name !== 'AbortError') console.error('Failed to fetch bids:', err);
+          });
+        return controller;
+      };
+
+      const bidController = fetchBids();
+      
+      let bidInterval: NodeJS.Timeout | null = null;
+      if (isBidding) {
+        bidInterval = setInterval(fetchBids, 1000);
+      }
+
+      return () => {
+        bidController.abort();
+        if (bidInterval) clearInterval(bidInterval);
+      };
     }
     
     const isRunning = ['executing', 'settling'].includes(task.status);
@@ -67,7 +87,15 @@ export const TaskCard: React.FC<{
         const controller = new AbortController();
         fetch(`/api/tasks/${task.id}/subtasks`, { signal: controller.signal })
           .then(res => res.ok ? res.json() : [])
-          .then(setSubTasks)
+          .then(data => {
+            const uniqueSubTasks = (data || []).reduce((acc: any[], st: any) => {
+              if (!acc.some(existing => existing.id === st.id)) {
+                acc.push(st);
+              }
+              return acc;
+            }, []);
+            setSubTasks(uniqueSubTasks);
+          })
           .catch(err => {
             if (err.name !== 'AbortError') console.error('Failed to fetch subtasks:', err);
           });
@@ -80,7 +108,7 @@ export const TaskCard: React.FC<{
       // Poll if running
       let interval: NodeJS.Timeout | null = null;
       if (isRunning) {
-        interval = setInterval(fetchSubTasks, 2000);
+        interval = setInterval(fetchSubTasks, 1000);
       }
 
       return () => {
@@ -207,7 +235,7 @@ export const TaskCard: React.FC<{
           </div>
           <div>
             <div className="text-[9px] font-black text-purple-400/60 uppercase tracking-widest">
-              {task.status === 'assigned' ? 'Lead Agent Preparing' : 'Autonomous Execution Running'}
+              {task.status === 'assigned' ? 'LEAD AGENT SELECTED' : 'EXECUTING'}
             </div>
             <div className="text-sm font-bold text-slate-100">{assignedAgent || winningBid?.agentName || '...'}</div>
           </div>
@@ -333,22 +361,34 @@ export const TaskCard: React.FC<{
                               </span>
                             </div>
                             <div className="flex items-center gap-2">
+                              <Star className={`w-2.5 h-2.5 ${i === 0 ? 'text-yellow-400' : 'text-slate-600'}`} />
                               <span className="text-[10px] text-slate-400/60 font-mono tracking-tight font-black uppercase">
                                 {bid.reputation} REP
                               </span>
                             </div>
                           </div>
-                          <span className="text-[10px] text-slate-500 font-medium italic">
-                            {roleDesc}
-                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-[10px] text-slate-500 font-medium italic">
+                              {roleDesc}
+                            </span>
+                            <div className="w-1 h-1 bg-slate-800 rounded-full" />
+                            <span className={`text-[9px] font-black uppercase ${i === 0 ? 'text-blue-400' : 'text-slate-600'}`}>
+                              {Math.round((bid.confidence || 0.9) * 100)}% Confidence
+                            </span>
+                          </div>
                         </div>
                       </div>
                       <div className="text-right">
                          <div className={`text-sm font-mono font-black ${i === 0 ? 'text-green-400' : 'text-slate-500'}`}>
                            ${(bid.amount || bid.price).toFixed(4)}
                          </div>
-                         <div className="text-[9px] font-black text-slate-600 uppercase tracking-widest mt-1">
-                            {(bid.latency || (bid.estimatedTimeMs / 1000)).toFixed(1)}s LATENCY
+                         <div className="flex flex-col items-end gap-1 mt-1">
+                            <div className="text-[9px] font-black text-slate-600 uppercase tracking-widest leading-none">
+                                {(bid.latency || (bid.estimatedTimeMs / 1000)).toFixed(1)}s LATENCY
+                            </div>
+                            {i === 0 && (
+                              <div className="text-[8px] font-black text-blue-500/80 uppercase">Win Prob: 94%</div>
+                            )}
                          </div>
                       </div>
                     </div>

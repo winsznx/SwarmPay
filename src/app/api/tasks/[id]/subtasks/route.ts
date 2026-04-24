@@ -9,13 +9,13 @@ export async function GET(
   try {
     const { id } = await params;
     
-    const subTasks = store.getSubTasks(id);
+    const subTasks = await store.getSubTasks(id);
     
-    // Enrich with sub-bids
-    const subTasksWithBids = subTasks.map((st: SubTask) => ({
+    // Enrich with sub-bids asynchronously
+    const subTasksWithBids = await Promise.all(subTasks.map(async (st: SubTask) => ({
       ...st,
-      bids: store.getSubBids(st.id)
-    }));
+      bids: await store.getSubBids(st.id)
+    })));
 
     return NextResponse.json(subTasksWithBids);
   } catch (error) {

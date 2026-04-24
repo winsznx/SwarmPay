@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState } from 'react';
-import { Send, DollarSign, Sparkles } from 'lucide-react';
+import { Send, DollarSign, Sparkles, Activity, Zap } from 'lucide-react';
 import { motion } from 'framer-motion';
 import { Task } from '@/types';
 
@@ -73,16 +73,19 @@ export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
 
           <button
             type="submit"
-            disabled={isSubmitting || !prompt.trim() || !budget || Number(budget) < 0.05}
+            disabled={isSubmitting || !prompt.trim() || !budget}
             className="w-full sm:w-auto flex items-center justify-center gap-2 px-6 py-2.5 md:px-8 md:py-3.5 bg-blue-600 hover:bg-blue-500 text-white text-[9px] md:text-[11px] font-black uppercase tracking-[0.2em] rounded-2xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-xl shadow-blue-900/40 group active:scale-95"
           >
             {isSubmitting ? (
-              <div className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+              <span className="flex items-center gap-2">
+                <Activity className="w-4 h-4 animate-pulse" />
+                Initializing...
+              </span>
             ) : (
-              <>
-                <span>Launch SWARM</span>
-                <Send className="w-4 h-4 group-hover:translate-x-1 group-hover:-translate-y-1 transition-transform" />
-              </>
+              <span className="flex items-center gap-2">
+                <Zap className="w-4 h-4" />
+                Launch Mission
+              </span>
             )}
           </button>
         </div>
@@ -92,16 +95,6 @@ export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
              <Sparkles className="w-3 h-3 text-yellow-500/50" />
              <p className="text-[10px] text-slate-600 font-bold uppercase tracking-tight">AI agents will automatically decompose this request into executable sub-tasks.</p>
            </div>
-           
-           {budget !== '' && Number(budget) < 0.05 && (
-             <motion.div 
-               initial={{ opacity: 0, x: -10 }}
-               animate={{ opacity: 1, x: 0 }}
-               className="bg-red-500/10 border border-red-500/20 px-3 py-1 rounded-lg"
-             >
-               <p className="text-[10px] text-red-500 font-black uppercase tracking-widest">Min. Budget $0.05 Required</p>
-             </motion.div>
-           )}
         </div>
       </form>
     </div>

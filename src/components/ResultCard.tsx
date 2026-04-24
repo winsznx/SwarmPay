@@ -49,14 +49,26 @@ export const ResultCard: React.FC<ResultCardProps> = ({ task }) => {
   const result = task.result;
 
   const raw = task.result?.result ?? '';
+  let structuredResult: any = null;
+  try {
+      if (raw.startsWith('{') && raw.endsWith('}')) {
+          structuredResult = JSON.parse(raw);
+      }
+  } catch (e) {}
+
   const sourcesIndex = raw.indexOf('**Sources');
   const computeIndex = raw.indexOf('**Computation');
 
-  const mainAnswer = raw
-    .slice(0, sourcesIndex > -1 ? sourcesIndex : undefined)
-    .replace(/^##[^\n]*\n/, '')
-    .replace(/^\*\*Executive Summary\*\*\n?/, '')
-    .trim();
+  const mainAnswer = structuredResult 
+    ? structuredResult.summary 
+    : raw
+        .slice(0, sourcesIndex > -1 ? sourcesIndex : undefined)
+        .replace(/^##[^\n]*\n/, '')
+        .replace(/^\*\*Executive Summary\*\*\n?/, '')
+        .trim();
+
+  const decision = structuredResult?.decision;
+  const keyFindings = structuredResult?.key_findings || [];
 
   const sources = sourcesIndex > -1
     ? raw.slice(sourcesIndex).split('\n')[0].replace(/\*\*Sources[^:]*:\*\*/, '').trim()
@@ -118,6 +130,29 @@ export const ResultCard: React.FC<ResultCardProps> = ({ task }) => {
           <div className="mb-6">
             <p className="text-sm leading-relaxed text-gray-100">{mainAnswer}</p>
           </div>
+
+          {/* Structured Findings */}
+          {keyFindings.length > 0 && (
+            <div className="mb-6 space-y-2">
+              <p className="text-[10px] font-black uppercase tracking-widest text-blue-400/60">Key Intelligence Findings</p>
+              <div className="space-y-2">
+                {keyFindings.map((finding: string, i: number) => (
+                  <div key={i} className="flex gap-3 text-[11px] text-slate-400 bg-white/[0.02] border border-white/5 p-2 rounded-xl">
+                    <div className="w-1.5 h-1.5 bg-blue-500 rounded-full mt-1.5 shrink-0" />
+                    <p>{finding}</p>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Final Decision */}
+          {decision && (
+            <div className="mb-6 p-4 bg-green-500/5 border border-green-500/20 rounded-2xl">
+              <p className="text-[10px] font-black uppercase tracking-widest text-green-400 mb-2">Final Actionable Decision</p>
+              <p className="text-sm font-bold text-white leading-relaxed">{decision}</p>
+            </div>
+          )}
 
           {/* Hard divider */}
           <div className="border-t border-gray-800 pt-4 space-y-3">

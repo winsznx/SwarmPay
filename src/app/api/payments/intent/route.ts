@@ -6,14 +6,8 @@ export async function GET(request: Request) {
   const taskId = searchParams.get('taskId');
   const limit = parseInt(searchParams.get('limit') || '50');
 
-  let payments = taskId ? store.getPaymentsForTask(taskId) : store.getPaymentsForTask('');
+  const payments = taskId ? await store.getPaymentsForTask(taskId) : await store.getPaymentsForTask('');
   
-  if (!taskId) {
-      // If no task ID provided, just return most recent globally for the stream
-      payments = store.getPaymentsForTask(''); // Currently store returns empty for '' if not filtered correctly
-      // Let's improve the store method to handle global if needed or just use current logic
-  }
-
   return NextResponse.json(payments.slice(0, limit));
 }
 
@@ -23,7 +17,7 @@ export async function POST(request: Request) {
         const body = await request.json();
         const { fromAgentId, fromAgentName, toAgentId, toAgentName, taskId, amount } = body;
         
-        const intent = store.createPaymentIntent({
+        const intent = await store.createPaymentIntent({
             fromAgentId,
             fromAgentName,
             toAgentId,

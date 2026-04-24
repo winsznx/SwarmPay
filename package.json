@@ -12,6 +12,7 @@
   "dependencies": {
     "@circle-fin/developer-controlled-wallets": "^10.3.0",
     "@gsap/react": "^2.1.2",
+    "@supabase/supabase-js": "^2.104.1",
     "@types/dagre": "^0.7.54",
     "@xyflow/react": "^12.10.2",
     "dagre": "^0.8.5",

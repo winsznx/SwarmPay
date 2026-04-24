@@ -8,7 +8,7 @@ export async function POST(
   try {
     const { id } = await params;
     
-    const task = store.getTask(id);
+    const task = await store.getTask(id);
     if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
@@ -24,16 +24,16 @@ export async function POST(
       return NextResponse.json({ error: 'Task already has a winning bid assigned' }, { status: 400 });
     }
 
-    const bids = store.getBidsForTask(id);
+    const bids = await store.getBidsForTask(id);
     if (bids.length === 0) {
       return NextResponse.json({ error: 'Cannot select winner: No bids submitted' }, { status: 400 });
     }
 
     try {
-      store.assignWinningBid(id);
+      await store.assignWinningBid(id);
       
-      const updatedTask = store.getTask(id);
-      const winner = store.selectWinningBid(id);
+      const updatedTask = await store.getTask(id);
+      const winner = await store.selectWinningBid(id);
 
       return NextResponse.json({
         message: 'Winner selected successfully',

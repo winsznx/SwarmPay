@@ -11,7 +11,7 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'Missing required bid fields' }, { status: 400 });
     }
 
-    const task = store.getTask(taskId);
+    const task = await store.getTask(taskId);
     if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
     }
@@ -35,7 +35,7 @@ export async function POST(request: Request) {
       submittedAt: Date.now(),
     };
 
-    store.addBid(newBid);
+    await store.addBid(newBid);
 
     return NextResponse.json(newBid, { status: 201 });
   } catch (error) {

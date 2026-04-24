@@ -8,7 +8,7 @@ export async function POST(
 ) {
   try {
     const { id } = await params;
-    const task = store.getTask(id);
+    const task = await store.getTask(id);
 
     if (!task) {
       return NextResponse.json({ error: 'Task not found' }, { status: 404 });
@@ -25,15 +25,15 @@ export async function POST(
     
     // 2. Clear existing sub-tasks if any (though there shouldn't be)
     // and save the new blueprint.
-    subTasks.forEach(st => {
-      store.createSubTask(st);
-    });
+    for (const st of subTasks) {
+      await store.createSubTask(st);
+    }
 
     // 3. Initialize the sub-market for bidding
-    initializeSubMarket(task.id);
+    await initializeSubMarket(task.id);
 
     // 4. Update parent task status to 'executing'
-    store.updateTask(task.id, { status: 'executing' });
+    await store.updateTask(task.id, { status: 'executing' });
 
     return NextResponse.json({
       message: 'Decomposition complete. Execution started.',

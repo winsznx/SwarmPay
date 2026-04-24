@@ -66,9 +66,9 @@ export function isTaskComplex(task: Task | SubTask): boolean {
 /**
  * Initializes sub-marketplace for any task level.
  */
-export function initializeSubMarket(taskId: string): void {
-  const subTasks = store.getSubTasks(taskId);
-  subTasks.forEach((st: SubTask) => {
-    store.updateSubTask(st.id, { status: 'bidding' });
-  });
+export async function initializeSubMarket(taskId: string): Promise<void> {
+  const subTasks = await store.getSubTasks(taskId);
+  for (const st of subTasks) {
+    await store.updateSubTask(st.id, { status: 'bidding' });
+  }
 }

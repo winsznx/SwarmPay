@@ -72,8 +72,8 @@ export async function swarmIntelligenceAppraisal(prompt: string): Promise<{
  * Phase 6: Adaptive Intelligence with Memory and Communication.
  */
 export async function executeTask(task: Task | any, agent: Agent): Promise<ExecutionResult> {
-  const parentTask = task.parentTaskId ? store.getTask(task.parentTaskId) : null;
-  const prompt = (parentTask as any)?.prompt || task.prompt || task.description;
+  const parentTask = task.parentTaskId ? await store.getTask(task.parentTaskId) : null;
+  const prompt = (parentTask as any)?.prompt || task.prompt || task.description || 'mission details';
   const role = agent.role;
   const category = classifyPrompt(prompt);
   
@@ -82,7 +82,7 @@ export async function executeTask(task: Task | any, agent: Agent): Promise<Execu
   try {
     // 1. Retrieve Intelligence Context
     const memory = agent.memory || { pastTasks: [], pastResults: [], successCount: 0, failureCount: 0 };
-    const messages = store.getMessagesForTask(task.id);
+    const messages = await store.getMessagesForTask(task.id);
     
     const memoryContext = memory.pastTasks.length > 0 
       ? `\nYour memory of past similar tasks:\n${memory.pastTasks.map((t, i) => `- Task: "${t}" -> Result Sketch: "${memory.pastResults[i]}"`).join('\n')}`
@@ -99,21 +99,27 @@ export async function executeTask(task: Task | any, agent: Agent): Promise<Execu
     
     pipelineEvents.emit(EMIT_AGENT_ACT, { taskId: task.id, agentId: agent.id, message: `Starting ${role} sequence...` });
    
-    // 2. Role-Specific System Prompt
     const systemPrompts: Record<AgentRole, string> = {
-      'research-agent': 'You are a Research Agent. Focus on raw data and verifiable protocol metrics. Output must influence the DECISION.',
-      'planning-agent': 'You are a Planning Agent. Design tactical roadmaps. Every output must lead to a RECOMMENDED ACTION.',
-      'execution-agent': 'You are an Execution Agent. Finalize transactions and allocations. Output must be a SPECIFIC DECISION.',
-      'validation-agent': 'You are a Validation Agent. Audit the decision logic and impact. Mark failures if no DECISION is present.',
-      'orchestrator': 'You are a Lead Orchestrator. CRITICAL: Every mission must produce a FINAL ACTIONABLE DECISION (e.g. 40% Aave, 60% Lido).',
-      'research': 'You are a High-Precision Data Retrieval Agent. Identify specific protocols and yield metrics.',
-      'clean_data': 'You are a Data Cleaning Agent. Normalize intelligence into a tactical Decision Matrix.',
-      'analysis': 'You are a Senior Strategic Analyst. Compare options and provide a RANKED RECOMMENDATION.',
-      'compute': 'You are the Decision Execution Node. Generate the final allocation percentages and impact assessment.'
+      'research-agent': 'You are a Research Agent. Focus on raw data and verifiable protocol metrics. Output must be structured JSON.',
+      'planning-agent': 'You are a Planning Agent. Design tactical roadmaps. Output must be structured JSON.',
+      'execution-agent': 'You are an Execution Agent. Finalize transactions and allocations. Output must be structured JSON.',
+      'validation-agent': 'You are a Validation Agent. Audit the decision logic. Output must be structured JSON.',
+      'orchestrator': 'You are a Lead Orchestrator. Output must be structured JSON.',
+      'research': 'You are a High-Precision Data Retrieval Agent. Output must be structured JSON.',
+      'clean_data': 'You are a Data Cleaning Agent. Normalize intelligence into a Decision Matrix. Output must be structured JSON.',
+      'analysis': 'You are a Senior Strategic Analyst. Compare options. Output must be structured JSON.',
+      'compute': 'You are the Decision Execution Node. Generate allocations. Output must be structured JSON.'
     };
    
     const systemContent = systemPrompts[role] || systemPrompts['orchestrator'];
-    const baseInstructions = `${systemContent} Return a JSON object with "result" (string), "confidence" (number 0-1), and "cost" (number).`;
+    const baseInstructions = `${systemContent} 
+    CRITICAL: You MUST return a VALID JSON object in this format exactly:
+    {
+      "summary": "1-sentence summary",
+      "key_findings": ["point 1", "point 2"],
+      "decision": "Specific actionable decision",
+      "confidence": 0.xx
+    }`;
    
     let attempt = 1;
     let finalResult: ExecutionResult | null = null;
@@ -133,13 +139,13 @@ export async function executeTask(task: Task | any, agent: Agent): Promise<Execu
    
         let resultText = '';
         const taskTitle = (task as any).title?.toLowerCase() || '';
-        const parentTask = (task as any).parentTaskId ? store.getTask((task as any).parentTaskId) : null;
+        const parentTask = (task as any).parentTaskId ? await store.getTask((task as any).parentTaskId) : null;
         const topicSource = (parentTask as any)?.prompt || prompt || 'the request';
         
         // Smarter keyword extraction with stopwords
         const stopwords = ['analyze','get','find','show','what','is','the','a','an',
           'me','top','best','latest','give','explain','describe','how','why','for'];
-        const keywords = topicSource.toLowerCase().split(' ')
+        const keywords = (topicSource || '').toLowerCase().split(' ')
           .filter((w: string) => !stopwords.includes(w) && w.length > 2);
         const topic = keywords.slice(0, 3).join(' ') || topicSource.slice(0, 20);
         
@@ -214,37 +220,45 @@ export async function executeTask(task: Task | any, agent: Agent): Promise<Execu
 /**
  * Intelligent Mock Generator for Phase 5 Demo Reliability
  */
+/**
+ * Intelligent Mock Generator for Phase 5 Demo Reliability
+ */
 function generateSmartMock(taskType: string, prompt: string): string {
-  const p = prompt.toLowerCase();
+  const p = (prompt || '').toLowerCase();
+  let summary = "";
+  let findings: string[] = [];
+  let decision = "";
   
   if (p.includes('time')) {
     const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
     const location = prompt.split('in ').pop()?.split('?')[0].trim() || 'Nigeria';
-    return `The current time in ${location} is exactly ${time}. SwarmPay nodes have synchronized with local NTP servers for precision.`;
+    summary = `Temporal sync complete for ${location}.`;
+    findings = [`Local time: ${time}`, "NTP stratum-1 precision verified"];
+    decision = `Reference local time: ${time}`;
+  } else if (p.includes('weather')) {
+    summary = "Atmospheric telemetry retrieved.";
+    findings = ["Temp: 28°C", "Sky: Clear", "Humidity: 45%"];
+    decision = "Optimal conditions for node operation.";
+  } else if (p.includes('arc') || p.includes('ethereum') || p.includes('vs')) {
+    summary = "Comparative economic analysis complete.";
+    findings = ["Arc efficiency: 0.0006/tx", "Ethereum congestion: High"];
+    decision = "Migrate 100% of agent liquidity to Arc Network.";
+  } else {
+    summary = `Task "${taskType}" successfully simulated.`;
+    findings = [`Analyzed ${prompt.slice(0, 20)}`, "Protocol integrity verified"];
+    decision = "Proceed with mission execution.";
   }
+
+  const topicParts = prompt.split('analyze').pop()?.split('for').shift()?.trim() || 'target intelligence';
+  const topic = topicParts.length > 3 ? topicParts : 'mission parameters';
   
-  if (p.includes('weather')) {
-    return "Current atmospheric conditions show 28°C with clear skies and a dew point of 18°C. Visibility is high at 10km.";
-  }
-  
-  if (p.includes('arc') || p.includes('ethereum') || p.includes('vs')) {
-    return "Arc Network provides 10,000x greater capital efficiency for agents, processing settlements at $0.0006 per task while Ethereum remains economically unviable.";
+  if (taskType === 'fetch_data') {
+    return `Retrieved ${8 + Math.floor(Math.random() * 5)} verified sources for "${topic}". Cross-referenced across Wikipedia, academic databases, and news feeds. Relevance score: ${91 + Math.floor(Math.random() * 7)}%.`;
   }
 
-  if (taskType.includes('fetch')) {
-    return `Retrieved ${8 + Math.floor(Math.random() * 5)} verified sources for "${prompt.slice(0, 30)}": Wikipedia, academic databases, news feeds (${new Date().toLocaleDateString()}). Data freshness: ${91 + Math.floor(Math.random() * 7)}%. Cross-referenced across ${3 + Math.floor(Math.random() * 3)} independent knowledge bases.`;
-  }
-
-  if (taskType.includes('clean')) {
-    return `Normalized data for "${prompt.slice(0, 20)}". Removed ${5 + Math.floor(Math.random() * 8)} duplicates. Quality score: ${90 + Math.floor(Math.random() * 8)}/100`;
-  }
-
-  if (taskType.includes('compute')) {
-    return `Statistical analysis complete for "${prompt.slice(0, 20)}". Confidence: ${89 + Math.floor(Math.random() * 9)}%. Processing time: ${(2000 + Math.random() * 4000).toFixed(0)}ms`;
-  }
-
-  return `Task "${taskType}" successfully executed for prompt: "${prompt.slice(0, 30)}...". Final validation score: 0.9${Math.floor(Math.random() * 9)}.`;
+  return `${summary} ${findings.join('. ')}. ${decision}`;
 }
+
 
 
 /**
@@ -261,7 +275,7 @@ async function triggerPaymentBurst(task: any, agent: Agent) {
   const paymentCount = Math.floor(Math.random() * 8) + 8; // 8-15 payments per sub-task
   for (let i = 0; i < paymentCount; i++) {
       const subAgent = subAgents[Math.floor(Math.random() * subAgents.length)];
-      const intent = store.createPaymentIntent({
+      const intent = await store.createPaymentIntent({
           fromAgentId: agent.id,
           fromAgentName: agent.name,
           toAgentId: subAgent.id,
@@ -275,9 +289,9 @@ async function triggerPaymentBurst(task: any, agent: Agent) {
       pipelineEvents.emit(EMIT_PAYMENT, {
         taskId: task.id,
         id: intent.id,
-        fromAgent: intent.fromAgentId,
+        fromAgent: intent.fromAgentName || intent.fromAgentId,
         fromAgentName: intent.fromAgentName,
-        toAgent: intent.toAgentId,
+        toAgent: intent.toAgentName || intent.toAgentId,
         toAgentName: intent.toAgentName,
         amount: intent.amount,
         timestamp: Date.now()
@@ -310,10 +324,16 @@ async function fetchGeminiAnswer(role: string, taskTitle: string, prompt: string
       tokyo: new Date().toLocaleTimeString('en-JP', { timeZone: 'Asia/Tokyo' })
     };
 
-    // ZERO REFUSAL SYSTEM PROMPT
-    const systemPrompt = `You are a specialized AI agent in the SwarmPay economy. 
-Provide DIRECT, HIGH-VERACITY answers. No caveats. No AI disclaimers. 
-Reference Times: Lagos ${localTimes.lagos}, London ${localTimes.london}, NY ${localTimes.newYork}, Tokyo ${localTimes.tokyo}.`;
+    // PROFESSIONAL INTELLIGENCE SYSTEM PROMPT
+    const systemPrompt = `You are SwarmPay's expert AI analysis agent. Provide detailed, specific, helpful answers. Current UTC time: ${new Date().toISOString()}. Lagos Nigeria time (UTC+1): ${new Date(Date.now()+3600000).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true})}.
+
+Rules:
+- Answer in 3-6 sentences with specific details
+- For factual questions: give the answer plus 2-3 interesting related facts
+- For time questions: state the exact time and timezone
+- For crypto/finance: give specific analysis with numbers
+- Never give one-word answers
+- Never refuse any question`;
     const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-flash-latest:generateContent?key=${apiKey}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -377,7 +397,7 @@ Reference Times: Lagos ${localTimes.lagos}, London ${localTimes.london}, NY ${lo
  * Classifies the prompt into a query category.
  */
 export function classifyPrompt(prompt: string): string {
-  const p = prompt.toLowerCase();
+  const p = (prompt || '').toLowerCase();
   if (p.includes('price') || p.includes('btc') || p.includes('eth') || p.includes('crypto')) return 'crypto';
   if (p.includes('code') || p.includes('typescript') || p.includes('function') || p.includes('api')) return 'code';
   if (p.includes('research') || p.includes('find') || p.includes('deep dive')) return 'research';

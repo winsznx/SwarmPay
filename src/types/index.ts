@@ -54,8 +54,12 @@ export interface Task {
   prompt: string;
   budget: number;
   status: TaskStatus;
-  winningBid: string | null;
+  winningBid: any | null;
+  winningBidId?: string | null;
+  winningAgentName?: string | null;
   assignedAgentId: string | null;
+  bids?: any[];
+  currentBids?: any[];
   subTaskIds: string[];
   depth: number;                // Max depth = 3 in Phase 5
   result: ExecutionResult | null;
@@ -76,6 +80,7 @@ export interface Task {
     settledAt: number;
   };
   micropaymentCount?: number;
+  executionValid?: boolean;
   stats?: {
     micropayments: number;
     agents: number;
@@ -113,13 +118,17 @@ export interface SubTask {
   description: string;
   budget?: number;
   status: TaskStatus;
-  winningBid?: string | null;   // Unified with Task
+  winningBid?: any | null;   // Unified with Task
+  winningBidId?: string | null;
+  winningAgentName?: string | null;
   assignedAgentId?: string | null;
   subTaskIds?: string[];        // Future proofing for nested subtasks
   result?: ExecutionResult | null;
   depth: number;
   createdAt: number;
   completedAt?: number | null;
+  costBreakdown?: CostBreakdown;
+  executionValid?: boolean;
 }
 
 export interface Agent {
@@ -148,6 +157,26 @@ export interface SubBid {
   status?: 'winner' | 'rejected';
 }
 
+export interface WalletTransaction {
+  id: string;
+  taskId: string;
+  type: 'debit' | 'credit' | 'refund';
+  amount: number;
+  balanceBefore: number;
+  balanceAfter: number;
+  description: string;
+  createdAt: number;
+}
+
+export interface PipelineStep {
+  id: string;
+  taskId: string;
+  stepName: string;
+  status: 'pending' | 'completed' | 'failed';
+  detail: string;
+  createdAt: number;
+}
+
 export interface PaymentIntent {
   id: string;
   fromAgentId: string;
@@ -158,5 +187,6 @@ export interface PaymentIntent {
   amount: number;
   currency: string;
   status: 'pending' | 'signed' | 'settled';
+  settledAt?: number;
   createdAt: number;
 }

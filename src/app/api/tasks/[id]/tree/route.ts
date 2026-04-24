@@ -8,25 +8,20 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const rootTask = store.getTask(id);
-
-    if (!rootTask) {
-      return NextResponse.json({ error: 'Task not found' }, { status: 404 });
-    }
-
     const nodes: any[] = [];
     const edges: any[] = [];
     const visited = new Set<string>();
 
-    const traverse = (taskId: string) => {
+    const traverse = async (taskId: string) => {
       if (visited.has(taskId)) return;
       visited.add(taskId);
 
-      const task = store.getTask(taskId);
+      const task = await store.getTask(taskId);
       if (!task) return;
 
-      const agent = task.assignedAgentId ? store.getAgents().find((a: Agent) => a.id === task.assignedAgentId) : null;
-      const messages = store.getMessagesForTask(task.id);
+      const agents = await store.getAgents();
+      const agent = task.assignedAgentId ? agents.find((a: Agent) => a.id === task.assignedAgentId) : null;
+      const messages = await store.getMessagesForTask(task.id);
 
       // Create Node
       nodes.push({
@@ -47,19 +42,24 @@ export async function GET(
 
       // Handle Edges and Children
       const sids = (task as any).subTaskIds || [];
-      sids.forEach((sid: string) => {
+      for (const sid of sids) {
+        const childTask = await store.getTask(sid);
         edges.push({
           id: `e-${task.id}-${sid}`,
           source: task.id,
           target: sid,
-          animated: (task as any).status === 'executing' || (store.getTask(sid) as any)?.status === 'executing',
+          animated: task.status === 'executing' || childTask?.status === 'executing',
           style: { stroke: '#475569', strokeWidth: 2 },
         });
-        traverse(sid);
-      });
+        await traverse(sid);
+      }
     };
 
-    traverse(id);
+    const rootTask = await store.getTask(id);
+    if (!rootTask) {
+        return NextResponse.json({ error: 'Task not found' }, { status: 404 });
+    }
+    await traverse(id);
 
     return NextResponse.json({ nodes, edges });
   } catch (err: any) {

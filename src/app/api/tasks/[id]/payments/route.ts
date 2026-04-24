@@ -7,7 +7,7 @@ export async function GET(
 ) {
   try {
     const { id } = await params;
-    const payments = store.getPaymentsForTask(id);
+    const payments = await store.getPaymentsForTask(id);
     
     return NextResponse.json(payments, {
       headers: {

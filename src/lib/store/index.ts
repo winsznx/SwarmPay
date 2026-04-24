@@ -1,189 +1,228 @@
-import * as fs from 'fs';
-import * as path from 'path';
 import { Task, Bid, Agent, SubTask, SubBid, ExecutionResult, AgentMessage, PaymentIntent } from '@/types';
-import { calculateBidScore } from '../scoring';
 import { pipelineEvents, EMIT_PAYMENT } from '../events';
-import { getAgentBalances, getAgentAddress } from '../circleWallets';
-
-const STORE_DIR = path.join(process.cwd(), '.data');
-const STORE_PATH = path.join(STORE_DIR, 'store.json');
 
 const SEED_AGENTS = [
-  { id: 'crypto-scout-x',  name: 'CryptoScout-X',  role: 'orchestrator' as any, reputation: 95, balance: 0.42, available: true },
-  { id: 'research-alpha',  name: 'Research-Alpha',  role: 'research' as any,     reputation: 92, balance: 0.19, available: true },
-  { id: 'data-miner-pro',  name: 'DataMiner-Pro',   role: 'research' as any,     reputation: 87, balance: 0.31, available: true },
-  { id: 'parser-x',        name: 'Parser-X',        role: 'clean_data' as any,   reputation: 88, balance: 0.07, available: true },
-  { id: 'analysis-node',   name: 'Analysis-Node',   role: 'analysis' as any,     reputation: 91, balance: 0.16, available: true },
-  { id: 'compute-grid-4',  name: 'Compute-Grid-4',  role: 'compute' as any,      reputation: 90, balance: 0.08, available: true },
+  { id: 'crypto-scout-x',  name: 'CryptoScout-X',  role: 'orchestrator' as any, reputation: 95, balance: 0.42 },
+  { id: 'research-alpha',  name: 'Research-Alpha',  role: 'research' as any,     reputation: 92, balance: 0.19 },
+  { id: 'data-miner-pro',  name: 'DataMiner-Pro',   role: 'research' as any,     reputation: 87, balance: 0.31 },
+  { id: 'parser-x',        name: 'Parser-X',        role: 'clean_data' as any,   reputation: 88, balance: 0.07 },
+  { id: 'analysis-node',   name: 'Analysis-Node',   role: 'analysis' as any,     reputation: 91, balance: 0.16 },
+  { id: 'compute-grid-4',  name: 'Compute-Grid-4',  role: 'compute' as any,      reputation: 90, balance: 0.08 },
 ];
 
-class InMemoryStore {
-  private tasks: Map<string, Task | SubTask> = new Map();
-  private bids: Map<string, Bid | SubBid> = new Map();
-  private agents: Map<string, Agent> = new Map();
-  private messages: Map<string, AgentMessage> = new Map();
-  private payments: Map<string, PaymentIntent> = new Map();
-  private userWallet: number = 50.00; // Seed with $50 for the user
+class MemoryStore {
+  private tasks: Task[] = [];
+  private agents: Agent[] = [];
+  private bids: (Bid | SubBid)[] = [];
+  private payments: PaymentIntent[] = [];
+  private messages: AgentMessage[] = [];
+  private userWallet: number = 50.0;
+  private pipelineSteps: any[] = [];
 
   constructor() {
-    this.init();
-    this.cleanStaleTasks();
-    
-    if (this.agents.size === 0) {
-      this.seedAgents();
+    this.agents = SEED_AGENTS.map(a => ({
+      ...a,
+      wallet_address: `0x${Math.random().toString(16).slice(2, 42)}`,
+      wallet: a.balance,
+      tasksCompleted: 0,
+      totalEarned: 0,
+      capabilities: [a.role],
+      avgResponseTimeMs: 0,
+      memory: { pastTasks: [], pastResults: [], successCount: 0, failureCount: 0 }
+    })) as any;
+  }
+
+  // Task Methods
+  getTask(id: string): Task | undefined {
+    return this.tasks.find(t => t.id === id);
+  }
+
+  getAllTasks(): Task[] {
+    return this.tasks.filter(t => !t.parentTaskId).sort((a, b) => b.createdAt - a.createdAt);
+  }
+
+  addTask(task: Task | SubTask): void {
+    if (!this.tasks.some(t => t.id === task.id)) {
+      this.tasks.push(task as Task);
     }
   }
 
-  private init(): void {
-    try {
-      if (!fs.existsSync(STORE_DIR)) {
-        fs.mkdirSync(STORE_DIR, { recursive: true });
-      }
-    } catch (err) {
-      console.warn('[STORE] Environment warning: Local storage directory could not be created/accessed.');
-    }
-    
-    try {
-      this.load();
-    } catch (err) {
-      console.warn('[STORE] Data loading skipped or failed.');
-    }
-
-    if (this.agents.size === 0) {
-      this.seedAgents();
-    }
+  async createTask(task: Task | SubTask): Promise<void> {
+    this.addTask(task as Task);
   }
-
-  private seedAgents(): void {
-    SEED_AGENTS.forEach(a => {
-      const agent = {
-        ...a,
-        walletAddress: `0x${Math.random().toString(16).slice(2, 42)}`,
-        wallet: a.balance,
-        totalEarned: 0,
-        tasksCompleted: 0,
-        avgResponseTimeMs: 1200,
-        capabilities: [a.role],
-        memory: { pastTasks: [], pastResults: [], successCount: 0, failureCount: 0 },
-      } as Agent;
-      this.agents.set(agent.id, agent);
-    });
-  }
-
-  private save(): void {
-    if (process.env.VERCEL) return;
-    try {
-      const data = {
-        tasks: Array.from(this.tasks.entries()),
-        bids: Array.from(this.bids.entries()),
-        agents: Array.from(this.agents.entries()),
-        messages: Array.from(this.messages.entries()),
-        payments: Array.from(this.payments.entries()),
-        userWallet: this.userWallet,
-      };
-      fs.writeFileSync(STORE_PATH, JSON.stringify(data, null, 2));
-    } catch (err) {}
-  }
-
-  private load(): void {
-    try {
-      if (fs.existsSync(STORE_PATH)) {
-        const raw = fs.readFileSync(STORE_PATH, 'utf8');
-        if (!raw) return;
-        const data = JSON.parse(raw);
-        this.tasks = new Map(data.tasks || []);
-        this.bids = new Map(data.bids || []);
-        this.agents = new Map(data.agents || []);
-        this.messages = new Map(data.messages || []);
-        this.payments = new Map(data.payments || []);
-        this.userWallet = data.userWallet ?? 50.00;
-
-        this.agents.forEach(agent => {
-          if (!agent.memory) {
-            agent.memory = { pastTasks: [], pastResults: [], successCount: 0, failureCount: 0 };
-          }
-        });
-      }
-    } catch (err) {}
-  }
-
-  private cleanStaleTasks(): void {
-    try {
-      const now = Date.now();
-      let cleaned = 0;
-      this.tasks.forEach((task, id) => {
-        const isStale = (task.status === 'bidding' || task.status === 'executing') && 
-                        (now - task.createdAt > 2 * 60 * 1000);
-        if (isStale) {
-          task.status = 'failed';
-          this.tasks.set(id, task);
-          cleaned++;
-        }
-      });
-      if (cleaned > 0) this.save();
-    } catch (err) {}
-  }
-
-  createTask(task: Task | SubTask): void {
-    const newTask = { ...task, subTaskIds: (task as any).subTaskIds || [], depth: (task as any).depth || 0 };
-    this.tasks.set(task.id, newTask);
-    if ((task as any).parentTaskId) {
-      const parent = this.tasks.get((task as any).parentTaskId);
-      if (parent) {
-        const currentIds = (parent as any).subTaskIds || [];
-        if (!currentIds.includes(task.id)) {
-          (parent as any).subTaskIds = [...currentIds, task.id];
-          this.tasks.set(parent.id, parent);
-        }
-      }
-    }
-    this.save();
-  }
-
-  getTasks(): (Task | SubTask)[] {
-    return Array.from(this.tasks.values())
-      .filter((t: any) => t.prompt && t.prompt.trim().length > 0)
-      .sort((a, b) => b.createdAt - a.createdAt);
-  }
-
-  getTask(id: string): (Task | SubTask) | undefined { return this.tasks.get(id); }
 
   updateTask(id: string, updates: Partial<Task | SubTask>): void {
-    const task = this.tasks.get(id);
-    if (task) {
-      this.tasks.set(id, { ...task, ...updates });
-      this.save();
+    const index = this.tasks.findIndex(t => t.id === id);
+    if (index !== -1) {
+      this.tasks[index] = { ...this.tasks[index], ...updates } as any;
     }
   }
 
-  createSubTask(st: SubTask) { this.createTask(st); }
-  getSubTasks(taskId: string): SubTask[] {
-    const task = this.tasks.get(taskId);
-    if (!task) return [];
-    const sids = (task as any).subTaskIds || [];
-    return sids.map((id: string) => this.tasks.get(id)).filter((t: any): t is SubTask => !!t);
+  // Compatibility for existing code
+  async updateSubTask(id: string, updates: Partial<SubTask>): Promise<void> {
+    this.updateTask(id, updates as any);
   }
 
-  updateSubTask(id: string, updates: Partial<SubTask>): void { this.updateTask(id, updates as any); }
-  getSubBids(subTaskId: string): SubBid[] { return this.getBidsForTask(subTaskId) as SubBid[]; }
+  // Compatibility wrapper for async pipeline
+  async getTasks(): Promise<Task[]> {
+    return this.getAllTasks();
+  }
 
-  addAgent(agent: Agent): void { this.agents.set(agent.id, agent); this.save(); }
+  getSubTasksForTask(taskId: string): SubTask[] {
+    return this.tasks.filter(t => t.parentTaskId === taskId) as any;
+  }
+
+  async getSubTasks(taskId: string): Promise<SubTask[]> {
+    return this.getSubTasksForTask(taskId);
+  }
+
+  async createSubTask(st: SubTask) {
+    this.addTask(st as any);
+  }
+
+  // Agent Methods
+  getAgents(): Agent[] {
+    return this.agents;
+  }
+
+  getAgent(id: string): Agent | undefined {
+    return this.agents.find(a => a.id === id);
+  }
+
+  async addAgent(agent: Agent): Promise<void> {
+    if (!this.agents.some(a => a.id === agent.id)) {
+      this.agents.push(agent);
+    }
+  }
+
   updateAgent(id: string, updates: Partial<Agent>): void {
-    const agent = this.agents.get(id);
-    if (agent) { this.agents.set(id, { ...agent, ...updates }); this.save(); }
-  }
-  getAgents(): Agent[] { return Array.from(this.agents.values()); }
-  getUserWallet(): number { return this.userWallet; }
-  updateUserWallet(amount: number): void { this.userWallet = amount; this.save(); }
-
-  addBid(bid: Bid | SubBid): void { this.bids.set(bid.id, bid); this.save(); }
-  getBidsForTask(taskId: string): (Bid | SubBid)[] {
-    return Array.from(this.bids.values()).filter(bid => (bid as any).taskId === taskId || (bid as any).subTaskId === taskId);
+    const index = this.agents.findIndex(a => a.id === id);
+    if (index !== -1) {
+      this.agents[index] = { ...this.agents[index], ...updates };
+    }
   }
 
-  addMessage(msg: AgentMessage): void { this.messages.set(msg.id, msg); this.save(); }
-  getMessagesForTask(taskId: string): AgentMessage[] {
-    return Array.from(this.messages.values()).filter(m => m.taskId === taskId).sort((a, b) => a.createdAt - b.createdAt);
+  async updateAgentEarned(agentId: string, amount: number, taskId: string, description: string) {
+    const agent = this.getAgent(agentId);
+    if (agent) {
+      const before = agent.wallet;
+      const after = before + amount;
+      this.updateAgent(agentId, {
+        wallet: after,
+        totalEarned: (agent.totalEarned || 0) + amount,
+        tasksCompleted: (agent.tasksCompleted || 0) + 1
+      });
+      await this.logTransaction({ taskId, type: 'credit', amount, before, after, description });
+    }
+  }
+
+  async updateAgentIntelligence(agentId: string, task: Task | SubTask, result: ExecutionResult) {
+    const agent = this.getAgent(agentId);
+    if (!agent) return;
+    const newRep = result.confidence >= 0.7 
+      ? Math.min(100, (agent.reputation || 0) + 1)
+      : Math.max(0, (agent.reputation || 0) - 10);
+    this.updateAgent(agentId, { reputation: newRep });
+  }
+
+  // Bidding Methods
+  async addBid(bid: Bid | SubBid): Promise<void> {
+    this.bids.push(bid);
+  }
+
+  async getBidsForTask(taskId: string): Promise<(Bid | SubBid)[]> {
+    return this.bids.filter(b => (b as any).taskId === taskId || (b as any).subTaskId === taskId);
+  }
+
+  async getSubBids(subTaskId: string): Promise<SubBid[]> {
+    return this.bids.filter(b => (b as any).subTaskId === subTaskId) as SubBid[];
+  }
+
+  async selectWinningBid(taskId: string): Promise<{ bid: Bid, agent: Agent, score: number }> {
+    const bids = await this.getBidsForTask(taskId);
+    if (bids.length === 0) throw new Error('No bids');
+    const { calculateBidScore } = await import('../scoring');
+    const rankedBids = bids.map(bid => {
+      const agent = this.getAgent(bid.agentId);
+      if (!agent) return null;
+      return { bid: bid as Bid, agent, score: calculateBidScore(bid as Bid, agent) };
+    }).filter((item): item is { bid: Bid, agent: Agent, score: number } => item !== null);
+    if (rankedBids.length === 0) throw new Error('No valid bids');
+    return rankedBids.sort((a, b) => b.score - a.score)[0];
+  }
+
+  async assignWinningBid(taskId: string): Promise<void> {
+    const task = this.getTask(taskId);
+    if (!task) throw new Error('Task not found');
+    const winner = await this.selectWinningBid(taskId);
+    if (winner.bid.price > (task.budget ?? 0)) {
+       throw new Error(`Winner bid price ($${winner.bid.price}) exceeds task budget ($${task.budget})`);
+    }
+    this.bids.forEach(b => {
+      if ((b as any).taskId === taskId || (b as any).subTaskId === taskId) {
+        (b as any).status = b.id === winner.bid.id ? 'winner' : 'rejected';
+      }
+    });
+    this.updateTask(taskId, { 
+      winningBidId: winner.bid.id, 
+      assignedAgentId: winner.agent.id, 
+      status: 'assigned' 
+    } as any);
+  }
+
+  // Payment Methods
+  addPaymentIntent(intent: PaymentIntent): void {
+    this.payments.push(intent);
+    pipelineEvents.emit(EMIT_PAYMENT, intent);
+  }
+
+  async createPaymentIntent(data: any): Promise<PaymentIntent> {
+    const intent = { ...data, id: crypto.randomUUID(), status: 'pending', createdAt: Date.now() };
+    this.addPaymentIntent(intent);
+    return intent;
+  }
+
+  getPaymentsForTask(taskId: string): PaymentIntent[] {
+    return this.payments.filter(p => p.taskId === taskId);
+  }
+
+  async distributePayment(agentId: string, amount: number, taskId: string, description: string): Promise<void> {
+    await this.updateAgentEarned(agentId, amount, taskId, description);
+  }
+
+  getAllPayments(): PaymentIntent[] {
+    return this.payments;
+  }
+
+  async settlePaymentIntent(id: string) {
+    const index = this.payments.findIndex(p => p.id === id);
+    if (index !== -1) this.payments[index].status = 'settled';
+  }
+
+  // Message Methods
+  async addMessage(msg: AgentMessage): Promise<void> {
+    this.messages.push(msg);
+  }
+
+  async getMessagesForTask(taskId: string): Promise<AgentMessage[]> {
+    return this.messages.filter(m => m.taskId === taskId);
+  }
+
+  // Wallet Methods
+  async getUserWallet(): Promise<number> {
+    return this.userWallet;
+  }
+
+  async updateUserWallet(amount: number, taskId: string = 'system', description: string = 'Wallet update'): Promise<void> {
+    if (amount < 0) throw new Error('Wallet balance cannot be negative');
+    const before = this.userWallet;
+    this.userWallet = amount;
+    await this.logTransaction({ taskId, type: amount < before ? 'debit' : 'credit', amount: Math.abs(amount - before), before, after: amount, description });
+  }
+
+  async logTransaction(data: any) {
+    // Audit log (in-memory)
+    console.log(`[TRANSACTION] ${data.type.toUpperCase()}: $${data.amount.toFixed(4)} | ${data.description}`);
   }
 
   calculateBudgetHeuristic(prompt: string): number {
@@ -193,83 +232,27 @@ class InMemoryStore {
     return 0.30;
   }
 
-  selectWinningBid(taskId: string): { bid: Bid, agent: Agent, score: number } {
-    const bids = this.getBidsForTask(taskId);
-    if (bids.length === 0) throw new Error('No bids');
-    const rankedBids = bids.map(bid => {
-      const agent = this.agents.get(bid.agentId);
-      if (!agent) return null;
-      return { bid: bid as Bid, agent, score: calculateBidScore(bid as Bid, agent) };
-    }).filter((item): item is { bid: Bid, agent: Agent, score: number } => item !== null);
-    
-    return rankedBids.sort((a, b) => b.score - a.score)[0];
+  // Pipeline Step Methods
+  async logPipelineStep(taskId: string, stepName: string, status: string, detail: string) {
+    this.pipelineSteps.push({ taskId, stepName, status, detail, timestamp: Date.now() });
   }
 
-  assignWinningBid(taskId: string): void {
-    const winner = this.selectWinningBid(taskId);
-    this.getBidsForTask(taskId).forEach(bid => {
-      const isWinner = bid.id === winner.bid.id;
-      this.bids.set(bid.id, { ...bid, status: isWinner ? 'winner' : 'rejected' } as any);
-    });
-    this.updateTask(taskId, { winningBid: winner.bid.id, assignedAgentId: winner.agent.id, status: 'assigned' });
-    this.save();
+  async allPipelineStepsCompleted(taskId: string): Promise<boolean> {
+    const steps = this.pipelineSteps.filter(s => s.taskId === taskId && s.status === 'completed');
+    return steps.length >= 5;
   }
 
-  updateAgentIntelligence(agentId: string, task: Task | SubTask, result: ExecutionResult): void {
-    const agent = this.agents.get(agentId);
-    if (!agent) return;
-    if (result.confidence >= 0.7) { agent.reputation = Math.min(100, agent.reputation + 1); }
-    else { agent.reputation = Math.max(0, agent.reputation - 1); }
-    this.agents.set(agentId, agent);
-    this.save();
-  }
-
-  async refreshAgentWallets(): Promise<void> {
-    const balances = await getAgentBalances();
-    for (const [agentId, amount] of Object.entries(balances)) {
-      const agent = this.agents.get(agentId);
-      if (agent) {
-        agent.wallet = amount;
-        if (!agent.walletAddress || agent.walletAddress.length < 10) {
-          const addr = await getAgentAddress(agentId);
-          if (addr) agent.walletAddress = addr;
-        }
-        this.agents.set(agentId, agent);
-      }
-    }
-    this.save();
-  }
-
-  updateAgentEarned(agentId: string, amount: number) {
-    const agent = this.agents.get(agentId);
-    if (agent) {
-      this.agents.set(agentId, {
-        ...agent,
-        wallet: (agent.wallet || 0) + amount,
-        earned: (agent.earned ?? 0) + amount,
-        tasksCompleted: (agent.tasksCompleted || 0) + 1
-      });
-      this.save();
-    }
-  }
-
-  distributePayment(agentId: string, amount: number): void { this.updateAgentEarned(agentId, amount); }
-
-  createPaymentIntent(data: Omit<PaymentIntent, 'id' | 'createdAt' | 'status'>): PaymentIntent {
-    const intent: PaymentIntent = { ...data, id: crypto.randomUUID(), status: 'pending', createdAt: Date.now() };
-    this.payments.set(intent.id, intent);
-    this.save();
-    pipelineEvents.emit(EMIT_PAYMENT, intent);
-    return intent;
-  }
-
-  getPaymentsForTask(taskId: string): PaymentIntent[] {
-    return Array.from(this.payments.values()).filter(p => !taskId || p.taskId === taskId).sort((a, b) => b.createdAt - a.createdAt);
-  }
-
-  getAllTasks(): Task[] {
-    return Array.from(this.tasks.values()).filter((t: any) => !t.parentTaskId) as Task[];
+  // Memory Refresh Compatibility
+  async refreshAgentWallets() {
+     const { getAgentBalances, getAgentAddress } = await import('../circleWallets');
+     const balances = await getAgentBalances();
+     for (const [agentId, amount] of Object.entries(balances)) {
+       const agent = this.getAgent(agentId);
+       if (agent) {
+         this.updateAgent(agentId, { wallet: amount as number });
+       }
+     }
   }
 }
 
-export const store = (global as any).appStore || ((global as any).appStore = new InMemoryStore());
+export const store = new MemoryStore();
