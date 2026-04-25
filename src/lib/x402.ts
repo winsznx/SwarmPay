@@ -138,19 +138,17 @@ export async function verifyPaymentIntent(
 }
 
 /**
- * After verification, hand the signed intent to the settlement queue.
- * The queue is per-wallet, serial, with exponential backoff on 429s
- * (see src/lib/settlementQueue.ts).
+ * After verification, the signed intent is already persisted in
+ * `payment_intents` (status='pending'). Trigger a drain invocation —
+ * /api/settlement/drain will atomically claim it via the
+ * `claim_pending_intents` RPC and ship it on-chain.
+ *
+ * Replaces the prior in-memory enqueueIntents() which couldn't
+ * survive a serverless function teardown.
  */
 export async function submitForSettlement(signed: SignedPaymentIntent): Promise<void> {
-  const { enqueueIntents } = await import('./settlementQueue')
-  enqueueIntents([{
-    paymentIntentId: signed.intent.paymentIntentId,
-    taskId: signed.intent.taskId,
-    fromAgentId: signed.intent.fromAgentId,
-    toAgentId: signed.intent.toAgentId,
-    amount: signed.intent.amount
-  }])
+  const { triggerDrain } = await import('./settlementDrain')
+  triggerDrain(signed.intent.taskId)
 }
 
 /**

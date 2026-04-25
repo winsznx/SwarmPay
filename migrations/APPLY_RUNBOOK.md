@@ -30,6 +30,7 @@ Apply in this exact order. Each is its own SQL Editor run.
 | 6 | `006_escrow.sql` | user_wallets + escrow_holds tables, atomic `escrow_hold` / `escrow_spend` / `escrow_release` RPCs, seed `user_1` with 50 USDC | `006_escrow_rollback.sql` |
 | 7 | `007_compute_sessions.sql` | compute_sessions table for per-ms billing audit | `007_compute_sessions_rollback.sql` |
 | 8 | `008_escrow_rpc.sql` | Defensive re-creation of all 6 RPCs (escrow + settlement + reputation) with `SECURITY DEFINER` and a `NOTIFY pgrst` cache reload — fixes "function not found in schema cache" 503s | `008_escrow_rpc_rollback.sql` |
+| 9 | `009_settlement_drain.sql` | Stateless settlement drain support: `claim_pending_intents` (FOR UPDATE SKIP LOCKED), `count_pending_intents`, `release_intent_to_pending`. Replaces the broken in-memory queue that died on Vercel serverless teardown. | `009_settlement_drain_rollback.sql` |
 
 ## Step-by-step
 
@@ -44,10 +45,12 @@ Apply in this exact order. Each is its own SQL Editor run.
 3. Watch for the green success banner. If you see `RAISE NOTICE 'Migrated legacy completed status to settled'`, that's expected — existing rows were normalized.
 4. If anything errors: the `BEGIN/COMMIT` rolls back automatically. Do NOT re-paste blindly. Read the error, decide whether to investigate or run `001_phase_b_rollback.sql`.
 
-### 2. Apply 002 → 008
+### 2. Apply 002 → 009
 Repeat the same paste-and-run pattern for each file in numerical order. Each one is small (~50 lines) and idempotent.
 
-**008 is the safety net:** even if 002 / 005 / 006 already ran cleanly, 008 re-creates the same RPC functions with `SECURITY DEFINER` and forces a PostgREST schema-cache reload via `NOTIFY pgrst, 'reload schema'`. This is the surgical fix for the "Could not find the function … in the schema cache" 503 errors that hit prod after the production sprint deploy. Always run 008 last, even on a clean migration sequence.
+**008 is the safety net:** even if 002 / 005 / 006 already ran cleanly, 008 re-creates the same RPC functions with `SECURITY DEFINER` and forces a PostgREST schema-cache reload via `NOTIFY pgrst, 'reload schema'`. This is the surgical fix for the "Could not find the function … in the schema cache" 503 errors that hit prod after the production sprint deploy.
+
+**009 is the drain backbone:** adds three RPCs (`claim_pending_intents`, `count_pending_intents`, `release_intent_to_pending`) used by `/api/settlement/drain`. Without 009, the new stateless drain endpoint cannot atomically claim batches and the SettlementProof panel will stay at `0/N confirmed` indefinitely. Always run 009 after 008.
 
 ### 3. Postflight
 1. Paste contents of `postflight_queries.sql`.
@@ -106,6 +109,20 @@ SELECT proname, pg_get_function_arguments(oid) AS signature
  )
  ORDER BY proname;
 -- Expect 6 rows, each with the param names listed (p_user_id, p_task_id, p_amount, ...).
+
+-- 009 drain RPCs
+SELECT proname, pg_get_function_arguments(oid) AS signature
+  FROM pg_proc
+ WHERE proname IN (
+   'claim_pending_intents','count_pending_intents','release_intent_to_pending'
+ )
+ ORDER BY proname;
+-- Expect 3 rows.
+
+-- 009 partial index for fast pending-claim queries
+SELECT indexname, indexdef FROM pg_indexes
+ WHERE indexname = 'idx_payment_intents_pending_by_task';
+-- Expect 1 row with WHERE (status = 'pending'::text)
 ```
 
 **If `/api/escrow/hold` still returns 503 after 008 lands**, force the cache reload by hand:

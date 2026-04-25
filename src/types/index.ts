@@ -87,6 +87,14 @@ export interface Task {
     agents: number;
     duration: number;
   };
+  /**
+   * Escrow hold ID returned from POST /api/escrow/hold at task creation.
+   * Pipeline phase 8 calls /api/escrow/release with this ID at task
+   * completion, refunding (held - spent) back to user_wallets.balance.
+   * Without this round-trip, the user's on-chain ledger drifts
+   * permanently behind the in-memory cost-breakdown ledger.
+   */
+  escrowId?: string | null;
 }
 
 

@@ -107,17 +107,23 @@ export async function sendAgentPayment(
 
 
 /**
- * Hand intents to the production settlement queue and return immediately.
+ * Arm the settlement for a task and trigger the first drain pass.
  *
- * Replaces the old `batchSettleOnArc` which capped the whole settlement at
- * a 25-second `Promise.race` — that capped allHashes to whatever confirmed
- * inside the window, silently dropping the rest. The queue (see
- * src/lib/settlementQueue.ts) instead drains per-wallet with backoff and
- * writes progress through to Supabase Realtime; the UI watches the row
- * grow live. Pipeline does not block on confirmation.
+ * Architecture: queue state lives in `payment_intents.status` (DB).
+ * Intents are already inserted by the pipeline before this is called
+ * (status='pending'). We just need to:
+ *   1. Create / update the `settlements` progress row.
+ *   2. Trigger the first /api/settlement/drain invocation.
  *
- * Returns the planned intent count; actual hashes land asynchronously into
- * settlements.all_hashes via the queue's RPC calls.
+ * The drain endpoint (src/app/api/settlement/drain/route.ts) processes
+ * a bounded batch via the `claim_pending_intents` RPC and self-recurses
+ * via fire-and-forget HTTP if more remain. This survives Vercel
+ * serverless function teardown — every drain invocation is a fresh
+ * function with the queue state durable in Postgres.
+ *
+ * Returns the planned intent count; actual hashes land asynchronously
+ * into `settlements.all_hashes` via the drain's RPC calls. The UI
+ * subscribes to the settlements row via Supabase Realtime.
  */
 export async function settleAllIntentsOnArc(
   taskId: string,
@@ -128,19 +134,30 @@ export async function settleAllIntentsOnArc(
     console.warn('[ARC] Circle unavailable; settlement skipped (mock mode)')
     return null
   }
-  const { startSettlement } = await import('./settlementQueue')
-  const { expected } = await startSettlement(
-    taskId,
-    intents.map(i => ({
-      paymentIntentId: i.paymentIntentId,
-      taskId,
-      fromAgentId: i.fromAgentId,
-      toAgentId: i.toAgentId,
-      amount: i.amount
-    }))
-  )
-  console.log(`[ARC] settlement queue armed for ${expected} intents on task ${taskId}`)
-  return { enqueued: expected }
+
+  // Upsert the settlements progress row so the UI sub sees expected_count immediately.
+  const { supabaseAdmin } = await import('./supabase')
+  if (supabaseAdmin) {
+    const { error } = await supabaseAdmin
+      .from('settlements')
+      .upsert({
+        task_id: taskId,
+        expected_count: intents.length,
+        confirmed_count: 0,
+        failed_count: 0,
+        all_hashes: [],
+        status: intents.length > 0 ? 'in_progress' : 'complete',
+        started_at: new Date().toISOString(),
+        intents_settled: intents.length
+      }, { onConflict: 'task_id' })
+    if (error) console.error('[ARC] settlements row upsert failed:', error.message)
+  }
+
+  // Kick the first drain. The endpoint will self-recurse until DB count = 0.
+  const { triggerDrain } = await import('./settlementDrain')
+  triggerDrain(taskId)
+  console.log(`[ARC] settlement armed for ${intents.length} intents on task ${taskId}; drain dispatched`)
+  return { enqueued: intents.length }
 }
 
 /** @deprecated kept for build compatibility — use settleAllIntentsOnArc */
