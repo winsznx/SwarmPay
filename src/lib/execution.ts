@@ -325,7 +325,10 @@ async function fetchGeminiAnswer(role: string, taskTitle: string, prompt: string
     };
 
     // PROFESSIONAL INTELLIGENCE SYSTEM PROMPT
-    const systemPrompt = `You are SwarmPay's expert AI analysis agent. Provide detailed, specific, helpful answers. Current UTC time: ${new Date().toISOString()}. Lagos Nigeria time (UTC+1): ${new Date(Date.now()+3600000).toLocaleTimeString('en-US',{hour:'2-digit',minute:'2-digit',hour12:true})}.
+    const lagosTime = new Intl.DateTimeFormat('en-US', {
+      timeZone: 'Africa/Lagos', hour: '2-digit', minute: '2-digit', hour12: true
+    }).format(new Date());
+    const systemPrompt = `You are SwarmPay's expert AI analysis agent. Provide detailed, specific, helpful answers. Current UTC time: ${new Date().toISOString()}. Lagos Nigeria time: ${lagosTime}.
 
 Rules:
 - Answer in 3-6 sentences with specific details

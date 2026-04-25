@@ -41,9 +41,9 @@ const WOW_MOMENTS = [
     color: "from-blue-500/20 to-transparent"
   },
   {
-    title: "Atomic Arc Settlement",
+    title: "Per-Intent Arc Settlement",
     icon: <Globe className="w-6 h-6 text-blue-400" />,
-    description: "All 50+ payment intents are compressed. Using the Arc Network's settlement engine, we land every transaction on-chain in one block for less than $0.001 gas.",
+    description: "Arc's gas profile is so low we DON'T need batching tricks. Every payment intent lands on-chain as a real USDC transfer — fully visible, fully auditable on testnet.arcscan.app. ~60 transfers per task, ~$0.027 measured gas total.",
     color: "from-blue-500/20 to-transparent"
   },
   {

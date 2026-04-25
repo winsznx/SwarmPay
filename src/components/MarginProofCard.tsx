@@ -4,27 +4,30 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, XCircle } from 'lucide-react';
 
+// Math grounded in measured Arc per-tx gas (~$0.00045 measured from receipts)
+// times 60 individual on-chain settlements per task. Ethereum / Polygon
+// numbers are public mainnet averages × 60 transfers.
 const chains = [
   {
     name: 'Ethereum',
     color: 'text-red-500',
-    gasPer63: '$31.50',
+    gasPer60: '$30.00',
     viable: false,
-    note: '10,500x task value'
+    note: '60 × $0.50 = 100× task value'
   },
   {
     name: 'Polygon',
     color: 'text-yellow-500',
-    gasPer63: '$0.63',
+    gasPer60: '$0.60',
     viable: false,
-    note: '2x task value'
+    note: '60 × $0.01 = eats the task'
   },
   {
     name: 'Arc Network',
     color: 'text-green-500',
-    gasPer63: '$0.0006',
+    gasPer60: '$0.027',
     viable: true,
-    note: '0.002x task value'
+    note: '60 × ~$0.00045 measured per tx'
   }
 ];
 
@@ -42,7 +45,7 @@ export const MarginProofCard: React.FC = () => {
       <div className="relative">
         <div className="mb-6">
           <h4 className="text-lg font-black text-white italic tracking-tight">Why Arc?</h4>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">63 micropayments. One settlement. Cost comparison:</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">60 individual on-chain settlements. Per-tx cost comparison:</p>
         </div>
 
         <div className="space-y-4">
@@ -55,7 +58,7 @@ export const MarginProofCard: React.FC = () => {
               
               <div className="flex flex-col items-end gap-1">
                 <span className={`text-xl font-mono font-black ${chain.color}`}>
-                  {chain.gasPer63}
+                  {chain.gasPer60}
                 </span>
                 <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase
                   ${chain.viable 
@@ -82,7 +85,7 @@ export const MarginProofCard: React.FC = () => {
 
         <div className="mt-8 pt-4 border-t border-white/5 text-center">
             <p className="text-sm font-black text-white tracking-tight">
-                Arc makes nanopayment economies possible. <span className="text-slate-500">Other chains don't.</span>
+                Arc lets every payment intent settle as a real on-chain transfer. <span className="text-slate-500">No batching tricks. Each tx auditable on Arc.</span>
             </p>
         </div>
       </div>

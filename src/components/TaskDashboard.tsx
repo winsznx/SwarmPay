@@ -16,9 +16,10 @@ import { MarginProofCard } from './MarginProofCard';
 import { SettlementProof } from './SettlementProof';
 import { BudgetModal } from './BudgetModal';
 import { Header } from './Header';
+import { ComputeMeter } from './ComputeMeter';
 import Link from 'next/link';
 import { usePathname } from 'next/navigation';
-import { loadTasksFromSupabase } from '@/lib/supabase';
+import { loadTasksFromSupabase, supabase } from '@/lib/supabase';
 
 
 
@@ -57,6 +58,36 @@ export const TaskDashboard: React.FC = () => {
       fetchAgents();
     }, 500);
     return () => clearInterval(interval);
+  }, []);
+
+  // Live user wallet balance via Supabase Realtime on user_wallets row.
+  useEffect(() => {
+    if (!supabase) return;
+    let active = true;
+    void (async () => {
+      const { data } = await supabase
+        .from('user_wallets')
+        .select('balance')
+        .eq('user_id', 'user_1')
+        .maybeSingle();
+      if (active && data?.balance != null) setWalletBalance(Number(data.balance));
+    })();
+    const channel = supabase
+      .channel('user_wallets:user_1')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'user_wallets', filter: 'user_id=eq.user_1' },
+        (payload) => {
+          if (!active) return;
+          const balance = (payload.new as { balance?: number } | undefined)?.balance;
+          if (balance != null) setWalletBalance(Number(balance));
+        }
+      )
+      .subscribe();
+    return () => {
+      active = false;
+      if (supabase) void supabase.removeChannel(channel);
+    };
   }, []);
 
   // Update animated balance
@@ -152,27 +183,50 @@ export const TaskDashboard: React.FC = () => {
     if (!pendingTask) return;
     const { prompt, budget, parentTaskId } = pendingTask;
     setPendingTask(null);
-    
-    // Optimistic balance deduction
-    setWalletBalance(prev => prev - budget);
+
+    // Real escrow: hold first, then create task. Wallet balance updates
+    // via Realtime subscription on user_wallets — no optimistic UI needed.
+    let escrowId: string | null = null;
+    try {
+      const holdRes = await fetch('/api/escrow/hold', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ userId: 'user_1', amount: budget }),
+      });
+      if (holdRes.ok) {
+        const data = await holdRes.json();
+        escrowId = data.escrowId ?? null;
+      } else {
+        const err = await holdRes.json().catch(() => ({}));
+        console.error('[ESCROW] hold failed:', err.error);
+        if (holdRes.status === 402) alert('Insufficient balance for this task.');
+        return;
+      }
+    } catch (e) {
+      console.error('[ESCROW] hold network error:', e);
+      // Mock-mode fallback: still try to create the task without escrow.
+    }
 
     try {
       const response = await fetch('/api/tasks', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ prompt, budget, parentTaskId }),
+        body: JSON.stringify({ prompt, budget, parentTaskId, escrowId }),
       });
 
       if (response.ok) {
         const newTask = await response.json();
         handleTaskCreated(newTask);
-      } else {
-        // Rollback balance if failed
-        setWalletBalance(prev => prev + budget);
+      } else if (escrowId) {
+        // Refund the hold if the task creation failed
+        await fetch('/api/escrow/release', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ escrowId })
+        });
       }
     } catch (error) {
       console.error('Failed to create task:', error);
-      setWalletBalance(prev => prev + budget);
     }
   };
 
@@ -246,7 +300,7 @@ export const TaskDashboard: React.FC = () => {
                   <div className="w-1.5 h-1.5 bg-blue-500 rounded-full" />
                   Initialize Compute Task
                 </h2>
-                <TaskInput onTaskCreated={handleTaskCreated} />
+                <TaskInput onSubmit={(prompt, budget) => handleCreateNewTask(prompt, budget)} />
               </section>
 
               <section className="space-y-6">
@@ -322,10 +376,20 @@ export const TaskDashboard: React.FC = () => {
                       Network Nanopayments
                     </h2>
                 </div>
-                <PaymentStream 
-                  activeTaskId={selectedTaskId} 
-                  task={tasks.find(t => t.id === selectedTaskId)} 
+                <PaymentStream
+                  activeTaskId={selectedTaskId}
+                  task={tasks.find(t => t.id === selectedTaskId)}
                 />
+              </section>
+
+              <section>
+                <div className="flex items-center justify-between mb-3 px-2">
+                  <h2 className="text-xs font-black text-yellow-500 uppercase tracking-[0.3em] flex items-center gap-2">
+                    <div className="w-1.5 h-1.5 bg-yellow-500 rounded-full" />
+                    Compute Meter
+                  </h2>
+                </div>
+                <ComputeMeter taskId={selectedTaskId} />
               </section>
 
               <section className="glass-panel p-6 rounded-[1.5rem] border-white/5">

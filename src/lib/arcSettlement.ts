@@ -1,56 +1,32 @@
-import { batchSettleOnArc } from './circleWallets'
+import { settleAllIntentsOnArc } from './circleWallets'
 
-export interface SettlementResult {
-  txHash: string
-  explorerUrl: string
-  intentsSettled: number
-  totalAmount: number
-  gasCost: number
-  allHashes?: string[]
+export interface SettlementHandle {
+  enqueued: number
+  /** UI reads gas/hashes/progress live from Supabase Realtime; this object only describes the start */
 }
 
 export async function settleOnArc(
   taskId: string,
-  paymentIntents: Array<{ from: string; to: string; amount: number }>
-): Promise<SettlementResult | null> {
-  // Try real Circle settlement first
-  const realSettlement = await batchSettleOnArc(
+  paymentIntents: Array<{ paymentIntentId: string; from: string; to: string; amount: number }>
+): Promise<SettlementHandle | null> {
+  const real = await settleAllIntentsOnArc(
     taskId,
     paymentIntents.map(p => ({
+      paymentIntentId: p.paymentIntentId,
       fromAgentId: p.from,
       toAgentId: p.to,
       amount: p.amount
     }))
   )
 
-  if (realSettlement) {
-    console.log('[ARC] Real settlement complete:', realSettlement.txHash)
-    return {
-      txHash: realSettlement.txHash,
-      explorerUrl: realSettlement.explorerUrl,
-      intentsSettled: paymentIntents.length,
-      totalAmount: paymentIntents.reduce((sum, p) => sum + p.amount, 0),
-      gasCost: (realSettlement.allHashes?.length || 1) * 0.00045, 
-      allHashes: realSettlement.allHashes
-    }
+  if (real) {
+    console.log(`[ARC] queue armed: ${real.enqueued} intents queued for task ${taskId}`)
+    return { enqueued: real.enqueued }
   }
 
-  // Fall back to mock if Circle not configured
-  console.log('[ARC] Using mock settlement (Circle not configured)')
-  return mockSettlement(taskId, paymentIntents)
-}
-
-function mockSettlement(
-  taskId: string,
-  paymentIntents: Array<{ from: string; to: string; amount: number }>
-): SettlementResult {
-  const mockHash = '0x' + taskId.replace(/-/g, '').slice(0, 40) + 'arc1'
-  console.log('[ARC] Mock settlement — hash:', mockHash)
-  return {
-    txHash: mockHash,
-    explorerUrl: `https://testnet.arcscan.app/tx/${mockHash}`,
-    intentsSettled: paymentIntents.length,
-    totalAmount: paymentIntents.reduce((sum, p) => sum + p.amount, 0),
-    gasCost: 0.0006
-  }
+  // Mock mode (no Circle keys). Mark the settlement row complete with an empty
+  // result so the UI doesn't hang. No fake hashes, no fake gas — observably
+  // empty, observably-mock.
+  console.log('[ARC] mock mode (no Circle keys) — emitting empty settlement handle')
+  return { enqueued: 0 }
 }

@@ -4,15 +4,16 @@ import { store } from '@/lib/store'
 import { Trophy, Star, Zap, DollarSign, Activity, ChevronRight } from 'lucide-react'
 
 export default async function AgentsPage() {
-  const agents = (await store.getAgents()).sort((a: any, b: any) => (b.reputation || 0) - (a.reputation || 0));
+  const agents = (await store.getAgents()).sort(
+    (a: any, b: any) => (b.totalEarned ?? 0) - (a.totalEarned ?? 0)
+  );
   const tasks = (await store.getTasks()).filter((t: any) => t.status === 'completed');
 
-  
   const stats = [
     { label: 'Total Earnings', value: `$${agents.reduce((acc: number, a: any) => acc + (a.totalEarned || 0), 0).toFixed(4)}`, icon: <DollarSign className="w-4 h-4" /> },
     { label: 'Most Active', value: agents.length > 0 ? `@${agents.reduce((prev: any, current: any) => (prev.tasksCompleted > current.tasksCompleted) ? prev : current).name}` : 'none', icon: <Activity className="w-4 h-4 text-blue-400" /> },
-    { label: 'Highest REP', value: agents.length > 0 ? agents[0].reputation : 0, icon: <Trophy className="w-4 h-4 text-orange-400" /> },
-    { label: 'Tasks (1h)', value: tasks.length, icon: <Zap className="w-4 h-4 text-yellow-400" /> },
+    { label: 'Highest REP', value: agents[0]?.reputation ?? 0, icon: <Trophy className="w-4 h-4 text-orange-400" /> },
+    { label: 'Tasks Completed', value: tasks.length, icon: <Zap className="w-4 h-4 text-yellow-400" /> },
   ]
 
 
@@ -84,10 +85,21 @@ export default async function AgentsPage() {
                                     </div>
                                 </td>
                                 <td className="px-8 py-6 text-center">
-                                    <span className="text-sm font-mono font-black text-slate-300">{agent.tasksCompleted}</span>
+                                    <div className="flex flex-col items-center">
+                                      <span className="text-sm font-mono font-black text-slate-300 tabular-nums">
+                                        {agent.tasksCompleted}/{(agent.tasksCompleted ?? 0) + ((agent as any).tasksFailed ?? 0)}
+                                      </span>
+                                      <span className="text-[9px] font-bold text-slate-600 mt-0.5">
+                                        {(() => {
+                                          const total = (agent.tasksCompleted ?? 0) + ((agent as any).tasksFailed ?? 0);
+                                          if (total === 0) return '—';
+                                          return `${Math.round((agent.tasksCompleted / total) * 100)}% success`;
+                                        })()}
+                                      </span>
+                                    </div>
                                 </td>
                                 <td className="px-8 py-6 text-right">
-                                    <span className="text-sm font-mono font-black text-green-400">${agent.totalEarned.toFixed(4)}</span>
+                                    <span className="text-sm font-mono font-black text-green-400 tabular-nums">${(agent.totalEarned ?? 0).toFixed(4)}</span>
                                 </td>
                                 <td className="px-8 py-6 text-right">
                                     <Link href="/dashboard" className="inline-flex items-center justify-center p-2 rounded-xl bg-white/5 border border-white/5 text-slate-400 hover:text-white hover:border-white/10 transition-all">

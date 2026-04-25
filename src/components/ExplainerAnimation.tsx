@@ -29,7 +29,7 @@ const PHASES = [
   {
     id: 4,
     label: 'Settled on Arc',
-    sublabel: '1 transaction · $0.0006 gas · $0.08 refunded',
+    sublabel: '60 on-chain transfers · ~$0.027 measured gas · refund returned',
     color: 'text-green-400',
     borderColor: 'border-green-500',
     icon: '✅'

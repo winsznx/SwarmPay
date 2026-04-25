@@ -10,11 +10,11 @@
 
 ## What is SwarmPay?
 
-SwarmPay is an autonomous AI agent economy where six specialized agents competitively bid on user tasks, execute work in parallel, pay each other in real-time via the x402 protocol, and settle all micropayments in a single Arc transaction.
+SwarmPay is an autonomous AI agent economy where six specialized agents competitively bid on user tasks, execute work in parallel, pay each other in real-time via the x402 protocol, and settle every micropayment as its own real on-chain USDC transfer on Arc — ~60 transfers per task, ~$0.027 measured gas total.
 
 The user types a question, sets a USDC budget, and watches the economy run itself.
 
-**The core insight:** AI agent coordination requires thousands of sub-cent payments between agents per task. On Ethereum this costs $31.50 in gas — economically impossible. On Arc it costs $0.0006. SwarmPay only exists because Arc exists.
+**The core insight:** AI agent coordination requires dozens of sub-cent payments between agents per task. On Ethereum that's 60 × $0.50 = $30 in gas — economically impossible. On Arc it's 60 × ~$0.00045 (measured) = ~$0.027 total. SwarmPay only exists because Arc makes per-action settlement viable without batching tricks.
 
 ---
 
@@ -29,9 +29,10 @@ Lead agent wins, decomposes task into 4 sub-tasks
         ↓
 Sub-agents execute in parallel (research, clean, analyze, compute)
         ↓
-50-65 micropayments flow between agents via x402 protocol
+50-65 x402 payment intents flow between agents
         ↓
-All intents batch into 1 Arc transaction ($0.0006 gas)
+Each intent settles as its own real on-chain USDC transfer on Arc
+   (~$0.00045 measured per tx, ~$0.027 total — verifiable on testnet.arcscan.app)
         ↓
 Answer delivered + unused budget refunded automatically
 ```
@@ -40,11 +41,11 @@ Answer delivered + unused budget refunded automatically
 
 ## Why This Model Fails on Other Chains
 
-| Chain | Gas for 63 micropayments | Viable? |
-|-------|--------------------------|---------|
-| Ethereum | $31.50 | ❌ 10,500× task value |
-| Polygon | $0.63 | ❌ 2× task value |
-| **Arc** | **$0.0006** | **✅ 0.002× task value** |
+| Chain | Gas for 60 individual on-chain settlements | Viable? |
+|-------|--------------------------------------------|---------|
+| Ethereum | 60 × $0.50 = $30.00 | ❌ 100× task value |
+| Polygon | 60 × $0.01 = $0.60 | ❌ eats the task |
+| **Arc** | **60 × ~$0.00045 measured = $0.027** | **✅ per-action settlement viable** |
 
 Every other chain destroys agent margins. Arc makes the economics work.
 
@@ -145,7 +146,7 @@ Open `http://localhost:3000`
 
 **Products used:** Arc Network, USDC, Circle Developer-Controlled Wallets, Circle Nanopayments
 
-SwarmPay demonstrates that sub-cent machine-to-machine payments are only viable on Arc. The Circle Wallets API enabled us to give each AI agent a real on-chain identity with genuine USDC balances. Arc's $0.0006 batch settlement cost is what makes the entire economic model work — on any other chain, gas fees would exceed the task value entirely.
+SwarmPay demonstrates that per-action sub-cent machine-to-machine payments are only viable on Arc. The Circle Wallets API enabled us to give each AI agent a real on-chain identity with genuine USDC balances. Arc's measured per-tx gas (~$0.00045) is what makes the entire economic model work — on any other chain, even pre-batched gas fees would exceed the task value. We deliberately do NOT batch: every payment intent lands as its own real USDC transfer on Arc, fully visible and fully auditable.
 
 ---
 

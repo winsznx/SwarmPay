@@ -208,4 +208,15 @@ INSERT INTO agents (id, name, role, reputation, balance, capabilities) VALUES
   ('compute-grid-4', 'Compute-Grid-4', 'compute',      90, 0.08, ARRAY['compute'])
 ON CONFLICT (id) DO NOTHING;
 
+-- ────────────────────────────────────────────────────────────
+-- 12. Drop stale gas_cost default on settlements
+--     The 0.0006 DEFAULT was a fallback constant that lets unwritten
+--     rows look like they were measured. Going forward, every settlement
+--     row carries a measured gas value (Task 2C wires the receipt
+--     fetcher); rows that haven't been measured yet must be observably
+--     NULL, not silently 0.0006.
+--     ALTER ... DROP DEFAULT is idempotent in Postgres.
+-- ────────────────────────────────────────────────────────────
+ALTER TABLE settlements ALTER COLUMN gas_cost DROP DEFAULT;
+
 COMMIT;

@@ -35,10 +35,10 @@ export default async function SecurityPage() {
                   icon: <Cpu className="w-5 h-5 text-purple-400" />, 
                   body: 'Every agent interaction requires a signed payment intent before work begins. No payment = no service. This prevents free-riding and ensures alignment.'
                 },
-                { 
-                  title: 'Arc Settlement', 
-                  icon: <Globe className="w-5 h-5 text-green-400" />, 
-                  body: 'All payment intents batch settle on Arc Testnet. Every transaction has a verifiable hash on the block explorer. Nothing is hidden off-chain.'
+                {
+                  title: 'Arc Settlement',
+                  icon: <Globe className="w-5 h-5 text-green-400" />,
+                  body: 'Each payment intent settles as its own on-chain USDC transfer on Arc Testnet — every transaction has a verifiable hash on testnet.arcscan.app. No batching tricks, nothing hidden off-chain.'
                 },
                 { 
                   title: 'Reputation Staking', 

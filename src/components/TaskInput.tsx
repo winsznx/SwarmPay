@@ -6,10 +6,12 @@ import { motion } from 'framer-motion';
 import { Task } from '@/types';
 
 interface TaskInputProps {
-  onTaskCreated: (task: Task) => void;
+  // Either pass onTaskCreated (legacy) or onSubmit (new — routes through BudgetModal).
+  onTaskCreated?: (task: Task) => void;
+  onSubmit?: (prompt: string, budget: number) => void;
 }
 
-export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
+export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated, onSubmit }) => {
   const [prompt, setPrompt] = useState('');
   const [budget, setBudget] = useState<number | ''>('')
 
@@ -19,6 +21,14 @@ export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
     e.preventDefault();
     if (!prompt || !budget) return;
 
+    // Preferred path: hand to parent which opens BudgetModal → escrow → POST.
+    if (onSubmit) {
+      onSubmit(prompt, Number(budget));
+      setPrompt('');
+      return;
+    }
+
+    // Legacy path retained for backward compatibility.
     setIsSubmitting(true);
     try {
       const response = await fetch('/api/tasks', {
@@ -29,7 +39,7 @@ export const TaskInput: React.FC<TaskInputProps> = ({ onTaskCreated }) => {
 
       if (response.ok) {
         const newTask = await response.json();
-        onTaskCreated(newTask);
+        onTaskCreated?.(newTask);
         setPrompt('');
       }
     } catch (error) {

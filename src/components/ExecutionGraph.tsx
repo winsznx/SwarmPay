@@ -139,12 +139,12 @@ const Graph = ({ taskId }: { taskId: string }) => {
   const [selectedNode, setSelectedNode] = useState<any>(null);
   const [devMode, setDevMode] = useState(false);
 
-  const fetchTree = useCallback(async () => {
+  const fetchTree = useCallback(async (): Promise<{ rootStatus: string | null }> => {
     try {
       const res = await fetch(`/api/tasks/${taskId}/tree`);
-      if (!res.ok) return;
+      if (!res.ok) return { rootStatus: null };
       const data = await res.json();
-      
+
       const { nodes: layoutedNodes, edges: layoutedEdges } = getLayoutedElements(
         data.nodes,
         data.edges
@@ -159,16 +159,36 @@ const Graph = ({ taskId }: { taskId: string }) => {
         setCenter(activeNode.position.x + nodeWidth / 2, activeNode.position.y + nodeHeight / 2, { zoom: 1.2, duration: 800 });
         setSelectedNode(activeNode);
       }
+      // Root node is the one whose id matches taskId (or has no incoming edge).
+      const root = layoutedNodes.find(n => n.id === taskId)
+        ?? layoutedNodes.find(n => !data.edges.some((e: any) => e.target === n.id));
+      return { rootStatus: (root?.data?.status as string | undefined) ?? null };
     } catch (err) {
       console.error('Failed to fetch tree:', err);
+      return { rootStatus: null };
     }
   }, [taskId, setNodes, setEdges, setCenter]);
 
   useEffect(() => {
-    fetchTree();
-    const interval = setInterval(fetchTree, 3000);
-    return () => clearInterval(interval);
-  }, [fetchTree]);
+    let cancelled = false;
+    let intervalId: ReturnType<typeof setInterval> | null = null;
+    void (async () => {
+      const { rootStatus } = await fetchTree();
+      if (cancelled) return;
+      // Stop polling once the root task hits a terminal state.
+      if (rootStatus === 'completed' || rootStatus === 'failed') return;
+      intervalId = setInterval(async () => {
+        const { rootStatus: latest } = await fetchTree();
+        if (latest === 'completed' || latest === 'failed') {
+          if (intervalId) clearInterval(intervalId);
+        }
+      }, 3000);
+    })();
+    return () => {
+      cancelled = true;
+      if (intervalId) clearInterval(intervalId);
+    };
+  }, [fetchTree, taskId]);
 
   const onNodeClick = (_: any, node: Node) => {
     setSelectedNode(node);

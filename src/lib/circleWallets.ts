@@ -106,65 +106,45 @@ export async function sendAgentPayment(
 }
 
 
-export async function batchSettleOnArc(
+/**
+ * Hand intents to the production settlement queue and return immediately.
+ *
+ * Replaces the old `batchSettleOnArc` which capped the whole settlement at
+ * a 25-second `Promise.race` — that capped allHashes to whatever confirmed
+ * inside the window, silently dropping the rest. The queue (see
+ * src/lib/settlementQueue.ts) instead drains per-wallet with backoff and
+ * writes progress through to Supabase Realtime; the UI watches the row
+ * grow live. Pipeline does not block on confirmation.
+ *
+ * Returns the planned intent count; actual hashes land asynchronously into
+ * settlements.all_hashes via the queue's RPC calls.
+ */
+export async function settleAllIntentsOnArc(
   taskId: string,
-  intents: Array<{ fromAgentId: string; toAgentId: string; amount: number }>
-): Promise<{ txHash: string; explorerUrl: string; allHashes: string[] } | null> {
+  intents: Array<{ paymentIntentId: string; fromAgentId: string; toAgentId: string; amount: number }>
+): Promise<{ enqueued: number } | null> {
   const circle = getCircleClient()
-  if (!circle) return null
-
-  // 🚀 MAX FREQUENCY MODE: Individual Intent-to-Chain Settlement
-  console.log(`[ARC] High-frequency settlement initiated for ${intents.length} total intents...`);
-
-  const allHashes: string[] = [];
-  let leadResult: { txHash: string; explorerUrl: string } | null = null;
-
-  // Group by sender to handle Circle nonces correctly
-  const senderBuckets: Record<string, typeof intents> = {};
-  intents.forEach(i => {
-    if (!senderBuckets[i.fromAgentId]) senderBuckets[i.fromAgentId] = [];
-    senderBuckets[i.fromAgentId].push(i);
-  });
-
-  // Each sender node runs its settlements sequentially to avoid Circle nonce clashes
-  const settlementPromises = Object.keys(senderBuckets).map(async (fromId) => {
-    const senderIntents = senderBuckets[fromId];
-    for (const intent of senderIntents) {
-      try {
-        console.log(`[ARC] Node ${fromId} settling intent: $${intent.amount.toFixed(4)}...`);
-        const txHash = await sendAgentPayment(intent.fromAgentId, intent.toAgentId, intent.amount);
-        
-        if (txHash) {
-          allHashes.push(txHash);
-          if (!leadResult) {
-            leadResult = {
-              txHash,
-              explorerUrl: txHash.startsWith('0x')
-                ? `https://testnet.arcscan.app/tx/${txHash}`
-                : `https://app.circle.com/transactions/${txHash}`
-            };
-          }
-        }
-      } catch (e) {
-        console.error(`[ARC] Intent settlement failed for ${fromId}:`, e);
-      }
-    }
-  });
-
-  // Wait for parallel node-buckets to finish (or cap at 25s)
-  await Promise.race([
-    Promise.all(settlementPromises),
-    new Promise(r => setTimeout(r, 25000))
-  ]);
-
-  if (!leadResult && allHashes.length === 0) return null;
-
-  return {
-    txHash: (leadResult as any)?.txHash || allHashes[0],
-    explorerUrl: (leadResult as any)?.explorerUrl || `https://testnet.arcscan.app/tx/${allHashes[0]}`,
-    allHashes
-  };
+  if (!circle) {
+    console.warn('[ARC] Circle unavailable; settlement skipped (mock mode)')
+    return null
+  }
+  const { startSettlement } = await import('./settlementQueue')
+  const { expected } = await startSettlement(
+    taskId,
+    intents.map(i => ({
+      paymentIntentId: i.paymentIntentId,
+      taskId,
+      fromAgentId: i.fromAgentId,
+      toAgentId: i.toAgentId,
+      amount: i.amount
+    }))
+  )
+  console.log(`[ARC] settlement queue armed for ${expected} intents on task ${taskId}`)
+  return { enqueued: expected }
 }
+
+/** @deprecated kept for build compatibility — use settleAllIntentsOnArc */
+export const batchSettleOnArc = settleAllIntentsOnArc
 
 
 export async function getAgentBalances(): Promise<Record<string, number>> {

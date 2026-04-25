@@ -51,8 +51,14 @@ export const ResultCard: React.FC<ResultCardProps> = ({ task }) => {
   const raw = task.result?.result ?? '';
   let structuredResult: any = null;
   try {
-      if (raw.startsWith('{') && raw.endsWith('}')) {
-          structuredResult = JSON.parse(raw);
+      // Strip markdown code fences before parsing — Gemini sometimes wraps JSON
+      // in ```json ... ``` or ``` ... ``` despite the system prompt asking for raw JSON.
+      const stripped = raw
+        .replace(/^\s*```(?:json)?\s*/i, '')
+        .replace(/\s*```\s*$/i, '')
+        .trim();
+      if (stripped.startsWith('{') && stripped.endsWith('}')) {
+          structuredResult = JSON.parse(stripped);
       }
   } catch (e) {}
 
