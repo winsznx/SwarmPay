@@ -24,21 +24,60 @@ export const Header: React.FC<HeaderProps> = ({
   const isOpen = externalState !== undefined ? externalState : localOpen
   const toggle = externalToggle || (() => setLocalOpen(!localOpen))
 
-  // Real /api/health poll — checks Supabase + Circle + Arc RPC.
+  // /api/health poll. 30s default. Exponential backoff on 503/error
+  // (30s → 60s → 120s → cap 300s) so a degraded subsystem doesn't drive
+  // serverless burn during the demo. Pauses entirely when the tab is
+  // hidden and resumes on visibility. Drops the no-store flag so the
+  // edge cache header on /api/health (max-age=10) actually does work.
   useEffect(() => {
     let cancelled = false
+    let timer: ReturnType<typeof setTimeout> | null = null
+    let backoffStep = 0 // 0 = healthy → 30s, increases on each consecutive failure
+    const intervals = [30_000, 60_000, 120_000, 300_000]
+    const nextDelay = () => intervals[Math.min(backoffStep, intervals.length - 1)]
+
     const ping = async () => {
+      if (cancelled) return
+      if (document.visibilityState === 'hidden') {
+        // Don't burn invocations on hidden tabs. visibilitychange handler reschedules.
+        return
+      }
       try {
-        const res = await fetch('/api/health', { cache: 'no-store' })
+        const res = await fetch('/api/health')
         if (cancelled) return
-        setHealthy(res.ok)
+        if (res.ok) {
+          setHealthy(true)
+          backoffStep = 0 // reset backoff on first success
+        } else {
+          setHealthy(false)
+          backoffStep++
+        }
       } catch {
-        if (!cancelled) setHealthy(false)
+        if (!cancelled) {
+          setHealthy(false)
+          backoffStep++
+        }
+      } finally {
+        if (!cancelled) timer = setTimeout(ping, nextDelay())
       }
     }
+
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible' && !cancelled) {
+        // Resume immediately when tab becomes visible.
+        if (timer) clearTimeout(timer)
+        void ping()
+      }
+    }
+
     void ping()
-    const id = setInterval(ping, 30_000)
-    return () => { cancelled = true; clearInterval(id) }
+    document.addEventListener('visibilitychange', handleVisibility)
+
+    return () => {
+      cancelled = true
+      if (timer) clearTimeout(timer)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
   }, [])
 
   const navLinks = [

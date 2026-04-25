@@ -5,6 +5,13 @@ import { getCircleClient } from '@/lib/circleWallets'
 export const dynamic = 'force-dynamic'
 export const runtime = 'nodejs'
 
+// Loud one-shot warning on missing service-role key. Logs once at module init
+// (not per request) so the operator sees it in Vercel logs immediately on first
+// cold start without log spam from every health check.
+if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+  console.error('[/api/health] CRITICAL: SUPABASE_SERVICE_ROLE_KEY not set — escrow, settlement, and reputation will fail')
+}
+
 interface SubsystemStatus {
   name: 'supabase' | 'circle' | 'arc_rpc'
   ok: boolean
@@ -60,5 +67,14 @@ export async function GET() {
     ok: allOk,
     timestamp: new Date().toISOString(),
     subsystems
-  }, { status: allOk ? 200 : 503 })
+  }, {
+    status: allOk ? 200 : 503,
+    headers: {
+      // Lets Vercel's edge cache absorb rapid polls so the underlying
+      // function isn't invoked per request. 10s freshness; 30s SWR window
+      // means a stale response is served instantly while a fresh one is
+      // fetched in the background.
+      'Cache-Control': 'public, max-age=10, stale-while-revalidate=30'
+    }
+  })
 }

@@ -53,10 +53,14 @@ export const TaskDashboard: React.FC = () => {
 
     fetchTasks();
     fetchAgents();
+    // 2s base poll. Was 500ms — that summed to 6 req/s/tab across tasks +
+    // agents + wallet, which during a multi-judge demo would blow the
+    // Vercel Hobby invocation budget. 2s is still snappy enough that
+    // bid cards and DAG nodes update visibly mid-task.
     const interval = setInterval(() => {
       fetchTasks();
       fetchAgents();
-    }, 500);
+    }, 2000);
     return () => clearInterval(interval);
   }, []);
 
@@ -123,13 +127,8 @@ export const TaskDashboard: React.FC = () => {
         const agentList = await res.json();
         setAgents(agentList);
       }
-
-      // Fetch Global User Wallet (Independent of agents)
-      const userRes = await fetch('/api/user/wallet');
-      if (userRes.ok) {
-        const { balance } = await userRes.json();
-        setWalletBalance(balance);
-      }
+      // Wallet balance is sourced from the user_wallets Realtime subscription
+      // above. No need to poll /api/user/wallet here.
     } catch (err) {
       console.error('Failed to fetch user state:', err);
     }
