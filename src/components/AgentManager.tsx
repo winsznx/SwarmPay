@@ -1,9 +1,9 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { Users, Cpu, Search, Database, Code, ShieldCheck, Terminal, Award } from 'lucide-react';
+import { Cpu, Search, Database, ShieldCheck, Terminal, Award, ExternalLink, Wallet, CheckCircle2 } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Agent, AgentRole } from '@/types';
+import { Agent } from '@/types';
 import { supabase } from '@/lib/supabase';
 
 interface RepDelta {
@@ -129,22 +129,57 @@ export const AgentManager: React.FC<{ agents?: Agent[] }> = ({ agents: propAgent
                 </div>
               </div>
               
-              <div className="mt-4 pt-3 border-t border-white/[0.03] space-y-1">
-                 {/* Circle wallet balance - proves real integration */}
-                 <div className="flex items-center justify-between">
-                   <span className="text-[10px] font-bold text-slate-500 uppercase">Wallet</span>
-                   <span className="text-[10px] font-mono font-black text-slate-300">
-                     ${(agent.wallet || 0).toFixed(2)} USDC
-                   </span>
-                 </div>
+              <div className="mt-4 pt-3 border-t border-white/[0.03] space-y-1.5">
+                {/* On-chain identity badge */}
+                {(agent as any).walletAddress ? (
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1">
+                      <CheckCircle2 className="w-2.5 h-2.5 text-green-500" />
+                      <span className="text-[10px] font-bold text-green-500 uppercase">On-Chain</span>
+                    </div>
+                    <a
+                      href={(agent as any).arcExplorerUrl ?? '#'}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-1 text-[10px] font-mono text-blue-400 hover:text-blue-300 transition-colors"
+                      title={(agent as any).walletAddress}
+                    >
+                      {`${((agent as any).walletAddress as string).slice(0, 6)}…${((agent as any).walletAddress as string).slice(-4)}`}
+                      <ExternalLink className="w-2.5 h-2.5" />
+                    </a>
+                  </div>
+                ) : null}
 
-                 {/* SwarmPay earned balance */}
-                 <div className="flex items-center justify-between">
-                   <span className="text-[10px] font-bold text-slate-500 uppercase">Earned</span>
-                   <span className="text-[10px] font-mono font-black text-green-400">
-                     +${(agent.earned || 0).toFixed(4)} USDC
-                   </span>
-                 </div>
+                {/* Live USDC balance from Circle */}
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-1">
+                    <Wallet className="w-2.5 h-2.5 text-slate-500" />
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Balance</span>
+                  </div>
+                  <span className="text-[10px] font-mono font-black text-slate-300">
+                    {(agent as any).balanceUsdc != null
+                      ? `$${((agent as any).balanceUsdc as number).toFixed(2)} USDC`
+                      : `$${(agent.wallet || 0).toFixed(2)} USDC`}
+                  </span>
+                </div>
+
+                {/* Settled tx count */}
+                {(agent as any).settledTxCount != null && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-500 uppercase">Settled Txns</span>
+                    <span className="text-[10px] font-mono font-black text-slate-400">
+                      {(agent as any).settledTxCount}
+                    </span>
+                  </div>
+                )}
+
+                {/* Earned this session */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-500 uppercase">Earned</span>
+                  <span className="text-[10px] font-mono font-black text-green-400">
+                    +${((agent as any).totalEarned || agent.earned || 0).toFixed(4)} USDC
+                  </span>
+                </div>
               </div>
             </motion.div>
           ))

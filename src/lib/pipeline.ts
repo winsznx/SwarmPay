@@ -5,12 +5,13 @@ import { decomposeTask } from './orchestration';
 import { pipelineEvents, EMIT_SUBTASK_START, EMIT_SUBTASK_DONE, EMIT_TASK_DONE, EMIT_PAYMENT, EMIT_AGENT_ACT } from './events';
 import { settleOnArc } from './arcSettlement';
 import { sendAgentPayment } from './circleWallets';
-import { 
-  saveTaskToSupabase, 
-  savePaymentToSupabase, 
-  saveSubTaskToSupabase, 
-  logTaskEvent, 
-  saveSettlementToSupabase 
+import {
+  saveTaskToSupabase,
+  savePaymentToSupabase,
+  saveSubTaskToSupabase,
+  logTaskEvent,
+  saveSettlementToSupabase,
+  supabaseAdmin
 } from './supabase';
 
 
@@ -55,7 +56,9 @@ export async function runAutonomousPipeline(task: Task) {
 
     // Recalculate cost breakdown early
     const platformFee = parseFloat((effectiveBudget * 0.10).toFixed(6));
-    const EFFICIENCY_RATIO = 0.75 + (Math.random() * 0.13); // 75-88%
+    // Efficiency ratio: deterministic based on complexity, not random.
+    // HIGH complexity tasks use more agent coordination = slightly lower efficiency.
+    const EFFICIENCY_RATIO = appraisal?.complexity === 'LOW' ? 0.88 : appraisal?.complexity === 'MEDIUM' ? 0.82 : 0.78;
     const spendable = parseFloat((effectiveBudget * EFFICIENCY_RATIO - platformFee).toFixed(6));
 
     // Split spendable budget across categories
@@ -239,45 +242,73 @@ export async function runAutonomousPipeline(task: Task) {
 
     await store.logPipelineStep(task.id, 'Phase 6: Finalize (Guard Protocol)', 'completed', 'Integrity Guard passed. Results synthesized.');
 
-    // ── Phase 7: Settling intents on Arc (per-intent confirmation) ──────────
-    await store.logPipelineStep(task.id, 'Phase 7: Settling intents on Arc (per-intent confirmation)', 'pending', 'Generating payment intents for the autonomous settlement queue.');
+    // ── Phase 7: Build per-subtask payment intents tied to real work ────────
+    // Each intent maps 1-to-1 with a completed sub-task:
+    //   lead agent → sub-task agent, amount = sub-task budget slice.
+    // One additional intent captures the platform fee.
+    // This replaces the prior random-batch approach so every on-chain
+    // transfer has a direct causal link to work done and verified.
+    await store.logPipelineStep(task.id, 'Phase 7: Building payment intents from real work', 'pending', 'Generating per-subtask payment intents tied to verified work output.');
     await store.updateTask(task.id, { status: 'settling' });
-    const agents = await store.getAgents();
-    const PAYMENT_COUNT = Math.max(50, 50 + Math.floor(Math.random() * 15));
+
     const createdIntents: Array<{ id: string; fromAgentId: string; toAgentId: string; amount: number }> = [];
 
-    while (createdIntents.length < PAYMENT_COUNT) {
-        await delay(20);
-        const fromAgent = agents[Math.floor(Math.random() * agents.length)];
-        const toAgentObj = agents[Math.floor(Math.random() * agents.length)];
-        if (fromAgent.id === toAgentObj.id) continue;
+    if (cb) {
+      const workPool = cb.research + cb.cleaning + cb.analysis + cb.compute
+      const sharePerSubTask = finalizedSubTasks.length > 0
+        ? parseFloat((workPool / finalizedSubTasks.length).toFixed(6))
+        : 0
+
+      // One payment from the lead agent to each sub-task agent for their share.
+      for (const st of finalizedSubTasks) {
+        const subAgent = st.assignedAgentId ? store.getAgent(st.assignedAgentId) : null
+        if (!subAgent || subAgent.id === winner.id) continue
+        if (sharePerSubTask <= 0) continue
 
         const intent = await store.createPaymentIntent({
-          fromAgentId: fromAgent.id, fromAgentName: fromAgent.name,
-          toAgentId: toAgentObj.id, toAgentName: toAgentObj.name,
-          taskId: task.id, amount: 0.0001, currency: 'USDC'
-        });
+          fromAgentId: winner.id,
+          fromAgentName: winner.name,
+          toAgentId: subAgent.id,
+          toAgentName: subAgent.name,
+          taskId: task.id,
+          amount: sharePerSubTask,
+          currency: 'USDC'
+        })
 
-        createdIntents.push({ id: intent.id, fromAgentId: fromAgent.id, toAgentId: toAgentObj.id, amount: intent.amount });
+        createdIntents.push({ id: intent.id, fromAgentId: winner.id, toAgentId: subAgent.id, amount: sharePerSubTask })
 
         pipelineEvents.emit('payment:intent', {
+          taskId: task.id, type: 'payment:intent', id: intent.id,
+          fromAgent: winner.name, toAgent: subAgent.name,
+          amount: sharePerSubTask, subTaskTitle: st.title, timestamp: Date.now()
+        })
+
+        store.updateAgent(subAgent.id, { earned: (subAgent.earned ?? 0) + sharePerSubTask })
+        savePaymentToSupabase({ ...intent, status: 'pending' }).catch(() => {})
+      }
+
+      // Platform fee intent: lead agent → platform wallet address.
+      // The drain uses createTransaction with destinationAddress, so we need
+      // a platform agent ID that maps to the platform wallet. We model it
+      // as a special synthetic agent ID 'platform' — the drain resolves its
+      // address from PLATFORM_WALLET_ADDRESS env var, bypassing Circle wallet
+      // lookup. If PLATFORM_WALLET_ADDRESS is unset, this intent is skipped.
+      if (cb.platformFee > 0 && process.env.PLATFORM_WALLET_ADDRESS) {
+        const platformIntent = await store.createPaymentIntent({
+          fromAgentId: winner.id,
+          fromAgentName: winner.name,
+          toAgentId: 'platform',
+          toAgentName: 'SwarmPay Platform',
           taskId: task.id,
-          type: 'payment:intent',
-          id: intent.id,
-          fromAgent: fromAgent.name,
-          toAgent: toAgentObj.name,
-          amount: intent.amount,
-          timestamp: Date.now()
-        });
-
-        const toAgent = store.getAgent(intent.toAgentId);
-        if (toAgent) {
-          store.updateAgent(intent.toAgentId, { earned: (toAgent.earned ?? 0) + intent.amount });
-        }
-
-        savePaymentToSupabase(intent).catch(() => {});
+          amount: parseFloat(cb.platformFee.toFixed(6)),
+          currency: 'USDC'
+        })
+        createdIntents.push({ id: platformIntent.id, fromAgentId: winner.id, toAgentId: 'platform', amount: cb.platformFee })
+        savePaymentToSupabase({ ...platformIntent, status: 'pending' }).catch(() => {})
+      }
     }
-    await store.logPipelineStep(task.id, 'Phase 7: Settling intents on Arc (per-intent confirmation)', 'completed', `${createdIntents.length} intents generated and ready for the queue.`);
+
+    await store.logPipelineStep(task.id, 'Phase 7: Building payment intents from real work', 'completed', `${createdIntents.length} intents created — one per completed sub-task + platform fee.`);
 
     // ── Phase 8: Hand intents to settlement queue (non-blocking) ───────────
     await store.logPipelineStep(task.id, 'Phase 8: Arc Settlement', 'pending', 'Handing intents to the per-wallet settlement queue. Confirmations land async and stream to the UI via Realtime.');
@@ -360,6 +391,23 @@ export async function runAutonomousPipeline(task: Task) {
       completedAt: Date.now()
     });
 
+    // Close the wallet ledger: release the escrow hold so unspent budget
+    // refunds against user_wallets.balance. The Realtime sub on the
+    // dashboard updates the header in real time. Without this call, the
+    // on-chain wallet ledger drifts permanently behind the in-memory
+    // cost-breakdown ledger after every task.
+    if (task.escrowId && supabaseAdmin) {
+      const { error: relErr, data: refunded } = await supabaseAdmin.rpc('escrow_release', {
+        p_hold_id: task.escrowId
+      });
+      if (relErr) console.error('[ECONOMY] escrow_release failed:', relErr.message);
+      else console.log(`[ECONOMY] escrow released for ${task.id}; refunded $${refunded ?? 0}`);
+    } else if (!task.escrowId) {
+      // Legacy task created before the BudgetModal escrow path was wired.
+      // Not fatal — the in-memory store.userWallet path already tracked the spend.
+      console.log(`[ECONOMY] no escrowId on task ${task.id}; skipping escrow_release`);
+    }
+
     pipelineEvents.emit(EMIT_TASK_DONE, { taskId: task.id, result: { result: finalResult }, costBreakdown: cb });
 
     // Save to Supabase for persistence (fire and forget)
@@ -391,13 +439,30 @@ async function runSubTaskBidding(taskId: string, subTasks: SubTask[], agents: Ag
     await store.updateSubTask(st.id, { status: 'bidding' });
     
     // 2. Generate bids for this sub-task
-    const candidates = agents.filter(a => a.id !== leadAgent.id).sort(() => Math.random() - 0.5).slice(0, 3);
+    // Capability-matched candidates: agents whose role fits the subtask type
+    // take priority, then fill to 3 with the next best by reputation.
+    const roleMatch = (agentRole: string, subTaskType: string): boolean => {
+      const map: Record<string, string[]> = {
+        fetch_data:  ['research', 'research-agent'],
+        clean_data:  ['clean_data', 'validation-agent'],
+        analyze:     ['analysis', 'planning-agent'],
+        compute:     ['compute', 'execution-agent'],
+      }
+      return (map[subTaskType] ?? []).includes(agentRole)
+    }
+    const pool = agents.filter(a => a.id !== leadAgent.id)
+    const matched = pool.filter(a => roleMatch(a.role, st.type ?? ''))
+    const others  = pool.filter(a => !roleMatch(a.role, st.type ?? '')).sort((a, b) => b.reputation - a.reputation)
+    const candidates = [...matched, ...others].slice(0, 3)
+
     for (const agent of candidates) {
+      const priceFraction = 0.55 + (100 - agent.reputation) / 200
       await store.addBid({
         id: crypto.randomUUID(), taskId: st.id, agentId: agent.id,
-        price: parseFloat(((st.budget || 0.01) * (0.6 + Math.random() * 0.3)).toFixed(4)),
-        estimatedTimeMs: 4000, confidence: agent.reputation / 100,
-        strategy: `Specialist ${agent.role}`, submittedAt: Date.now(),
+        price: parseFloat(((st.budget || 0.01) * priceFraction).toFixed(4)),
+        estimatedTimeMs: Math.round(5000 - agent.reputation * 30),
+        confidence: agent.reputation / 100,
+        strategy: `${agent.name} (${agent.role}) specialist`, submittedAt: Date.now(),
       } as any);
     }
     
@@ -479,7 +544,7 @@ const COST_PER_MS = 0.000001
 async function runComputeSession(taskId: string, subTaskId: string, agentId: string): Promise<void> {
   const sessionId = crypto.randomUUID()
   const startedAt = Date.now()
-  const targetMs = 4000 + Math.floor(Math.random() * 4000) // 4-8s session
+  const targetMs = 5000 // fixed compute budget per session; real duration = LLM latency
   const samples: Array<{ ts: number; cpuPercent: number }> = []
 
   // Persist session start
@@ -531,36 +596,43 @@ async function runDirectExecution(task: Task, agent: Agent) {
 }
 
 export async function runInitialBiddingWar(task: Task) {
-  const agentNames = [
-    'CryptoScout-X', 'Research-Alpha', 'DataMiner-Pro', 
-    'Parser-X', 'Analysis-Node', 'Compute-Grid-4'
-  ];
-  const bids: any[] = [];
-  
-  for (const name of agentNames) {
-    await delay(450); // Faster, more intense war
-    const amount = parseFloat((task.budget * (0.55 + Math.random() * 0.30)).toFixed(4));
+  const agents = await store.getAgents()
+  const bids: any[] = []
+
+  for (const agent of agents) {
+    await delay(450)
+
+    // Bid price: higher-reputation agents can offer a lower price because they
+    // are more efficient. price = budget × (0.50 + (100 - rep) / 200)
+    // rep 95 → ×0.525 | rep 87 → ×0.565 — tightest spread is the most competitive.
+    const priceFraction = 0.50 + (100 - agent.reputation) / 200
+    const price = parseFloat((task.budget * priceFraction).toFixed(4))
+
+    // estimatedTimeMs inversely proportional to reputation — faster agents win ties.
+    const estimatedTimeMs = Math.round(6000 - agent.reputation * 40)
+
     const bid = {
-      id: Math.random().toString(36).substring(7), 
+      id: crypto.randomUUID(),
       taskId: task.id,
-      agentId: name.toLowerCase().replace(/ /g, '-'), 
-      agentName: name,
-      amount, price: amount, estimatedTimeMs: 2000, latency: 2,
-      reputation: 90 + Math.floor(Math.random() * 10), 
-      confidence: 0.9, 
-      strategy: `${name} optimized`,
-      reasoning: 'Swarm protocol analysis', 
+      agentId: agent.id,
+      agentName: agent.name,
+      amount: price,
+      price,
+      estimatedTimeMs,
+      latency: 2,
+      reputation: agent.reputation,
+      confidence: agent.reputation / 100,
+      strategy: `${agent.name} (${agent.role}) optimized`,
+      reasoning: `Reputation ${agent.reputation}/100 — ${agent.role} specialist`,
       submittedAt: Date.now(),
-    } as any;
-    
-    await store.addBid(bid);
-    bids.push(bid);
-    
-    await store.updateTask(task.id, { bids: [...bids], currentBids: [...bids] });
-    await saveTaskToSupabase(await store.getTask(task.id));
+    } as any
+
+    await store.addBid(bid)
+    bids.push(bid)
+    await store.updateTask(task.id, { bids: [...bids], currentBids: [...bids] })
+    await saveTaskToSupabase(await store.getTask(task.id))
   }
-  
-  // FINAL SYNC for auction integrity
-  await saveTaskToSupabase(await store.getTask(task.id));
-  return bids;
+
+  await saveTaskToSupabase(await store.getTask(task.id))
+  return bids
 }
