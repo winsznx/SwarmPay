@@ -109,29 +109,61 @@ export async function sendAgentPayment(
 export async function batchSettleOnArc(
   taskId: string,
   intents: Array<{ fromAgentId: string; toAgentId: string; amount: number }>
-): Promise<{ txHash: string; explorerUrl: string } | null> {
+): Promise<{ txHash: string; explorerUrl: string; allHashes: string[] } | null> {
   const circle = getCircleClient()
   if (!circle) return null
 
-  // Send the largest single payment as the "settlement" transaction
-  // This gives us a real verifiable tx hash for the demo
-  const largest = intents.reduce((max, i) => i.amount > max.amount ? i : max, intents[0])
+  // 🚀 MAX FREQUENCY MODE: Individual Intent-to-Chain Settlement
+  console.log(`[ARC] High-frequency settlement initiated for ${intents.length} total intents...`);
 
-  const txHash = await sendAgentPayment(
-    largest.fromAgentId,
-    largest.toAgentId,
-    intents.reduce((sum, i) => sum + i.amount, 0)
-  )
-  if (!txHash) return null
-  
-  const explorerUrl = txHash.startsWith('0x')
-    ? `https://testnet.arcscan.app/tx/${txHash}`
-    : `https://app.circle.com/transactions/${txHash}`
+  const allHashes: string[] = [];
+  let leadResult: { txHash: string; explorerUrl: string } | null = null;
+
+  // Group by sender to handle Circle nonces correctly
+  const senderBuckets: Record<string, typeof intents> = {};
+  intents.forEach(i => {
+    if (!senderBuckets[i.fromAgentId]) senderBuckets[i.fromAgentId] = [];
+    senderBuckets[i.fromAgentId].push(i);
+  });
+
+  // Each sender node runs its settlements sequentially to avoid Circle nonce clashes
+  const settlementPromises = Object.keys(senderBuckets).map(async (fromId) => {
+    const senderIntents = senderBuckets[fromId];
+    for (const intent of senderIntents) {
+      try {
+        console.log(`[ARC] Node ${fromId} settling intent: $${intent.amount.toFixed(4)}...`);
+        const txHash = await sendAgentPayment(intent.fromAgentId, intent.toAgentId, intent.amount);
+        
+        if (txHash) {
+          allHashes.push(txHash);
+          if (!leadResult) {
+            leadResult = {
+              txHash,
+              explorerUrl: txHash.startsWith('0x')
+                ? `https://testnet.arcscan.app/tx/${txHash}`
+                : `https://app.circle.com/transactions/${txHash}`
+            };
+          }
+        }
+      } catch (e) {
+        console.error(`[ARC] Intent settlement failed for ${fromId}:`, e);
+      }
+    }
+  });
+
+  // Wait for parallel node-buckets to finish (or cap at 25s)
+  await Promise.race([
+    Promise.all(settlementPromises),
+    new Promise(r => setTimeout(r, 25000))
+  ]);
+
+  if (!leadResult && allHashes.length === 0) return null;
 
   return {
-    txHash,
-    explorerUrl
-  }
+    txHash: (leadResult as any)?.txHash || allHashes[0],
+    explorerUrl: (leadResult as any)?.explorerUrl || `https://testnet.arcscan.app/tx/${allHashes[0]}`,
+    allHashes
+  };
 }
 
 

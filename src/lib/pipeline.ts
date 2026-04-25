@@ -5,7 +5,13 @@ import { decomposeTask } from './orchestration';
 import { pipelineEvents, EMIT_SUBTASK_START, EMIT_SUBTASK_DONE, EMIT_TASK_DONE, EMIT_PAYMENT, EMIT_AGENT_ACT } from './events';
 import { settleOnArc } from './arcSettlement';
 import { sendAgentPayment } from './circleWallets';
-import { saveTaskToSupabase, savePaymentToSupabase } from './supabase';
+import { 
+  saveTaskToSupabase, 
+  savePaymentToSupabase, 
+  saveSubTaskToSupabase, 
+  logTaskEvent, 
+  saveSettlementToSupabase 
+} from './supabase';
 
 
 const delay = (ms: number) => new Promise(res => setTimeout(res, ms));
@@ -38,6 +44,7 @@ export async function runAutonomousPipeline(task: Task) {
     const allAgents = await store.getAgents();
 
     // ── Phase 0: Intelligence Appraisal ─────────────────────────────────────
+    await logTaskEvent(task.id, 'APPRAISAL_START', { prompt: task.prompt });
     await store.logPipelineStep(task.id, 'Phase 0: Intelligence Appraisal', 'pending', 'Appraising mission intelligence and classifying complexity.');
     const { swarmIntelligenceAppraisal } = await import('./execution');
     const appraisal = await swarmIntelligenceAppraisal(task.prompt);
@@ -77,7 +84,7 @@ export async function runAutonomousPipeline(task: Task) {
     });
     // Persist appraisal results
     await saveTaskToSupabase(await store.getTask(task.id));
-
+    await logTaskEvent(task.id, 'APPRAISAL_DONE', { complexity, totalCost });
     await store.logPipelineStep(task.id, 'Phase 0: Intelligence Appraisal', 'completed', `Mission Cost locked: $${totalCost.toFixed(4)} | Complexity: ${complexity} | Budget: $${effectiveBudget}`);
 
     // ── Phase 1: Set bidding status and wait ─────────────────────────────────
@@ -90,6 +97,7 @@ export async function runAutonomousPipeline(task: Task) {
     // Final update for Phase 1 - hold the full market view
     await store.updateTask(task.id, { bids, currentBids: bids });
     await saveTaskToSupabase(await store.getTask(task.id));
+    await logTaskEvent(task.id, 'BIDDING_DONE', { bidCount: bids.length });
     await store.logPipelineStep(task.id, 'Phase 1: Auto Bidding War', 'completed', `Bidding war closed. ${bids.length} agents analyzed and submitted proposals.`);
     await delay(3500); // UI breathing room
 
@@ -130,7 +138,11 @@ export async function runAutonomousPipeline(task: Task) {
     
     const subTasks = await decomposeTask({ ...updatedTask, assignedAgentId: winner.id, status: 'executing' } as any, 0, winner.id);
     await store.updateTask(task.id, { subTaskIds: subTasks.map(st => st.id) });
-    for (const st of subTasks) { await store.createSubTask(st); }
+    for (const st of subTasks) { 
+      await store.createSubTask(st); 
+      await saveSubTaskToSupabase(st);
+    }
+    await logTaskEvent(task.id, 'DECOMPOSITION_DONE', { subTaskCount: subTasks.length });
 
     if (subTasks.length > 0) {
       await store.logPipelineStep(task.id, 'Phase 3: Task Decomposition', 'completed', `Mission split into ${subTasks.length} nodes for parallel execution.`);
@@ -322,6 +334,8 @@ export async function runAutonomousPipeline(task: Task) {
 
       // Mark all payments as settled
       for (const p of allPayments) { await (store as any).settlePaymentIntent(p.id); }
+      await saveSettlementToSupabase(task.id, { ...settlement, intentsSettled: actualCount, totalAmount: settlement.totalAmount || cb.totalCost });
+      await logTaskEvent(task.id, 'SETTLEMENT_DONE', { txHash: settlement.txHash, explorerUrl: settlement.explorerUrl });
       await store.logPipelineStep(task.id, 'Phase 8: Arc Settlement', 'completed', `Batch settled locally via circle. TX: ${settlement.txHash}`);
     }
 
@@ -387,6 +401,8 @@ async function runSubTaskBidding(taskId: string, subTasks: SubTask[], agents: Ag
     // 3. Assign winner
     try { 
       await store.assignWinningBid(st.id); 
+      const updatedSt = await store.getSubTask(st.id);
+      await saveSubTaskToSupabase(updatedSt);
       // Delay to show assigned
       await delay(200);
     } catch (e) {}
@@ -410,9 +426,11 @@ async function runSubTaskExecution(taskId: string, subTasks: SubTask[], leadAgen
       const result = await executeTask(st as any, subAgent);
       await store.updateAgentIntelligence(subAgent.id, st, result);
       await store.updateSubTask(st.id, { result, status: 'completed', completedAt: Date.now() });
+      await saveSubTaskToSupabase(await store.getSubTask(st.id));
       pipelineEvents.emit(EMIT_SUBTASK_DONE, { taskId, subTaskId: st.id, result, cost: st.budget || 0.01 });
 
       await store.logPipelineStep(taskId, stepTitle, 'completed', `Node execution successful. Confidence: ${result.confidence}`);
+      await logTaskEvent(taskId, 'SUBTASK_DONE', { subTaskId: st.id, agent: subAgent.name });
       await sendAgentPayment(leadAgent.id, subAgent.id, st.budget || 0.01);
     } catch (e: any) {
       const fallbackResult = { result: `Fallback: ${st.title} failed.`, confidence: 0.1, cost: 0, metadata: { nodeFailure: true } };
@@ -440,8 +458,7 @@ export async function runInitialBiddingWar(task: Task) {
   const bids: any[] = [];
   
   for (const name of agentNames) {
-    // Burst bids - slightly faster arrival but more of them
-    await delay(600); 
+    await delay(450); // Faster, more intense war
     const amount = parseFloat((task.budget * (0.55 + Math.random() * 0.30)).toFixed(4));
     const bid = {
       id: Math.random().toString(36).substring(7), 
@@ -459,11 +476,11 @@ export async function runInitialBiddingWar(task: Task) {
     await store.addBid(bid);
     bids.push(bid);
     
-    // Update task object in real-time so polling UI sees the new bids immediately
     await store.updateTask(task.id, { bids: [...bids], currentBids: [...bids] });
-    
-    // PERSISTENCE: Must save to Supabase every bit on Vercel so the polling dashboard sees the activity
     await saveTaskToSupabase(await store.getTask(task.id));
   }
+  
+  // FINAL SYNC for auction integrity
+  await saveTaskToSupabase(await store.getTask(task.id));
   return bids;
 }

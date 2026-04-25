@@ -8,18 +8,27 @@ export async function GET(request: Request) {
   const status = searchParams.get('status');
   const limit = parseInt(searchParams.get('limit') || '0');
   
-  let tasks = await store.getTasks();
+  // VERCEL STABILIZATION: Prioritize Supabase for cross-instance consistency
+  const { loadTasksFromSupabase } = await import('@/lib/supabase');
+  let tasks = await loadTasksFromSupabase();
+  
+  // Merge with local MemoryStore for immediate responsiveness on local dev
+  const localTasks = await store.getTasks();
+  const taskMap = new Map();
+  tasks.forEach(t => taskMap.set(t.id, t));
+  localTasks.forEach(t => taskMap.set(t.id, { ...taskMap.get(t.id), ...t }));
+  
+  let finalTasks = Array.from(taskMap.values()).sort((a,b) => b.createdAt - a.createdAt);
   
   if (status) {
-    tasks = tasks.filter((t: any) => t.status === status);
+    finalTasks = finalTasks.filter((t: any) => t.status === status);
   }
 
-  
   if (limit > 0) {
-    tasks = tasks.slice(0, limit);
+    finalTasks = finalTasks.slice(0, limit);
   }
   
-  return NextResponse.json(tasks);
+  return NextResponse.json(finalTasks);
 }
 
 

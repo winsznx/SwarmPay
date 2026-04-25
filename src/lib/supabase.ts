@@ -147,3 +147,54 @@ export async function getGlobalStats() {
     return empty;
   }
 }
+
+// ── Phase B: Advanced Persistence ──────────────────────────────────────────
+
+export async function saveSubTaskToSupabase(st: any) {
+  if (!st || !supabase) return;
+  try {
+    const { error } = await supabase.from('subtasks').upsert({
+      id: st.id,
+      task_id: st.taskId,
+      type: st.type,
+      title: st.title,
+      description: st.description,
+      budget: st.budget,
+      status: st.status,
+      assigned_agent_id: st.assignedAgentId,
+      winning_agent_name: st.winningAgentName,
+      result: st.result,
+      execution_valid: st.status === 'completed',
+      created_at: st.createdAt ? new Date(st.createdAt).toISOString() : new Date().toISOString(),
+      completed_at: st.completedAt ? new Date(st.completedAt).toISOString() : null
+    });
+    if (error) console.error('[SUPABASE] subtask error:', error.message);
+  } catch (e) {}
+}
+
+export async function logTaskEvent(taskId: string, eventType: string, payload: any = {}) {
+  if (!supabase) return;
+  try {
+    await supabase.from('task_events').insert({
+      task_id: taskId,
+      event_type: eventType,
+      payload
+    });
+  } catch (e) {}
+}
+
+export async function saveSettlementToSupabase(taskId: string, settlement: any) {
+  if (!settlement || !supabase) return;
+  try {
+    await supabase.from('settlements').upsert({
+      task_id: taskId,
+      tx_hash: settlement.txHash,
+      explorer_url: settlement.explorerUrl,
+      intents_settled: settlement.intentsSettled,
+      total_amount: settlement.totalAmount,
+      gas_cost: settlement.gasCost,
+      status: 'confirmed',
+      confirmed_at: new Date().toISOString()
+    });
+  } catch (e) {}
+}

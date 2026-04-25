@@ -80,6 +80,10 @@ class MemoryStore {
     this.addTask(st as any);
   }
 
+  async getSubTask(id: string): Promise<SubTask | undefined> {
+    return this.tasks.find(t => t.id === id) as any;
+  }
+
   // Agent Methods
   getAgents(): Agent[] {
     return this.agents;

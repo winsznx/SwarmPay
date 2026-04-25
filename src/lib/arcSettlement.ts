@@ -6,6 +6,7 @@ export interface SettlementResult {
   intentsSettled: number
   totalAmount: number
   gasCost: number
+  allHashes?: string[]
 }
 
 export async function settleOnArc(
@@ -29,7 +30,8 @@ export async function settleOnArc(
       explorerUrl: realSettlement.explorerUrl,
       intentsSettled: paymentIntents.length,
       totalAmount: paymentIntents.reduce((sum, p) => sum + p.amount, 0),
-      gasCost: 0.0006
+      gasCost: (realSettlement.allHashes?.length || 1) * 0.00045, 
+      allHashes: realSettlement.allHashes
     }
   }
 

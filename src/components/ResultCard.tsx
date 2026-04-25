@@ -187,6 +187,40 @@ export const ResultCard: React.FC<ResultCardProps> = ({ task }) => {
         </div>
       )}
 
+      {/* ── Security Audit Trail (Multi-Transaction Proof) ── */}
+      {task.settlement?.allHashes && task.settlement.allHashes.length > 0 && (
+        <div className="mb-5 bg-white/[0.02] border border-white/5 rounded-2xl overflow-hidden">
+          <div className="px-4 py-3 border-b border-white/5 flex items-center justify-between bg-blue-500/5">
+            <span className="text-[9px] font-black text-blue-400 uppercase tracking-widest">On-Chain Settlement Audit</span>
+            <span className="px-2 py-0.5 bg-blue-500/10 text-blue-400 text-[8px] font-black rounded border border-blue-500/10">Arc Testnet</span>
+          </div>
+          <div className="p-4 space-y-2 max-h-[160px] overflow-y-auto custom-scrollbar">
+            {task.settlement.allHashes.map((hash, i) => (
+              <a 
+                key={hash} 
+                href={`https://testnet.arcscan.app/tx/${hash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-between p-2.5 rounded-xl bg-black/20 border border-white/5 hover:bg-blue-500/5 hover:border-blue-500/20 transition-all group"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="w-6 h-6 rounded-lg bg-blue-500/10 flex items-center justify-center text-blue-400 text-[10px] font-black">
+                    {i + 1}
+                  </div>
+                  <div>
+                    <div className="text-[9px] font-black text-slate-500 uppercase">Node Settlement Hash</div>
+                    <div className="text-[10px] font-mono text-slate-400 group-hover:text-blue-400 transition-colors">
+                      {hash.slice(0, 10)}...{hash.slice(-8)}
+                    </div>
+                  </div>
+                </div>
+                <div className="text-[8px] font-black text-slate-600 group-hover:text-blue-500 transition-colors">VIEW ON ARC PROOF ↗</div>
+              </a>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Stats Row ── */}
       <div className="grid grid-cols-1 xs:grid-cols-3 gap-2 mb-5">
         {[

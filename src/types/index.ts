@@ -78,6 +78,7 @@ export interface Task {
     totalAmount: number;
     gasCost: number;
     settledAt: number;
+    allHashes?: string[];
   };
   micropaymentCount?: number;
   executionValid?: boolean;

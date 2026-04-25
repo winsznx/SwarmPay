@@ -154,13 +154,25 @@ export const Header: React.FC<HeaderProps> = ({
                       {item.label}
                     </Link>
                   ))}
-                  <div className="flex items-center gap-4 text-sm font-black text-slate-400 uppercase tracking-widest opacity-50 cursor-not-allowed">
-                    <span className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
-                      <Activity className="w-4 h-4" />
-                    </span>
-                    Network Stats
+                    <Link 
+                      href="/dashboard"
+                      onClick={() => externalToggle ? externalToggle() : setLocalOpen(false)}
+                      className={`flex items-center gap-4 text-sm font-black uppercase tracking-widest transition-colors hover:text-blue-400 group 
+                        ${pathname === '/dashboard' ? 'text-blue-400' : 'text-slate-400'}
+                      `}
+                    >
+                      <span className="w-8 h-8 rounded-lg bg-blue-600/10 flex items-center justify-center group-hover:bg-blue-600/20 transition-colors">
+                        <Activity className="w-4 h-4 text-blue-400" />
+                      </span>
+                      Mission Records
+                    </Link>
+                    <div className="flex items-center gap-4 text-sm font-black text-slate-400 uppercase tracking-widest opacity-50 cursor-not-allowed">
+                      <span className="w-8 h-8 rounded-lg bg-white/5 flex items-center justify-center">
+                        <RefreshCw className="w-4 h-4" />
+                      </span>
+                      Network Stats
+                    </div>
                   </div>
-                </div>
                 
                 <div className="mt-auto pt-6 border-t border-white/5">
                     <div className="flex items-center gap-2">
