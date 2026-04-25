@@ -4,6 +4,13 @@ import React, { useState, useEffect } from 'react';
 import { Users, Cpu, Search, Database, Code, ShieldCheck, Terminal, Award } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Agent, AgentRole } from '@/types';
+import { supabase } from '@/lib/supabase';
+
+interface RepDelta {
+  agentId: string;
+  delta: number;
+  ts: number;
+}
 
 const agentRoleIcons: Record<string, React.ReactNode> = {
   'research-agent': <Search className="w-3.5 h-3.5" />,
@@ -16,6 +23,7 @@ const agentRoleIcons: Record<string, React.ReactNode> = {
 export const AgentManager: React.FC<{ agents?: Agent[] }> = ({ agents: propAgents }) => {
   const [localAgents, setLocalAgents] = useState<Agent[]>([]);
   const [isLoading, setIsLoading] = useState(!propAgents);
+  const [recentDeltas, setRecentDeltas] = useState<RepDelta[]>([]);
 
   const displayAgents = propAgents || localAgents;
 
@@ -24,6 +32,29 @@ export const AgentManager: React.FC<{ agents?: Agent[] }> = ({ agents: propAgent
       fetchAgents();
     }
   }, [propAgents]);
+
+  // Live reputation deltas via Supabase Realtime on reputation_events
+  useEffect(() => {
+    if (!supabase) return;
+    const channel = supabase
+      .channel('reputation_events:registry')
+      .on(
+        'postgres_changes',
+        { event: 'INSERT', schema: 'public', table: 'reputation_events' },
+        (payload) => {
+          const row = payload.new as { agent_id: string; delta: number };
+          if (!row?.agent_id) return;
+          const next: RepDelta = { agentId: row.agent_id, delta: row.delta, ts: Date.now() };
+          setRecentDeltas(prev => [...prev.filter(d => d.ts > Date.now() - 2000), next]);
+          // Drop after 2s for the fade
+          setTimeout(() => {
+            setRecentDeltas(prev => prev.filter(d => d.ts !== next.ts));
+          }, 2000);
+        }
+      )
+      .subscribe();
+    return () => { if (supabase) void supabase.removeChannel(channel); };
+  }, []);
 
   const fetchAgents = async () => {
     try {
@@ -59,6 +90,25 @@ export const AgentManager: React.FC<{ agents?: Agent[] }> = ({ agents: propAgent
               key={agent.id}
               className="p-4 bg-white/[0.03] border border-white/5 rounded-2xl hover:bg-white/[0.05] hover:border-white/10 transition-all group relative overflow-hidden"
             >
+              {/* Live reputation delta popup */}
+              <AnimatePresence>
+                {recentDeltas.filter(d => d.agentId === agent.id).map(d => (
+                  <motion.div
+                    key={d.ts}
+                    initial={{ opacity: 0, y: 0 }}
+                    animate={{ opacity: 1, y: -16 }}
+                    exit={{ opacity: 0, y: -32 }}
+                    transition={{ duration: 1.6 }}
+                    className={`absolute top-4 right-4 z-10 px-2 py-0.5 text-[10px] font-mono font-black rounded border ${
+                      d.delta >= 0
+                        ? 'bg-green-500/20 border-green-500/40 text-green-300'
+                        : 'bg-red-500/20 border-red-500/40 text-red-300'
+                    }`}
+                  >
+                    {d.delta >= 0 ? `+${d.delta}` : d.delta} REP
+                  </motion.div>
+                ))}
+              </AnimatePresence>
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 rounded-xl bg-slate-900 border border-white/5 flex items-center justify-center text-blue-400 group-hover:scale-110 transition-transform">
                   {agentRoleIcons[agent.role] || <Cpu className="w-4 h-4" />}

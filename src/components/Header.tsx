@@ -1,5 +1,5 @@
 'use client'
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
 import { Menu, X, Boxes, Shield, Users, Wallet, LayoutDashboard, RefreshCw, Activity } from 'lucide-react'
@@ -18,10 +18,28 @@ export const Header: React.FC<HeaderProps> = ({
 }) => {
   const pathname = usePathname()
   const [localOpen, setLocalOpen] = useState(false)
-  
+  const [healthy, setHealthy] = useState<boolean | null>(null)
+
   // Use external state if controlled, otherwise use local
   const isOpen = externalState !== undefined ? externalState : localOpen
   const toggle = externalToggle || (() => setLocalOpen(!localOpen))
+
+  // Real /api/health poll — checks Supabase + Circle + Arc RPC.
+  useEffect(() => {
+    let cancelled = false
+    const ping = async () => {
+      try {
+        const res = await fetch('/api/health', { cache: 'no-store' })
+        if (cancelled) return
+        setHealthy(res.ok)
+      } catch {
+        if (!cancelled) setHealthy(false)
+      }
+    }
+    void ping()
+    const id = setInterval(ping, 30_000)
+    return () => { cancelled = true; clearInterval(id) }
+  }, [])
 
   const navLinks = [
     { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-4 h-4 md:w-3 md:h-3" /> },
@@ -79,9 +97,21 @@ export const Header: React.FC<HeaderProps> = ({
           </div>
           
           <div className="flex items-center gap-4 md:gap-6">
-            <div className="hidden sm:flex items-center gap-2">
-               <div className="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]" />
-               <span className="text-[10px] text-slate-400 font-black uppercase tracking-widest">Network Live</span>
+            <div className="hidden sm:flex items-center gap-2" title={
+              healthy == null ? 'Checking subsystems…'
+                : healthy ? 'Supabase + Circle + Arc RPC all healthy'
+                : 'One or more subsystems degraded — check /api/health'
+            }>
+               <div className={`w-1.5 h-1.5 rounded-full ${
+                 healthy == null ? 'bg-slate-400 animate-pulse'
+                   : healthy ? 'bg-green-500 animate-pulse shadow-[0_0_8px_rgba(34,197,94,0.6)]'
+                   : 'bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.6)]'
+               }`} />
+               <span className={`text-[10px] font-black uppercase tracking-widest ${
+                 healthy === false ? 'text-red-400' : 'text-slate-400'
+               }`}>
+                 {healthy == null ? 'Checking…' : healthy ? 'Network Live' : 'Subsystem Down'}
+               </span>
             </div>
 
             {pathname === '/dashboard' && (

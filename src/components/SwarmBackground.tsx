@@ -52,9 +52,13 @@ export function SwarmBackground() {
         particles.push(new Particle())
     }
 
+    let rafId = 0
+    let paused = document.visibilityState === 'hidden'
+
     const animate = () => {
+      if (paused) { rafId = 0; return }
       ctx.clearRect(0, 0, w, h)
-      
+
       particles.forEach((p, i) => {
         p.update()
         p.draw()
@@ -75,7 +79,7 @@ export function SwarmBackground() {
           }
         }
       })
-      requestAnimationFrame(animate)
+      rafId = requestAnimationFrame(animate)
     }
 
     animate()
@@ -84,9 +88,19 @@ export function SwarmBackground() {
       w = canvas.width = window.innerWidth
       h = canvas.height = window.innerHeight
     }
+    const handleVisibility = () => {
+      paused = document.visibilityState === 'hidden'
+      if (!paused && rafId === 0) animate()
+    }
 
     window.addEventListener('resize', handleResize)
-    return () => window.removeEventListener('resize', handleResize)
+    document.addEventListener('visibilitychange', handleVisibility)
+    return () => {
+      paused = true
+      if (rafId) cancelAnimationFrame(rafId)
+      window.removeEventListener('resize', handleResize)
+      document.removeEventListener('visibilitychange', handleVisibility)
+    }
   }, [])
 
   return (

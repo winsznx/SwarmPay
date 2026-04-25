@@ -13,8 +13,24 @@ export interface PaymentEvent {
   timestamp: number;
 }
 
+export type X402Phase = '402' | 'signed' | 'settled' | 'failed';
+
+export interface X402Event {
+  paymentIntentId: string;
+  phase: X402Phase;
+  fromAgent: string;
+  toAgent: string;
+  amount: number;
+  signature?: string;
+  txHash?: string;
+  explorerUrl?: string;
+  error?: string;
+  timestamp: number;
+}
+
 export function usePaymentStream(taskId: string | null | undefined) {
   const [payments, setPayments] = useState<PaymentEvent[]>([]);
+  const [x402Events, setX402Events] = useState<X402Event[]>([]);
   const [connected, setConnected] = useState(false);
 
   useEffect(() => {
@@ -57,7 +73,7 @@ export function usePaymentStream(taskId: string | null | undefined) {
           setPayments(prev => {
             const id = data.id ?? crypto.randomUUID();
             if (prev.some(p => p.id === id)) return prev;
-            
+
             return [{
               id,
               fromAgent: data.fromAgentName ?? data.fromAgent ?? 'Agent',
@@ -65,6 +81,31 @@ export function usePaymentStream(taskId: string | null | undefined) {
               amount: data.amount ?? 0,
               timestamp: data.timestamp ?? Date.now()
             }, ...prev].filter(p => p.amount > 0).slice(0, 50);
+          });
+        }
+
+        // x402 protocol events — render real triplets in PaymentStream
+        const x402Phase: X402Phase | null =
+          data.type === 'payment:402'    ? '402'
+          : data.type === 'payment:signed'  ? 'signed'
+          : data.type === 'payment:settled' ? 'settled'
+          : data.type === 'payment:failed'  ? 'failed'
+          : null;
+        if (x402Phase && data.paymentIntentId) {
+          setX402Events(prev => {
+            const next: X402Event = {
+              paymentIntentId: data.paymentIntentId,
+              phase: x402Phase,
+              fromAgent: data.fromAgent ?? data.fromAgentId ?? 'Agent',
+              toAgent: data.toAgent ?? data.toAgentId ?? 'Node',
+              amount: data.amount ?? 0,
+              signature: data.signature,
+              txHash: data.txHash,
+              explorerUrl: data.explorerUrl,
+              error: data.error,
+              timestamp: data.timestamp ?? Date.now()
+            };
+            return [next, ...prev].slice(0, 200);
           });
         }
 
@@ -107,7 +148,7 @@ export function usePaymentStream(taskId: string | null | undefined) {
     };
   }, [taskId]);
 
-  return { payments, connected };
+  return { payments, x402Events, connected };
 }
 
 // Keep legacy export for easier transition

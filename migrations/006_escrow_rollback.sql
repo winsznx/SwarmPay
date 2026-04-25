@@ -1,0 +1,15 @@
+BEGIN;
+
+DROP FUNCTION IF EXISTS escrow_hold(TEXT, UUID, NUMERIC);
+DROP FUNCTION IF EXISTS escrow_spend(UUID, NUMERIC);
+DROP FUNCTION IF EXISTS escrow_release(UUID);
+
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE escrow_holds;
+EXCEPTION WHEN undefined_object THEN NULL; END $$;
+DO $$ BEGIN ALTER PUBLICATION supabase_realtime DROP TABLE user_wallets;
+EXCEPTION WHEN undefined_object THEN NULL; END $$;
+
+DROP TABLE IF EXISTS escrow_holds CASCADE;
+DROP TABLE IF EXISTS user_wallets CASCADE;
+
+COMMIT;

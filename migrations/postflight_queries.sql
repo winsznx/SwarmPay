@@ -91,3 +91,10 @@ SELECT COUNT(*) AS payment_count FROM payment_intents;
 -- 9. pipeline_steps dormant comment
 --    Expect: 'DORMANT (superseded by task_events in Phase B)...'
 SELECT obj_description('pipeline_steps'::regclass, 'pg_class') AS comment_text;
+
+-- 10. settlements.gas_cost no longer carries a stale default
+--     Expect: column_default IS NULL (the 0.0006 default was dropped).
+SELECT column_name, column_default, is_nullable, data_type
+  FROM information_schema.columns
+ WHERE table_name = 'settlements' AND column_name = 'gas_cost';
+-- Expected: column_default = NULL (or empty), data_type = numeric.

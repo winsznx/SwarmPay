@@ -36,12 +36,28 @@ export async function GET(req: NextRequest) {
         if (!taskId || a.taskId === taskId) send({ type: 'agent:activity', ...a });
       };
 
+      // x402 + settlement queue + compute meter event handlers
+      const handle402 = (e: any) => { if (!taskId || taskId === 'global' || e.taskId === taskId) send({ type: 'payment:402', ...e }); };
+      const handleSigned = (e: any) => { if (!taskId || taskId === 'global' || e.taskId === taskId) send({ type: 'payment:signed', ...e }); };
+      const handleSettled = (e: any) => { if (!taskId || taskId === 'global' || e.taskId === taskId) send({ type: 'payment:settled', ...e }); };
+      const handlePaymentFailed = (e: any) => { if (!taskId || taskId === 'global' || e.taskId === taskId) send({ type: 'payment:failed', ...e }); };
+      const handleComputeTick = (e: any) => { if (!taskId || taskId === 'global' || e.taskId === taskId) send({ type: 'compute:tick', ...e }); };
+      const handleComputeDone = (e: any) => { if (!taskId || taskId === 'global' || e.taskId === taskId) send({ type: 'compute:completed', ...e }); };
+      const handleReputation = (e: any) => { send({ type: 'reputation:updated', ...e }); };
+
       // Attach listeners
       pipelineEvents.on(EMIT_PAYMENT, handlePayment);
       pipelineEvents.on(EMIT_TASK_DONE, handleTaskDone);
       pipelineEvents.on(EMIT_SUBTASK_START, handleSubTaskStart);
       pipelineEvents.on(EMIT_SUBTASK_DONE, handleSubTaskDone);
       pipelineEvents.on(EMIT_AGENT_ACT, handleAgentAct);
+      pipelineEvents.on('payment:402', handle402);
+      pipelineEvents.on('payment:signed', handleSigned);
+      pipelineEvents.on('payment:settled', handleSettled);
+      pipelineEvents.on('payment:failed', handlePaymentFailed);
+      pipelineEvents.on('compute:tick', handleComputeTick);
+      pipelineEvents.on('compute:completed', handleComputeDone);
+      pipelineEvents.on('reputation:updated', handleReputation);
 
       // Heartbeat to keep connection alive on Vercel
       const heartbeat = setInterval(() => {
@@ -59,6 +75,13 @@ export async function GET(req: NextRequest) {
         pipelineEvents.off(EMIT_SUBTASK_START, handleSubTaskStart);
         pipelineEvents.off(EMIT_SUBTASK_DONE, handleSubTaskDone);
         pipelineEvents.off(EMIT_AGENT_ACT, handleAgentAct);
+        pipelineEvents.off('payment:402', handle402);
+        pipelineEvents.off('payment:signed', handleSigned);
+        pipelineEvents.off('payment:settled', handleSettled);
+        pipelineEvents.off('payment:failed', handlePaymentFailed);
+        pipelineEvents.off('compute:tick', handleComputeTick);
+        pipelineEvents.off('compute:completed', handleComputeDone);
+        pipelineEvents.off('reputation:updated', handleReputation);
         clearInterval(heartbeat);
         try {
           controller.close();

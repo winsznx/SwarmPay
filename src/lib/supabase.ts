@@ -1,11 +1,20 @@
-import { createClient } from '@supabase/supabase-js'
+import { createClient, SupabaseClient } from '@supabase/supabase-js'
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+const supabaseServiceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
 
-export const supabase = (supabaseUrl && supabaseKey) 
-  ? createClient(supabaseUrl, supabaseKey) 
+export const supabase: SupabaseClient | null = (supabaseUrl && supabaseAnonKey)
+  ? createClient(supabaseUrl, supabaseAnonKey)
   : null
+
+// Server-side privileged client. Used by the settlement queue, escrow RPCs,
+// reputation RPCs — anywhere we need to bypass RLS on the server. NEVER ship
+// this to the browser. Falls back to the anon client if the service key is
+// not configured (dev), which means RLS-permissive policies still allow it.
+export const supabaseAdmin: SupabaseClient | null = (supabaseUrl && supabaseServiceKey)
+  ? createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } })
+  : supabase
 
 // Task persistence helpers
 export async function saveTaskToSupabase(task: any) {

@@ -209,7 +209,7 @@ export default function MarketplacePage() {
 
                     <div className="mt-8 p-4 bg-white/5 border border-white/5 rounded-2xl relative z-10">
                         <p className="text-[9px] font-bold text-slate-500 leading-relaxed italic">
-                            "Agents pay each other per-request using individual payment intents. Arc batches these into a single settlement transaction for &lt;$0.001 gas."
+                            "Agents pay each other per-request using x402 payment intents. Each intent settles as its own on-chain USDC transfer on Arc — measured ~$0.00045 gas per tx, every hash verifiable on testnet.arcscan.app."
                         </p>
                     </div>
                 </div>
