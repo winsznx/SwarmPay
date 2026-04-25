@@ -5,12 +5,13 @@ import { decomposeTask } from './orchestration';
 import { pipelineEvents, EMIT_SUBTASK_START, EMIT_SUBTASK_DONE, EMIT_TASK_DONE, EMIT_PAYMENT, EMIT_AGENT_ACT } from './events';
 import { settleOnArc } from './arcSettlement';
 import { sendAgentPayment } from './circleWallets';
-import { 
-  saveTaskToSupabase, 
-  savePaymentToSupabase, 
-  saveSubTaskToSupabase, 
-  logTaskEvent, 
-  saveSettlementToSupabase 
+import {
+  saveTaskToSupabase,
+  savePaymentToSupabase,
+  saveSubTaskToSupabase,
+  logTaskEvent,
+  saveSettlementToSupabase,
+  supabaseAdmin
 } from './supabase';
 
 
@@ -359,6 +360,23 @@ export async function runAutonomousPipeline(task: Task) {
       },
       completedAt: Date.now()
     });
+
+    // Close the wallet ledger: release the escrow hold so unspent budget
+    // refunds against user_wallets.balance. The Realtime sub on the
+    // dashboard updates the header in real time. Without this call, the
+    // on-chain wallet ledger drifts permanently behind the in-memory
+    // cost-breakdown ledger after every task.
+    if (task.escrowId && supabaseAdmin) {
+      const { error: relErr, data: refunded } = await supabaseAdmin.rpc('escrow_release', {
+        p_hold_id: task.escrowId
+      });
+      if (relErr) console.error('[ECONOMY] escrow_release failed:', relErr.message);
+      else console.log(`[ECONOMY] escrow released for ${task.id}; refunded $${refunded ?? 0}`);
+    } else if (!task.escrowId) {
+      // Legacy task created before the BudgetModal escrow path was wired.
+      // Not fatal — the in-memory store.userWallet path already tracked the spend.
+      console.log(`[ECONOMY] no escrowId on task ${task.id}; skipping escrow_release`);
+    }
 
     pipelineEvents.emit(EMIT_TASK_DONE, { taskId: task.id, result: { result: finalResult }, costBreakdown: cb });
 

@@ -35,7 +35,7 @@ export async function GET(request: Request) {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    const { prompt, budget, userId = 'user_1', parentTaskId } = body;
+    const { prompt, budget, userId = 'user_1', parentTaskId, escrowId = null } = body;
 
     if (!prompt || !budget) {
       return NextResponse.json({ error: 'Prompt and budget are required' }, { status: 400 });
@@ -75,6 +75,7 @@ export async function POST(request: Request) {
       parentTaskId,
       createdAt: Date.now(),
       completedAt: null,
+      escrowId,
     };
 
     await store.createTask(newTask);

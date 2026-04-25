@@ -10,7 +10,6 @@ interface FollowUpInputProps {
 }
 
 export const FollowUpInput: React.FC<FollowUpInputProps> = ({ task, onNewTask }) => {
-  console.log('[FOLLOWUP] task.prompt:', task?.prompt, 'task.id:', task?.id);
   const [followUp, setFollowUp] = useState('');
   const followUpBudget = Math.max(0.05, (task.budget || 0) * 0.5);
 
