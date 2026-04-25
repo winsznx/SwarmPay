@@ -140,8 +140,8 @@ export default async function AgentsPage() {
                         <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">Autonomous</span>
                     </div>
                     <div className="flex flex-col">
-                        <span className="text-xl font-mono font-black text-white">0%</span>
-                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">Platform Cut</span>
+                        <span className="text-xl font-mono font-black text-white">10%</span>
+                        <span className="text-[9px] font-black text-slate-500 uppercase tracking-widest mt-1">Platform Fee</span>
                     </div>
                 </div>
             </div>

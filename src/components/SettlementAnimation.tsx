@@ -3,10 +3,30 @@
 import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { ShieldCheck, Zap, ArrowRight, Coins } from 'lucide-react';
+import { Task } from '@/types';
 
-export const SettlementAnimation: React.FC = () => {
+interface SettlementAnimationProps {
+  task?: Task;
+}
+
+const truncateHash = (hash?: string) => {
+  if (!hash) return null;
+  if (hash.length <= 12) return hash;
+  return `${hash.slice(0, 6)}...${hash.slice(-4)}`;
+};
+
+export const SettlementAnimation: React.FC<SettlementAnimationProps> = ({ task }) => {
   const [stage, setStage] = useState<'batching' | 'compressing' | 'settled'>('batching');
-  
+
+  const intentCount =
+    task?.settlement?.intentsSettled ??
+    task?.micropaymentCount ??
+    task?.stats?.micropayments ??
+    0;
+  const txHash = task?.settlement?.txHash;
+  const truncatedHash = truncateHash(txHash);
+  const gasCost = task?.settlement?.gasCost ?? 0.0006;
+
   useEffect(() => {
     const timer1 = setTimeout(() => setStage('compressing'), 1500);
     const timer2 = setTimeout(() => setStage('settled'), 3500);
@@ -50,7 +70,9 @@ export const SettlementAnimation: React.FC = () => {
             </div>
             <div className="text-center">
               <h3 className="text-xl font-black text-white italic tracking-tight">Capturing Intents</h3>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">63 off-chain micropayments detected</p>
+              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">
+                {intentCount > 0 ? `${intentCount} off-chain micropayments detected` : 'Off-chain micropayments detected'}
+              </p>
             </div>
           </motion.div>
         )}
@@ -131,12 +153,14 @@ export const SettlementAnimation: React.FC = () => {
               <div className="mt-4 p-4 bg-slate-900 border border-white/5 rounded-2xl flex flex-col gap-2 min-w-[320px]">
                 <div className="flex items-center justify-between text-[10px] font-black uppercase tracking-widest text-slate-500">
                     <span>Transaction Hash</span>
-                    <span className="text-blue-400 cursor-pointer hover:underline">0x8f2d...4e1a</span>
+                    <span className="text-blue-400 cursor-pointer hover:underline font-mono">
+                      {truncatedHash ?? 'Broadcasting...'}
+                    </span>
                 </div>
                 <div className="flex items-center justify-between border-t border-white/5 pt-2">
                     <div className="flex flex-col items-start">
                         <span className="text-[10px] font-bold text-slate-500 uppercase">Intents</span>
-                        <span className="text-lg font-black text-white italic">63</span>
+                        <span className="text-lg font-black text-white italic">{intentCount || '—'}</span>
                     </div>
                     <ArrowRight className="w-4 h-4 text-slate-700" />
                     <div className="flex flex-col items-end">
@@ -145,7 +169,7 @@ export const SettlementAnimation: React.FC = () => {
                     </div>
                 </div>
                 <div className="mt-2 text-[10px] font-bold text-green-500/80 bg-green-500/5 py-1 rounded-lg">
-                    BATCH COMPLETE · GAS: $0.0006
+                    BATCH COMPLETE · GAS: ${gasCost.toFixed(4)}
                 </div>
               </div>
             </div>

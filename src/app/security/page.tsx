@@ -89,8 +89,8 @@ export default async function SecurityPage() {
                                             <span className="text-[9px] font-black text-slate-600 uppercase tracking-widest">Settled</span>
                                             <span className="text-xs font-mono font-black text-green-400">${task.budget.toFixed(2)}</span>
                                         </div>
-                                        <a 
-                                            href={`https://testnet.arcscan.app/tx/${(task as any).settlement?.txHash}`} 
+                                        <a
+                                            href={`https://testnet.arcscan.app/tx/${(task as any).settlement?.txHash}`}
                                             target="_blank"
                                             rel="noopener noreferrer"
                                             className="p-2 rounded-xl bg-white/5 border border-white/5 text-slate-500 hover:text-white transition-all"

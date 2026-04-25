@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "set PORT=3001 && ts-node --project tsconfig.server.json server.ts",
+    "dev": "PORT=3001 next dev -p 3001",
     "dev:next": "next dev",
     "build": "next build",
     "start": "NODE_ENV=production ts-node --project tsconfig.server.json server.ts",

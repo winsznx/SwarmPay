@@ -33,8 +33,8 @@ export const PaymentStream: React.FC<{ activeTaskId: string | null; task?: Task 
     (p.amount ?? 0) > 0 &&
     p.fromAgent &&
     p.toAgent &&
-    p.fromAgentName !== 'Agent' &&
-    p.toAgentName !== 'Node'
+    p.fromAgent !== 'Agent' &&
+    p.toAgent !== 'Node'
   );
 
   const displayPayments = validPayments.slice(0, 20);
@@ -89,9 +89,9 @@ export const PaymentStream: React.FC<{ activeTaskId: string | null; task?: Task 
                     {formatTime(p.timestamp)}
                   </div>
                   <div className="flex items-center gap-2">
-                    <span className="text-[10px] font-black text-slate-200">{p.fromAgentName ?? 'Agent'}</span>
+                    <span className="text-[10px] font-black text-slate-200">{p.fromAgent ?? 'Agent'}</span>
                     <ArrowRight className="w-2.5 h-2.5 text-slate-600" />
-                    <span className="text-[10px] font-black text-blue-400">{p.toAgentName ?? 'Node'}</span>
+                    <span className="text-[10px] font-black text-blue-400">{p.toAgent ?? 'Node'}</span>
                   </div>
                 </div>
                 

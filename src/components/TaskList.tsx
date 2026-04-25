@@ -186,30 +186,10 @@ export const TaskCard: React.FC<{
           <div className="flex flex-col gap-1">
             <div className="flex items-center gap-2">
               <span className="text-[10px] font-black text-blue-400 uppercase tracking-widest">Orchestrator Intelligence Rationale</span>
-              {/* Guard Error Message (if failed) */}
-              {task.status === 'failed' && (
-                <div className="mx-4 mb-4 p-5 bg-red-500/10 border border-red-500/30 rounded-[1.5rem] flex items-start gap-4 shadow-lg shadow-red-900/20">
-                  <div className="w-12 h-12 rounded-2xl bg-red-400/20 flex items-center justify-center flex-shrink-0 border border-red-400/30">
-                    <ShieldAlert className="w-6 h-6 text-red-400" />
-                  </div>
-                  <div className="flex-1 flex flex-col">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
-                        <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Protocol Safeguard Rejection</span>
-                        <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-[8px] font-black rounded-full uppercase border border-red-500/20">Security Event</span>
-                      </div>
-                    </div>
-                    <span className="text-[14px] text-red-100/90 font-bold leading-snug mt-2">
-                      {task.errorReason || 'Mission aborted due to internal state inconsistency or secondary execution error.'}
-                    </span>
-                    <p className="text-[10px] text-red-400/60 font-medium uppercase tracking-tight mt-1">Transaction voided. No budget deducted for failed intellectual delivery.</p>
-                  </div>
-                </div>
-              )}
               {task.complexity && (
                 <span className={`text-[8px] font-black px-1.5 py-0.5 rounded border uppercase tracking-widest ${
-                  task.complexity === 'HIGH' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' : 
-                  task.complexity === 'MEDIUM' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' : 
+                  task.complexity === 'HIGH' ? 'bg-blue-500/10 border-blue-500/20 text-blue-400' :
+                  task.complexity === 'MEDIUM' ? 'bg-amber-500/10 border-amber-500/20 text-amber-500' :
                   'bg-slate-800 border-white/5 text-slate-400'
                 }`}>
                   {task.complexity} COMPLEXITY
@@ -219,6 +199,25 @@ export const TaskCard: React.FC<{
             <p className="text-[11px] text-slate-400 font-medium leading-relaxed italic">
               "{task.orchestratorRationale || 'Analyzing task semantics and optimizing execution graph.'}"
             </p>
+          </div>
+        </div>
+      )}
+
+      {/* PROTOCOL SAFEGUARD REJECTION — renders on any failed task, independent of rationale state */}
+      {task.status === 'failed' && (
+        <div className="p-5 bg-red-500/10 border border-red-500/30 rounded-[1.5rem] flex items-start gap-4 shadow-lg shadow-red-900/20">
+          <div className="w-12 h-12 rounded-2xl bg-red-400/20 flex items-center justify-center flex-shrink-0 border border-red-400/30">
+            <ShieldAlert className="w-6 h-6 text-red-400" />
+          </div>
+          <div className="flex-1 flex flex-col">
+            <div className="flex items-center gap-2">
+              <span className="text-[10px] font-black text-red-500 uppercase tracking-widest">Protocol Safeguard Rejection</span>
+              <span className="px-2 py-0.5 bg-red-500/20 text-red-400 text-[8px] font-black rounded-full uppercase border border-red-500/20">Security Event</span>
+            </div>
+            <span className="text-[14px] text-red-100/90 font-bold leading-snug mt-2">
+              {task.errorReason || 'Mission aborted due to internal state inconsistency or secondary execution error.'}
+            </span>
+            <p className="text-[10px] text-red-400/60 font-medium uppercase tracking-tight mt-1">Transaction voided. No budget deducted for failed intellectual delivery.</p>
           </div>
         </div>
       )}
@@ -402,7 +401,7 @@ export const TaskCard: React.FC<{
       {/* SETTLEMENT ANIMATION — Phase 7 */}
       {task.status === 'settling' && (
         <div className="pt-4 border-t border-blue-500/10">
-          <SettlementAnimation />
+          <SettlementAnimation task={task} />
         </div>
       )}
 

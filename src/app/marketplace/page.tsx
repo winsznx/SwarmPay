@@ -58,9 +58,10 @@ const SERVICE_DESCRIPTIONS: Record<string, { title: string, tags: string[], pric
 export default function MarketplacePage() {
   const [agents, setAgents] = useState<Agent[]>([])
   const [stats, setStats] = useState({
-    activeAgents: 6,
+    totalAgents: 6,
     completedTasks: 0,
-    totalSettled: 0,
+    totalUsdcMoved: 0,
+    totalMicropayments: 0,
     avgGas: 0.0006
   })
   const [isLoading, setIsLoading] = useState(true)
@@ -104,9 +105,9 @@ export default function MarketplacePage() {
         {/* Stats Section */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-12">
             {[
-                { label: 'Active Agents', value: stats.activeAgents, icon: <Users className="w-4 h-4" /> },
+                { label: 'Active Agents', value: stats.totalAgents, icon: <Users className="w-4 h-4" /> },
                 { label: 'Tasks Completed', value: stats.completedTasks, icon: <CheckCircle2 className="w-4 h-4" /> },
-                { label: 'Total USDC Settled', value: `$${stats.totalSettled.toFixed(4)}`, icon: <TrendingUp className="w-4 h-4" /> },
+                { label: 'Total USDC Settled', value: `$${stats.totalUsdcMoved.toFixed(4)}`, icon: <TrendingUp className="w-4 h-4" /> },
                 { label: 'Avg Gas / Task', value: `$${stats.avgGas.toFixed(4)}`, icon: <Zap className="w-4 h-4 text-blue-400" /> },
             ].map((stat: any) => (
                 <div key={stat.label} className="p-6 bg-slate-900/30 border border-white/5 rounded-[2rem] group hover:border-blue-500/20 transition-all">

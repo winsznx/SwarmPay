@@ -43,7 +43,8 @@ export async function savePaymentToSupabase(payment: any) {
       to_agent_id: payment.toAgentId ?? null,
       to_agent_name: payment.toAgent ?? null,
       amount: payment.amount,
-      status: 'completed',
+      // Phase B.1: aligned with payment_intents_status_check enum ('pending','signed','settled','failed').
+      status: 'settled',
       created_at: new Date(payment.timestamp ?? Date.now()).toISOString()
     }, { onConflict: 'id' })
     if (error) console.error('[SUPABASE] payment save error:', error.message)
@@ -110,27 +111,39 @@ export async function loadPaymentsFromSupabase(taskId: string): Promise<any[]> {
 }
 
 export async function getGlobalStats() {
-  if (!supabase) return { completedTasks: 0, totalSettled: 0, avgGas: 0.0006 };
+  const empty = { completedTasks: 0, totalUsdcMoved: 0, totalMicropayments: 0, avgGas: 0.0006 };
+  if (!supabase) return empty;
   try {
-    const { data: tasks, error } = await supabase
-      .from('tasks')
-      .select('status, settlement, cost_breakdown')
-      .eq('status', 'completed');
-    
-    if (error) throw error;
+    const [{ data: tasks, error: tErr }, { count: paymentCount, error: pErr }] = await Promise.all([
+      supabase
+        .from('tasks')
+        .select('status, settlement, cost_breakdown, micropayment_count')
+        .eq('status', 'completed'),
+      supabase
+        .from('payment_intents')
+        .select('id', { count: 'exact', head: true })
+    ]);
 
-    const completedTasks = tasks?.length || 0;
-    const totalSettled = tasks?.reduce((acc: number, t: any) => {
+    if (tErr) throw tErr;
+
+    const completedTasks = tasks?.length ?? 0;
+    const totalUsdcMoved = tasks?.reduce((acc: number, t: any) => {
       const settledAmt = t.settlement?.totalAmount || t.cost_breakdown?.totalCost || 0;
       return acc + settledAmt;
-    }, 0) || 0;
+    }, 0) ?? 0;
+
+    // Prefer real payment_intents row count; fall back to per-task counter sum if the query errored.
+    const totalMicropayments = pErr
+      ? (tasks?.reduce((acc: number, t: any) => acc + (t.micropayment_count ?? 0), 0) ?? 0)
+      : (paymentCount ?? 0);
 
     return {
       completedTasks,
-      totalSettled,
+      totalUsdcMoved,
+      totalMicropayments,
       avgGas: 0.0006
     };
   } catch (e) {
-    return { completedTasks: 0, totalSettled: 0, avgGas: 0.0006 };
+    return empty;
   }
 }
