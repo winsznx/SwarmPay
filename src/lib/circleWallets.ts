@@ -50,7 +50,12 @@ export async function sendAgentPayment(
   if (!circle) return null
 
   const fromWalletId = getAgentWallets()[fromAgentId]
-  const destinationAddress = await getAgentAddress(toAgentId)
+
+  // 'platform' is a synthetic agent ID that maps to the platform wallet address
+  // held in PLATFORM_WALLET_ADDRESS env var, not a Circle developer-controlled wallet.
+  const destinationAddress = toAgentId === 'platform'
+    ? (process.env.PLATFORM_WALLET_ADDRESS ?? '')
+    : await getAgentAddress(toAgentId)
 
   if (!fromWalletId || !destinationAddress) {
     console.warn('[CIRCLE] Wallet ID or address missing for', fromAgentId, 'or', toAgentId)
@@ -107,6 +112,57 @@ export async function sendAgentPayment(
 
 
 /**
+ * Pre-flight overspend check.
+ *
+ * Before sending any payment intent batch to the drain, verify that
+ * the from-wallet for each intent has sufficient USDC. Intents that
+ * fail this check are immediately marked failed in Supabase with
+ * error_message='insufficient_balance' — Circle is never called for
+ * them. This prevents the drain from burning API retries on guaranteed
+ * failures and keeps the confirmed/failed counts accurate.
+ *
+ * Also enforces that the sum of all pending intents for the task does
+ * not exceed the task budget — a second line of defense against
+ * programmer error upstream.
+ */
+export async function preflightBalanceCheck(
+  taskId: string,
+  intents: Array<{ paymentIntentId: string; fromAgentId: string; amount: number }>,
+  taskBudget: number
+): Promise<{ valid: Array<typeof intents[0]>; skipped: number }> {
+  const balances = await getAgentBalances()
+  const { supabaseAdmin } = await import('./supabase')
+
+  let totalAmount = 0
+  const valid: typeof intents = []
+  const insufficient: string[] = []
+
+  for (const intent of intents) {
+    totalAmount += intent.amount
+    const balance = balances[intent.fromAgentId] ?? 0
+    if (balance < intent.amount) {
+      insufficient.push(intent.paymentIntentId)
+      console.warn(`[PREFLIGHT] Agent ${intent.fromAgentId} balance ${balance} < ${intent.amount} for intent ${intent.paymentIntentId}`)
+    } else {
+      valid.push(intent)
+    }
+  }
+
+  if (totalAmount > taskBudget * 1.05) {
+    console.error(`[PREFLIGHT] Total intent amount $${totalAmount.toFixed(6)} exceeds task budget $${taskBudget.toFixed(6)} by >5%`)
+  }
+
+  if (insufficient.length > 0 && supabaseAdmin) {
+    await supabaseAdmin
+      .from('payment_intents')
+      .update({ status: 'failed', error_message: 'insufficient_balance' })
+      .in('id', insufficient)
+  }
+
+  return { valid, skipped: insufficient.length }
+}
+
+/**
  * Arm the settlement for a task and trigger the first drain pass.
  *
  * Architecture: queue state lives in `payment_intents.status` (DB).
@@ -127,37 +183,46 @@ export async function sendAgentPayment(
  */
 export async function settleAllIntentsOnArc(
   taskId: string,
-  intents: Array<{ paymentIntentId: string; fromAgentId: string; toAgentId: string; amount: number }>
-): Promise<{ enqueued: number } | null> {
+  intents: Array<{ paymentIntentId: string; fromAgentId: string; toAgentId: string; amount: number }>,
+  taskBudget?: number
+): Promise<{ enqueued: number; skipped: number } | null> {
   const circle = getCircleClient()
   if (!circle) {
     console.warn('[ARC] Circle unavailable; settlement skipped (mock mode)')
     return null
   }
 
-  // Upsert the settlements progress row so the UI sub sees expected_count immediately.
+  // Pre-flight: reject intents where the source wallet can't cover the amount.
+  // This prevents the drain from burning Circle API calls on guaranteed failures.
+  const budget = taskBudget ?? intents.reduce((s, i) => s + i.amount, 0)
+  const { valid, skipped } = await preflightBalanceCheck(taskId, intents, budget)
+
   const { supabaseAdmin } = await import('./supabase')
   if (supabaseAdmin) {
     const { error } = await supabaseAdmin
       .from('settlements')
       .upsert({
         task_id: taskId,
-        expected_count: intents.length,
+        expected_count: valid.length,
         confirmed_count: 0,
-        failed_count: 0,
+        failed_count: skipped,
         all_hashes: [],
-        status: intents.length > 0 ? 'in_progress' : 'complete',
+        status: valid.length > 0 ? 'in_progress' : 'complete',
         started_at: new Date().toISOString(),
-        intents_settled: intents.length
+        intents_settled: valid.length
       }, { onConflict: 'task_id' })
     if (error) console.error('[ARC] settlements row upsert failed:', error.message)
   }
 
-  // Kick the first drain. The endpoint will self-recurse until DB count = 0.
+  if (valid.length === 0) {
+    console.warn(`[ARC] All ${intents.length} intents failed preflight for task ${taskId}`)
+    return { enqueued: 0, skipped }
+  }
+
   const { triggerDrain } = await import('./settlementDrain')
   triggerDrain(taskId)
-  console.log(`[ARC] settlement armed for ${intents.length} intents on task ${taskId}; drain dispatched`)
-  return { enqueued: intents.length }
+  console.log(`[ARC] settlement armed for ${valid.length} intents (${skipped} skipped) on task ${taskId}`)
+  return { enqueued: valid.length, skipped }
 }
 
 /** @deprecated kept for build compatibility — use settleAllIntentsOnArc */

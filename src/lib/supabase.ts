@@ -44,7 +44,11 @@ export async function saveTaskToSupabase(task: any) {
 export async function savePaymentToSupabase(payment: any) {
   if (!payment || !supabase) return;
   try {
-    const { error } = await supabase.from('payment_intents').upsert({
+    // Base fields always present (migration 001 columns).
+    // Crypto audit fields (nonce, signature, signer_address) are only included
+    // when non-null — they require migration 010. Omitting them when null prevents
+    // Supabase from rejecting the entire insert if 010 hasn't been applied yet.
+    const row: Record<string, unknown> = {
       id: payment.id,
       task_id: payment.taskId,
       from_agent_id: payment.fromAgentId ?? null,
@@ -52,10 +56,14 @@ export async function savePaymentToSupabase(payment: any) {
       to_agent_id: payment.toAgentId ?? null,
       to_agent_name: payment.toAgent ?? null,
       amount: payment.amount,
-      // Phase B.1: aligned with payment_intents_status_check enum ('pending','signed','settled','failed').
-      status: 'settled',
-      created_at: new Date(payment.timestamp ?? Date.now()).toISOString()
-    }, { onConflict: 'id' })
+      status: payment.status ?? 'pending',
+      created_at: new Date(payment.timestamp ?? Date.now()).toISOString(),
+    }
+    if (payment.nonce)        row.nonce         = payment.nonce
+    if (payment.signature)    row.signature     = payment.signature
+    if (payment.signerAddress) row.signer_address = payment.signerAddress
+
+    const { error } = await supabase.from('payment_intents').upsert(row, { onConflict: 'id' })
     if (error) console.error('[SUPABASE] payment save error:', error.message)
   } catch (e) {
     console.error('[SUPABASE] payment save failed:', e)
@@ -154,6 +162,64 @@ export async function getGlobalStats() {
     };
   } catch (e) {
     return empty;
+  }
+}
+
+export async function fetchTaskFromSupabase(id: string): Promise<any | null> {
+  if (!supabase) return null;
+  try {
+    const { data, error } = await supabase
+      .from('tasks')
+      .select('*')
+      .eq('id', id)
+      .single();
+    if (error || !data) return null;
+    return {
+      id: data.id,
+      prompt: data.prompt,
+      budget: parseFloat(data.budget || '0'),
+      status: data.status,
+      result: data.result,
+      costBreakdown: data.cost_breakdown,
+      stats: data.stats,
+      settlement: data.settlement,
+      micropaymentCount: data.micropayment_count ?? 0,
+      createdAt: new Date(data.created_at).getTime(),
+      completedAt: data.completed_at ? new Date(data.completed_at).getTime() : undefined,
+      winningBidId: data.winning_bid_id,
+      winningAgentName: data.winning_agent_name,
+      subTaskIds: []
+    };
+  } catch (e) {
+    return null;
+  }
+}
+
+export async function fetchSubtasksFromSupabase(taskId: string): Promise<any[]> {
+  if (!supabase) return [];
+  try {
+    const { data, error } = await supabase
+      .from('subtasks')
+      .select('*')
+      .eq('task_id', taskId)
+      .order('created_at', { ascending: true });
+    if (error || !data) return [];
+    return data.map(row => ({
+      id: row.id,
+      taskId: row.task_id,
+      type: row.type,
+      title: row.title,
+      description: row.description,
+      budget: parseFloat(row.budget || '0'),
+      status: row.status,
+      assignedAgentId: row.assigned_agent_id,
+      winningAgentName: row.winning_agent_name,
+      result: row.result,
+      createdAt: row.created_at ? new Date(row.created_at).getTime() : Date.now(),
+      completedAt: row.completed_at ? new Date(row.completed_at).getTime() : undefined,
+    }));
+  } catch (e) {
+    return [];
   }
 }
 
