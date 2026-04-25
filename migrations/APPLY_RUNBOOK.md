@@ -29,6 +29,7 @@ Apply in this exact order. Each is its own SQL Editor run.
 | 5 | `005_reputation.sql` | agents.tasks_failed + success_rate, reputation_events audit table, atomic `reputation_apply_delta` RPC | `005_reputation_rollback.sql` |
 | 6 | `006_escrow.sql` | user_wallets + escrow_holds tables, atomic `escrow_hold` / `escrow_spend` / `escrow_release` RPCs, seed `user_1` with 50 USDC | `006_escrow_rollback.sql` |
 | 7 | `007_compute_sessions.sql` | compute_sessions table for per-ms billing audit | `007_compute_sessions_rollback.sql` |
+| 8 | `008_escrow_rpc.sql` | Defensive re-creation of all 6 RPCs (escrow + settlement + reputation) with `SECURITY DEFINER` and a `NOTIFY pgrst` cache reload — fixes "function not found in schema cache" 503s | `008_escrow_rpc_rollback.sql` |
 
 ## Step-by-step
 
@@ -43,8 +44,10 @@ Apply in this exact order. Each is its own SQL Editor run.
 3. Watch for the green success banner. If you see `RAISE NOTICE 'Migrated legacy completed status to settled'`, that's expected — existing rows were normalized.
 4. If anything errors: the `BEGIN/COMMIT` rolls back automatically. Do NOT re-paste blindly. Read the error, decide whether to investigate or run `001_phase_b_rollback.sql`.
 
-### 2. Apply 002 → 007
+### 2. Apply 002 → 008
 Repeat the same paste-and-run pattern for each file in numerical order. Each one is small (~50 lines) and idempotent.
+
+**008 is the safety net:** even if 002 / 005 / 006 already ran cleanly, 008 re-creates the same RPC functions with `SECURITY DEFINER` and forces a PostgREST schema-cache reload via `NOTIFY pgrst, 'reload schema'`. This is the surgical fix for the "Could not find the function … in the schema cache" 503 errors that hit prod after the production sprint deploy. Always run 008 last, even on a clean migration sequence.
 
 ### 3. Postflight
 1. Paste contents of `postflight_queries.sql`.
@@ -92,7 +95,24 @@ SELECT proname FROM pg_proc WHERE proname IN ('escrow_hold','escrow_spend','escr
 
 -- 007 compute_sessions
 SELECT table_name FROM information_schema.tables WHERE table_name = 'compute_sessions';
+
+-- 008 RPC presence + signature spot-check (PostgREST consumes pg_proc here)
+SELECT proname, pg_get_function_arguments(oid) AS signature
+  FROM pg_proc
+ WHERE proname IN (
+   'escrow_hold','escrow_spend','escrow_release',
+   'settlement_record_confirmed','settlement_record_failed',
+   'reputation_apply_delta'
+ )
+ ORDER BY proname;
+-- Expect 6 rows, each with the param names listed (p_user_id, p_task_id, p_amount, ...).
 ```
+
+**If `/api/escrow/hold` still returns 503 after 008 lands**, force the cache reload by hand:
+```sql
+NOTIFY pgrst, 'reload schema';
+```
+Wait ~5s, then retry the API. If still failing, the function genuinely doesn't exist (re-run 008) or the wrong service-role key is set in Vercel env.
 
 ### 5. Realtime publication sanity
 ```sql
