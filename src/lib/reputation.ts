@@ -16,10 +16,18 @@ const DELTA: Record<ReputationOutcome, number> = {
 }
 
 /**
- * Atomic reputation update via the `reputation_apply_delta` RPC defined
- * in migrations/005_reputation.sql. Reads current → clamps → writes the
- * audit row → updates agents row → recomputes success_rate, all in one
- * Postgres function. Single round-trip; safe under concurrent settlement.
+ * Dual-layer reputation update:
+ *
+ * Layer 1 — Supabase (fast, queryable by the UI):
+ *   reputation_apply_delta RPC atomically clamps + updates agents.reputation
+ *   and writes an audit row to reputation_events. Single round-trip.
+ *
+ * Layer 2 — ERC-8004 Reputation Registry on Sepolia (on-chain, judge-verifiable):
+ *   giveFeedback() writes a signed on-chain reputation entry.
+ *   tag1 = outcome, tag2 = taskId — any external party can call
+ *   getSummary(tokenId, [platformAddress], outcome, "") on Sepolia
+ *   to independently verify an agent's performance history.
+ *   This runs fire-and-forget so it doesn't block the pipeline.
  */
 export async function updateAfterTask(
   taskId: string,
@@ -44,11 +52,19 @@ export async function updateAfterTask(
   const after = typeof data === 'number' ? data : null
   const before = after != null ? after - delta : null
 
-  // Live UI signal — sidebar + leaderboard subscribe and animate +N/-N pop
   pipelineEvents.emit('reputation:updated', {
     taskId, agentId, outcome, delta, before, after, timestamp: Date.now()
   })
   void logTaskEvent(taskId, 'reputation:updated', { agentId, outcome, delta, before, after }).catch(() => {})
+
+  // ERC-8004 on-chain reputation — fire-and-forget, does not block pipeline
+  void import('./erc8004').then(({ submitReputationFeedback }) =>
+    submitReputationFeedback(agentId, taskId, outcome)
+      .then(txHash => {
+        if (txHash) console.log(`[REPUTATION] ERC-8004 feedback tx: ${txHash}`)
+      })
+      .catch(e => console.error('[REPUTATION] ERC-8004 feedback failed:', e))
+  )
 
   return { before, after }
 }
