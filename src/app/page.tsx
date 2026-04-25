@@ -186,7 +186,7 @@ export default function LandingPage() {
 
       {/* NAV */}
       <nav className="fixed top-0 left-0 right-0 z-50 border-b border-white/[0.03] bg-slate-950/40 backdrop-blur-2xl">
-        <div className="max-w-[1400px] mx-auto px-4 md:px-8 h-16 flex items-center justify-between">
+        <div className="max-w-[1400px] mx-auto px-4 md:px-8 h-16 grid grid-cols-2 lg:grid-cols-3 items-center">
           <div className="flex items-center gap-4">
             {/* Mobile Hamburger - ON THE LEFT */}
             <button 
@@ -205,8 +205,8 @@ export default function LandingPage() {
             </Link>
           </div>
           
-          {/* DESKTOP NAV */}
-          <div className="hidden lg:flex items-center gap-8">
+          {/* DESKTOP NAV - ABSOLUTE CENTERED via Grid */}
+          <div className="hidden lg:flex items-center justify-center gap-8">
             {[
               { href: '/dashboard', label: 'Dashboard', icon: <LayoutDashboard className="w-3 h-3" /> },
               { href: '/why', label: 'Why SwarmPay', icon: <img src="/icon.png" className="w-3 h-3" /> },
@@ -224,9 +224,11 @@ export default function LandingPage() {
             ))}
           </div>
 
-          <Link href="/dashboard" className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20 active:scale-95">
-            Launch App
-          </Link>
+          <div className="flex justify-end">
+            <Link href="/dashboard" className="bg-blue-600 hover:bg-blue-500 text-white px-6 py-2.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-blue-600/20 active:scale-95">
+              Launch App
+            </Link>
+          </div>
         </div>
 
         {/* MOBILE NAV OVERLAY */}
@@ -255,32 +257,31 @@ export default function LandingPage() {
       </nav>
 
       <main className="relative z-10 pt-32">
-        {/* HERO */}
-        <section className="px-6 pb-20 max-w-7xl mx-auto text-center flex flex-col items-center overflow-hidden">
-          <div className="w-full flex flex-col items-center">
-            <h1 ref={headlineRef} className="text-4xl sm:text-5xl md:text-8xl font-black leading-[1.1] tracking-tighter uppercase mb-10 text-center md:text-left">
+        <section className="px-6 pb-20 max-w-7xl mx-auto flex flex-col items-center">
+          <div className="max-w-fit flex flex-col items-start text-left">
+            <h1 ref={headlineRef} className="text-4xl sm:text-5xl md:text-8xl font-black leading-[1.1] tracking-tighter uppercase mb-10 select-none">
               <div className="line overflow-hidden whitespace-nowrap">THE AGENT</div>
-              <div className="line flex items-center justify-center md:justify-start overflow-hidden">
+              <div className="line flex items-center justify-start overflow-hidden">
                 <span className="blue-bar inline-block w-16 sm:w-24 md:w-48 h-8 sm:h-10 md:h-16 bg-blue-600 rounded-full mr-3 md:mr-6" />
                 ECONOMY.
               </div>
               <div className="line overflow-hidden whitespace-nowrap">POWERED BY ARC.</div>
             </h1>
 
-            <p className="max-w-3xl mx-auto text-gray-400 font-medium text-sm sm:text-base md:text-xl leading-relaxed mb-12 px-4">
-              AI agents autonomously bid, execute, and settle USDC micropayments on Arc.
+            <p className="max-w-3xl text-gray-400 font-medium text-sm sm:text-base md:text-xl leading-relaxed mb-12">
+              AI agents autonomously bid, execute, and settle USDC micropayments on Arc. 
               Every task generates 60+ on-chain transactions, each verifiable on testnet.arcscan.app.
             </p>
 
-            <div className="flex flex-col sm:flex-row items-center justify-center gap-4 md:gap-6 w-full px-4 mb-20">
-              <Link href="/dashboard" className="group w-full sm:w-auto px-10 py-4 md:px-12 md:py-5 bg-blue-600 hover:bg-blue-500 text-white font-black text-[10px] md:text-xs uppercase tracking-[0.2em] rounded-2xl transition-all shadow-2xl shadow-blue-600/30 active:scale-95">
-                Launch Mission Control <span className="hidden sm:inline group-hover:translate-x-1 transition-transform ml-1">→</span>
+            <div className="flex flex-col sm:flex-row items-center justify-start gap-4 md:gap-6 w-full max-w-2xl mb-20">
+              <Link href="/dashboard" className="group w-full sm:w-auto flex items-center justify-center px-10 py-4 md:px-12 md:py-5 bg-blue-600 hover:bg-blue-500 text-white font-black text-[10px] md:text-xs uppercase tracking-[0.2em] rounded-2xl transition-all shadow-2xl shadow-blue-600/30 active:scale-95">
+                Launch Mission Control <span className="hidden sm:inline group-hover:translate-x-1 transition-transform ml-2">→</span>
               </Link>
               <a
                 href="https://github.com/TheWeirdDee/SwarmPay"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="w-full sm:w-auto px-10 py-4 md:px-12 md:py-5 border border-white/10 hover:border-white/30 text-gray-500 hover:text-white font-black text-[10px] md:text-xs uppercase tracking-[0.2em] rounded-2xl transition-all active:scale-95"
+                className="w-full sm:w-auto flex items-center justify-center px-10 py-4 md:px-12 md:py-5 border border-white/10 hover:border-white/30 text-gray-500 hover:text-white font-black text-[10px] md:text-xs uppercase tracking-[0.2em] rounded-2xl transition-all active:scale-95"
               >
                 View on GitHub
               </a>
