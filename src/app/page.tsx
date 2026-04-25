@@ -20,10 +20,11 @@ if (typeof window !== 'undefined') {
 }
 
 interface Stats {
-  tasksCompleted: number
-  totalSettled: string
+  completedTasks: number
+  totalUsdcMoved: number
   totalMicropayments: number
-  activeAgents: number
+  totalAgents: number
+  avgGas: number
 }
 
 const STEPS = [
@@ -100,10 +101,10 @@ export default function LandingPage() {
             const tl = gsap.timeline()
             const obj = { v1: 0, v2: 0, v3: 0, v4: 0 }
             tl.to(obj, {
-              v1: stats.tasksCompleted || 4, 
-              v2: parseFloat(stats.totalSettled) || 0.8,
-              v3: stats.totalMicropayments || 120,
-              v4: stats.activeAgents || 6,
+              v1: stats.completedTasks,
+              v2: stats.totalUsdcMoved,
+              v3: stats.totalMicropayments,
+              v4: stats.totalAgents,
               duration: 2.5,
               ease: 'power4.out',
               onUpdate: () => {

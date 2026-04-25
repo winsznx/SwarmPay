@@ -37,7 +37,7 @@ async function getLatestTx() {
       console.log(`   Amount: ${tx.amounts?.[0] || 'N/A'}`);
       console.log(`   TxHash: ${tx.txHash || 'PENDING'}`);
       if (tx.txHash && tx.txHash.startsWith('0x')) {
-        console.log(`   ✅ VERIFIED ON ARC: https://explorer.arc.io/tx/${tx.txHash}`);
+        console.log(`   ✅ VERIFIED ON ARC: https://testnet.arcscan.app/tx/${tx.txHash}`);
       }
       console.log('-------------------');
     });

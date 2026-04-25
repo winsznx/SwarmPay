@@ -97,9 +97,9 @@ export const ResultCard: React.FC<ResultCardProps> = ({ task }) => {
 
   const breakdownRows: { label: string; value: number; accent?: boolean }[] = [
     { label: 'Research',          value: cb?.research     ?? 0 },
-    { label: 'Data cleaning',     value: cb?.compute      ?? 0 },
+    { label: 'Data cleaning',     value: cb?.cleaning     ?? 0 },
     { label: 'Analysis',          value: cb?.analysis     ?? 0 },
-    { label: 'Compute',           value: (cb?.compute     ?? 0) * 0.6 },
+    { label: 'Compute',           value: cb?.compute      ?? 0 },
     { label: 'Agent margins',     value: cb?.agentMargins ?? 0 },
     { label: 'Platform fee (10%)',value: cb?.platformFee  ?? 0 },
   ];
