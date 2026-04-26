@@ -93,23 +93,47 @@ export function generate402Response(
       'X-Payment-Recipient': recipientAddress,
       'X-Payment-Network': 'arc-testnet',
       'X-Payment-Reason': reason,
-      'X-Payment-Nonce': crypto.randomBytes(16).toString('hex')
+      // 32 bytes (64 hex chars). Required because the PaymentAuthorization
+      // EIP-712 type below declares `nonce` as `bytes32`. randomBytes(16)
+      // produced 16-byte values that Circle's signTypedData rejected with
+      // "provided data ... doesn't match type 'bytes32'".
+      'X-Payment-Nonce': crypto.randomBytes(32).toString('hex')
     }
   }
 }
 
 // ── EIP-712 domain for x402 payment authorizations ───────────────────────────
 // Separate from ERC-8004 domain — this domain is SwarmPay-specific.
+//
+// All 4 EIP-712 domain fields are present so the EIP712Domain types entry
+// (declared in X402_TYPES below) matches exactly. Circle's signTypedData
+// API rejects payloads where the EIP712Domain types entry is missing or
+// shape-mismatched (the "extra data (0 < 4)" error). erc8004.ts uses the
+// same 4-field shape — see buildSetAgentWalletTypedData.
+//
+// chainId: Arc testnet (5042002). Same chain payment intents settle on.
+// verifyingContract: ZeroAddress because x402 is an off-chain protocol —
+// no on-chain x402 contract exists on Arc to bind to. The nonce in
+// payment_intents.nonce + the unique (task_id, nonce) index from migration
+// 010 is the actual replay-safety mechanism.
+const X402_CHAIN_ID = parseInt(process.env.ARC_CHAIN_ID ?? '5042002', 10)
+
 const X402_DOMAIN = {
-  name:    'SwarmPayX402',
-  version: '1',
-  // chainId is omitted: payment intents are signed for Arc but verified
-  // off-chain. Including chainId would require knowing the exact Arc chain ID
-  // in the signing step, which breaks cross-chain portability of the flow.
-  // The nonce + validBefore window provides replay safety instead.
+  name:              'SwarmPayX402',
+  version:           '1',
+  chainId:           X402_CHAIN_ID,
+  verifyingContract: '0x0000000000000000000000000000000000000000' as const,
 }
 
 const X402_TYPES = {
+  // Circle's signTypedData API requires EIP712Domain to be declared
+  // explicitly in types — ethers.js infers it but Circle does not.
+  EIP712Domain: [
+    { name: 'name',              type: 'string'  },
+    { name: 'version',           type: 'string'  },
+    { name: 'chainId',           type: 'uint256' },
+    { name: 'verifyingContract', type: 'address' },
+  ],
   PaymentAuthorization: [
     { name: 'paymentIntentId', type: 'bytes32' },
     { name: 'fromAgentId',     type: 'string'  },
@@ -208,12 +232,18 @@ export async function verifyPaymentIntent(
 
   const typedData = buildX402TypedData(signed.intent)
 
-  // Layer 1: ECDSA recovery via EIP-712
+  // Layer 1: ECDSA recovery via EIP-712.
+  // ethers v6 derives the domain separator from `domain` itself and rejects
+  // any `EIP712Domain` entry in `types`. Circle's signTypedData requires it.
+  // Strip EIP712Domain only at verify time so both sides stay happy.
+  const verifyTypes = { ...typedData.types } as Record<string, unknown>
+  delete verifyTypes.EIP712Domain
+
   let recoveredAddress: string
   try {
     recoveredAddress = ethers.verifyTypedData(
       typedData.domain,
-      typedData.types,
+      verifyTypes as Parameters<typeof ethers.verifyTypedData>[1],
       typedData.message,
       signed.signature
     )

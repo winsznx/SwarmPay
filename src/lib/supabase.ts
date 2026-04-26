@@ -16,11 +16,12 @@ export const supabaseAdmin: SupabaseClient | null = (supabaseUrl && supabaseServ
   ? createClient(supabaseUrl, supabaseServiceKey, { auth: { persistSession: false } })
   : supabase
 
-// Task persistence helpers
+// Task persistence helpers — writes go through supabaseAdmin so RLS doesn't
+// reject server-side mutations. Reads stay on the anon client below.
 export async function saveTaskToSupabase(task: any) {
-  if (!task || !supabase) return;
+  if (!task || !supabaseAdmin) return;
   try {
-    const { error } = await supabase.from('tasks').upsert({
+    const { error } = await supabaseAdmin.from('tasks').upsert({
       id: task.id,
       prompt: task.prompt,
       budget: task.budget,
@@ -42,7 +43,7 @@ export async function saveTaskToSupabase(task: any) {
 }
 
 export async function savePaymentToSupabase(payment: any) {
-  if (!payment || !supabase) return;
+  if (!payment || !supabaseAdmin) return;
   try {
     // Base fields always present (migration 001 columns).
     // Crypto audit fields (nonce, signature, signer_address) are only included
@@ -63,7 +64,7 @@ export async function savePaymentToSupabase(payment: any) {
     if (payment.signature)    row.signature     = payment.signature
     if (payment.signerAddress) row.signer_address = payment.signerAddress
 
-    const { error } = await supabase.from('payment_intents').upsert(row, { onConflict: 'id' })
+    const { error } = await supabaseAdmin.from('payment_intents').upsert(row, { onConflict: 'id' })
     if (error) console.error('[SUPABASE] payment save error:', error.message)
   } catch (e) {
     console.error('[SUPABASE] payment save failed:', e)
@@ -226,11 +227,18 @@ export async function fetchSubtasksFromSupabase(taskId: string): Promise<any[]> 
 // ── Phase B: Advanced Persistence ──────────────────────────────────────────
 
 export async function saveSubTaskToSupabase(st: any) {
-  if (!st || !supabase) return;
+  if (!st || !supabaseAdmin) return;
+  // SubTask types use `parentTaskId` (see src/types/index.ts:SubTask).
+  // Fall back to `taskId` for any legacy callers.
+  const taskId = st.parentTaskId ?? st.taskId;
+  if (!taskId) {
+    console.error('[SUPABASE] subtask save aborted: missing parentTaskId/taskId on', st.id);
+    return;
+  }
   try {
-    const { error } = await supabase.from('subtasks').upsert({
+    const { error } = await supabaseAdmin.from('subtasks').upsert({
       id: st.id,
-      task_id: st.taskId,
+      task_id: taskId,
       type: st.type,
       title: st.title,
       description: st.description,
@@ -242,15 +250,15 @@ export async function saveSubTaskToSupabase(st: any) {
       execution_valid: st.status === 'completed',
       created_at: st.createdAt ? new Date(st.createdAt).toISOString() : new Date().toISOString(),
       completed_at: st.completedAt ? new Date(st.completedAt).toISOString() : null
-    });
+    }, { onConflict: 'id' });
     if (error) console.error('[SUPABASE] subtask error:', error.message);
   } catch (e) {}
 }
 
 export async function logTaskEvent(taskId: string, eventType: string, payload: any = {}) {
-  if (!supabase) return;
+  if (!supabaseAdmin) return;
   try {
-    await supabase.from('task_events').insert({
+    await supabaseAdmin.from('task_events').insert({
       task_id: taskId,
       event_type: eventType,
       payload
@@ -259,9 +267,9 @@ export async function logTaskEvent(taskId: string, eventType: string, payload: a
 }
 
 export async function saveSettlementToSupabase(taskId: string, settlement: any) {
-  if (!settlement || !supabase) return;
+  if (!settlement || !supabaseAdmin) return;
   try {
-    await supabase.from('settlements').upsert({
+    await supabaseAdmin.from('settlements').upsert({
       task_id: taskId,
       tx_hash: settlement.txHash,
       explorer_url: settlement.explorerUrl,
