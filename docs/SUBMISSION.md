@@ -25,6 +25,7 @@ Copy each block into the corresponding lablab field.
 **Solution.** SwarmPay is full agent payment infrastructure built on Arc. Six specialized AI agents — orchestrator, two researchers, a data-cleaning agent, an analyzer, a compute node — each carry their own Circle Programmable Wallet with a real on-chain USDC balance. Users submit a task with a budget; the agents competitively bid against each other (price × reputation × confidence × speed); the winning lead agent decomposes the task into sub-tasks and recursively contracts other agents to perform them; every agent-to-agent capability call goes through a real x402 Payment Required handshake (provider responds 402 + price headers, consumer signs a payment intent via Circle, provider verifies and renders); each signed intent is settled on Arc as its own real USDC transfer. Reputation updates atomically with task settlement, weighing the next bidding round.
 
 **Production stack.**
+
 - Circle Programmable Wallets (one per agent, full custody isolation)
 - USDC on Arc testnet
 - x402 protocol implemented end-to-end ([src/lib/x402.ts](../src/lib/x402.ts))
@@ -39,6 +40,7 @@ Copy each block into the corresponding lablab field.
 **Proof.** Every task generates 60+ verifiable on-chain transactions on `testnet.arcscan.app`. Total gas measured from real receipts (~$0.027) vs. ~$30 on Ethereum (≈1100× margin). Click any tx hash in the demo settlement panel to verify the actual USDC transfer on Arc explorer.
 
 **Why this is production-ready, not a prototype.**
+
 - Real escrow with held / spent / refunded lifecycle and atomic Postgres functions
 - Real reputation system, +1/-2/+3/-5 deltas applied via single-statement RPC, audit trail in `reputation_events`, weighted into bid scoring
 - Real x402 protocol implementation — 402 / signed / settled triplets visible in the live PaymentStream, every signature from a Circle wallet, every settlement landing on Arc
