@@ -37,47 +37,33 @@ The entire pipeline — bidding, execution, payment, settlement, reputation — 
 flowchart TD
     U(["👤 User\nTask + USDC budget"]) --> AP
 
-    subgraph APPRAISAL ["① Appraisal"]
-        AP["Gemini 3 Pro\nClassifies complexity\nSuggests agent count"]
-    end
+    AP["Gemini 3 Pro\nClassifies complexity\nSuggests agent count"]
 
-    subgraph AUCTION ["② Bidding War  —  6 agents compete"]
-        AP --> B1["CryptoScout-X\nOrchestrator · rep 95"]
-        AP --> B2["Research-Alpha\nResearch · rep 92"]
-        AP --> B3["DataMiner-Pro\nResearch · rep 87"]
-        AP --> B4["Parser-X\nData Clean · rep 88"]
-        AP --> B5["Analysis-Node\nAnalysis · rep 91"]
-        AP --> B6["Compute-Grid-4\nCompute · rep 90"]
-        B1 & B2 & B3 & B4 & B5 & B6 --> SCORE["Score = ¹⁄price × rep/100 × confidence × ¹⁄time\nHighest score wins"]
-    end
+    AP --> B1["CryptoScout-X\nOrchestrator · rep 95"]
+    AP --> B2["Research-Alpha\nResearch · rep 92"]
+    AP --> B3["DataMiner-Pro\nResearch · rep 87"]
+    AP --> B4["Parser-X\nData Clean · rep 88"]
+    AP --> B5["Analysis-Node\nAnalysis · rep 91"]
+    AP --> B6["Compute-Grid-4\nCompute · rep 90"]
 
-    subgraph IDENTITY ["ERC-8004 Identity — Arc Testnet"]
-        ID["Identity Registry\n0x8004A818..."]
-        REP_REG["Reputation Registry\n0x8004B663..."]
-    end
+    B1 & B2 & B3 & B4 & B5 & B6 --> SCORE["Score = 1/price × rep/100\n× confidence × 1/time\nHighest score wins"]
 
-    SCORE -->|"Winner verified\ngetAgentWallet(tokenId)"| ID
-    ID --> DECOMP
+    SCORE -->|"getAgentWallet(tokenId)"| ID["ERC-8004 Identity Registry\n0x8004A818..."]
 
-    subgraph EXECUTION ["③ Parallel Execution"]
-        DECOMP["Lead agent decomposes\ninto 4 subtasks"] --> PA["research\nGemini 3 Flash"]
-        DECOMP --> PB["clean_data\nGemini 3 Flash"]
-        DECOMP --> PC["analysis\nGemini 3 Flash"]
-        DECOMP --> PD["compute\nGemini 3 Flash"]
-    end
+    ID --> DECOMP["Lead agent decomposes\ninto 4 subtasks"]
+    DECOMP --> PA["research\nGemini 3 Flash"]
+    DECOMP --> PB["clean_data\nGemini 3 Flash"]
+    DECOMP --> PC["analysis\nGemini 3 Flash"]
+    DECOMP --> PD["compute\nGemini 3 Flash"]
 
-    subgraph X402 ["④ x402 Payment Per Subtask"]
-        PA & PB & PC & PD --> INTENT["EIP-712 payment intent\nsigned by Circle wallet\nverified by ethers.verifyTypedData"]
-        INTENT --> DRAIN["Stateless drain\nPostgres FOR UPDATE SKIP LOCKED\nself-recurses until 0 pending"]
-    end
+    PA & PB & PC & PD --> INTENT["EIP-712 payment intent\nsigned by Circle wallet\nverified by ethers.verifyTypedData"]
+    INTENT --> DRAIN["Stateless drain\nPostgres FOR UPDATE SKIP LOCKED\nself-recurses until 0 pending"]
 
-    subgraph ARC ["⑤ Arc Settlement"]
-        DRAIN --> TX["Circle createTransaction\nblockchain: ARC-TESTNET\n~$0.00045 per tx"]
-        TX --> ARCSCAN["On-chain USDC transfer\nverifiable on testnet.arcscan.app"]
-    end
+    DRAIN --> TX["Circle createTransaction\nblockchain: ARC-TESTNET\n~$0.00045 per tx"]
+    TX --> ARCSCAN["On-chain USDC transfer\nverifiable on testnet.arcscan.app"]
 
     ARCSCAN --> FEEDBACK["giveFeedback\nValidator EOA → Reputation Registry\nOn-chain rep delta per outcome"]
-    FEEDBACK --> REP_REG
+    FEEDBACK --> REP_REG["ERC-8004 Reputation Registry\n0x8004B663..."]
     ARCSCAN --> REFUND["Unused budget\nreturned to user wallet"]
 ```
 
