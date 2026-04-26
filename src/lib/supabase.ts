@@ -18,7 +18,7 @@ export const supabaseAdmin: SupabaseClient | null = (supabaseUrl && supabaseServ
 
 // Task persistence helpers
 export async function saveTaskToSupabase(task: any) {
-  if (!task || !supabase) return;
+  if (!task || !supabaseAdmin) return;
   try {
     const { error } = await supabaseAdmin.from('tasks').upsert({
       id: task.id,
@@ -42,7 +42,7 @@ export async function saveTaskToSupabase(task: any) {
 }
 
 export async function savePaymentToSupabase(payment: any) {
-  if (!payment || !supabase) return;
+  if (!payment || !supabaseAdmin) return;
   try {
     // Base fields always present (migration 001 columns).
     // Crypto audit fields (nonce, signature, signer_address) are only included
@@ -226,7 +226,7 @@ export async function fetchSubtasksFromSupabase(taskId: string): Promise<any[]> 
 // ── Phase B: Advanced Persistence ──────────────────────────────────────────
 
 export async function saveSubTaskToSupabase(st: any) {
-  if (!st || !supabase) return;
+  if (!st || !supabaseAdmin) return;
   try {
     const { error } = await supabaseAdmin.from('subtasks').upsert({
       id: st.id,
@@ -248,7 +248,7 @@ export async function saveSubTaskToSupabase(st: any) {
 }
 
 export async function logTaskEvent(taskId: string, eventType: string, payload: any = {}) {
-  if (!supabase) return;
+  if (!supabaseAdmin) return;
   try {
     await supabaseAdmin.from('task_events').insert({
       task_id: taskId,
@@ -259,7 +259,7 @@ export async function logTaskEvent(taskId: string, eventType: string, payload: a
 }
 
 export async function saveSettlementToSupabase(taskId: string, settlement: any) {
-  if (!settlement || !supabase) return;
+  if (!settlement || !supabaseAdmin) return;
   try {
     await supabaseAdmin.from('settlements').upsert({
       task_id: taskId,
