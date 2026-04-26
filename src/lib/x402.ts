@@ -110,6 +110,10 @@ const X402_DOMAIN = {
 }
 
 const X402_TYPES = {
+  EIP712Domain: [
+    { name: 'name',    type: 'string' },
+    { name: 'version', type: 'string' },
+  ],
   PaymentAuthorization: [
     { name: 'paymentIntentId', type: 'bytes32' },
     { name: 'fromAgentId',     type: 'string'  },

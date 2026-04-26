@@ -20,7 +20,7 @@ export const supabaseAdmin: SupabaseClient | null = (supabaseUrl && supabaseServ
 export async function saveTaskToSupabase(task: any) {
   if (!task || !supabase) return;
   try {
-    const { error } = await supabase.from('tasks').upsert({
+    const { error } = await supabaseAdmin.from('tasks').upsert({
       id: task.id,
       prompt: task.prompt,
       budget: task.budget,
@@ -63,7 +63,7 @@ export async function savePaymentToSupabase(payment: any) {
     if (payment.signature)    row.signature     = payment.signature
     if (payment.signerAddress) row.signer_address = payment.signerAddress
 
-    const { error } = await supabase.from('payment_intents').upsert(row, { onConflict: 'id' })
+    const { error } = await supabaseAdmin.from('payment_intents').upsert(row, { onConflict: 'id' })
     if (error) console.error('[SUPABASE] payment save error:', error.message)
   } catch (e) {
     console.error('[SUPABASE] payment save failed:', e)
@@ -228,7 +228,7 @@ export async function fetchSubtasksFromSupabase(taskId: string): Promise<any[]> 
 export async function saveSubTaskToSupabase(st: any) {
   if (!st || !supabase) return;
   try {
-    const { error } = await supabase.from('subtasks').upsert({
+    const { error } = await supabaseAdmin.from('subtasks').upsert({
       id: st.id,
       task_id: st.taskId,
       type: st.type,
@@ -250,7 +250,7 @@ export async function saveSubTaskToSupabase(st: any) {
 export async function logTaskEvent(taskId: string, eventType: string, payload: any = {}) {
   if (!supabase) return;
   try {
-    await supabase.from('task_events').insert({
+    await supabaseAdmin.from('task_events').insert({
       task_id: taskId,
       event_type: eventType,
       payload
@@ -261,7 +261,7 @@ export async function logTaskEvent(taskId: string, eventType: string, payload: a
 export async function saveSettlementToSupabase(taskId: string, settlement: any) {
   if (!settlement || !supabase) return;
   try {
-    await supabase.from('settlements').upsert({
+    await supabaseAdmin.from('settlements').upsert({
       task_id: taskId,
       tx_hash: settlement.txHash,
       explorer_url: settlement.explorerUrl,
