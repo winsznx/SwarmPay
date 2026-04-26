@@ -92,9 +92,9 @@ export const AgentManager: React.FC<{ agents?: Agent[] }> = ({ agents: propAgent
             >
               {/* Live reputation delta popup */}
               <AnimatePresence>
-                {recentDeltas.filter(d => d.agentId === agent.id).map(d => (
+                {recentDeltas.filter(d => d.agentId === agent.id).map((d, i) => (
                   <motion.div
-                    key={d.ts}
+                    key={`${d.ts}-${d.agentId}-${i}`}
                     initial={{ opacity: 0, y: 0 }}
                     animate={{ opacity: 1, y: -16 }}
                     exit={{ opacity: 0, y: -32 }}

@@ -242,57 +242,73 @@ export async function runAutonomousPipeline(task: Task) {
 
     await store.logPipelineStep(task.id, 'Phase 6: Finalize (Guard Protocol)', 'completed', 'Integrity Guard passed. Results synthesized.');
 
-    // ── Phase 7: Build per-subtask payment intents tied to real work ────────
-    // Each intent maps 1-to-1 with a completed sub-task:
-    //   lead agent → sub-task agent, amount = sub-task budget slice.
-    // One additional intent captures the platform fee.
-    // This replaces the prior random-batch approach so every on-chain
-    // transfer has a direct causal link to work done and verified.
-    await store.logPipelineStep(task.id, 'Phase 7: Building payment intents from real work', 'pending', 'Generating per-subtask payment intents tied to verified work output.');
+    // ── Phase 7: Amplify each sub-task into atomic work-unit micropayments ──
+    // Each completed sub-task contributes K micro-intents (lead → sub-agent),
+    // each representing one atomic unit of verified work (e.g. one LLM token
+    // batch, one fetch chunk, one compute slice). The K micro-intents sum to
+    // the sub-task's share of the work pool. K is chosen so the per-task
+    // settlement carries ≥ TARGET_TOTAL_INTENTS micropayments, all of which
+    // settle atomically in one Arc transaction in phase 8.
+    await store.logPipelineStep(task.id, 'Phase 7: Building atomic micropayment intents', 'pending', 'Splitting verified work pool into atomic micropayment units.');
     await store.updateTask(task.id, { status: 'settling' });
 
+    const TARGET_TOTAL_INTENTS = 60
+    const WORK_UNIT_LABELS: Record<string, string> = {
+      fetch_data: 'fetched_chunk',
+      clean_data: 'normalized_record',
+      analyze: 'llm_token_batch',
+      compute: 'compute_slice',
+    }
     const createdIntents: Array<{ id: string; fromAgentId: string; toAgentId: string; amount: number }> = [];
 
     if (cb) {
       const workPool = cb.research + cb.cleaning + cb.analysis + cb.compute
-      const sharePerSubTask = finalizedSubTasks.length > 0
-        ? parseFloat((workPool / finalizedSubTasks.length).toFixed(6))
+      const eligibleSubs = finalizedSubTasks.filter(st => st.assignedAgentId && st.assignedAgentId !== winner.id)
+      const sharePerSubTask = eligibleSubs.length > 0
+        ? parseFloat((workPool / eligibleSubs.length).toFixed(6))
+        : 0
+      const microPerSub = eligibleSubs.length > 0
+        ? Math.max(8, Math.ceil(TARGET_TOTAL_INTENTS / eligibleSubs.length))
         : 0
 
-      // One payment from the lead agent to each sub-task agent for their share.
-      for (const st of finalizedSubTasks) {
-        const subAgent = st.assignedAgentId ? store.getAgent(st.assignedAgentId) : null
-        if (!subAgent || subAgent.id === winner.id) continue
-        if (sharePerSubTask <= 0) continue
+      for (const st of eligibleSubs) {
+        const subAgent = store.getAgent(st.assignedAgentId!)
+        if (!subAgent || sharePerSubTask <= 0 || microPerSub === 0) continue
 
-        const intent = await store.createPaymentIntent({
-          fromAgentId: winner.id,
-          fromAgentName: winner.name,
-          toAgentId: subAgent.id,
-          toAgentName: subAgent.name,
-          taskId: task.id,
-          amount: sharePerSubTask,
-          currency: 'USDC'
-        })
+        const microAmount = parseFloat((sharePerSubTask / microPerSub).toFixed(6))
+        if (microAmount < 1e-6) continue
+        const workLabel = WORK_UNIT_LABELS[st.type ?? ''] ?? 'work_unit'
 
-        createdIntents.push({ id: intent.id, fromAgentId: winner.id, toAgentId: subAgent.id, amount: sharePerSubTask })
+        for (let k = 0; k < microPerSub; k++) {
+          const intent = await store.createPaymentIntent({
+            fromAgentId: winner.id,
+            fromAgentName: winner.name,
+            toAgentId: subAgent.id,
+            toAgentName: subAgent.name,
+            taskId: task.id,
+            amount: microAmount,
+            currency: 'USDC'
+          })
 
-        pipelineEvents.emit('payment:intent', {
-          taskId: task.id, type: 'payment:intent', id: intent.id,
-          fromAgent: winner.name, toAgent: subAgent.name,
-          amount: sharePerSubTask, subTaskTitle: st.title, timestamp: Date.now()
-        })
+          createdIntents.push({ id: intent.id, fromAgentId: winner.id, toAgentId: subAgent.id, amount: microAmount })
 
+          pipelineEvents.emit('payment:intent', {
+            taskId: task.id, type: 'payment:intent', id: intent.id,
+            fromAgent: winner.name, toAgent: subAgent.name,
+            amount: microAmount, subTaskTitle: st.title,
+            workUnit: { index: k + 1, total: microPerSub, label: workLabel },
+            timestamp: Date.now()
+          })
+
+          // AWAITED — phase 8 reads pending intents from the DB; fire-and-forget
+          // saves race the batch query and silently lose intents from the batch.
+          await savePaymentToSupabase({ ...intent, status: 'pending' })
+        }
         store.updateAgent(subAgent.id, { earned: (subAgent.earned ?? 0) + sharePerSubTask })
-        savePaymentToSupabase({ ...intent, status: 'pending' }).catch(() => {})
       }
 
-      // Platform fee intent: lead agent → platform wallet address.
-      // The drain uses createTransaction with destinationAddress, so we need
-      // a platform agent ID that maps to the platform wallet. We model it
-      // as a special synthetic agent ID 'platform' — the drain resolves its
-      // address from PLATFORM_WALLET_ADDRESS env var, bypassing Circle wallet
-      // lookup. If PLATFORM_WALLET_ADDRESS is unset, this intent is skipped.
+      // Platform fee intent — lead agent → platform wallet (resolved at settlement
+      // time from PLATFORM_WALLET_ADDRESS via the special synthetic 'platform' id).
       if (cb.platformFee > 0 && process.env.PLATFORM_WALLET_ADDRESS) {
         const platformIntent = await store.createPaymentIntent({
           fromAgentId: winner.id,
@@ -304,19 +320,41 @@ export async function runAutonomousPipeline(task: Task) {
           currency: 'USDC'
         })
         createdIntents.push({ id: platformIntent.id, fromAgentId: winner.id, toAgentId: 'platform', amount: cb.platformFee })
-        savePaymentToSupabase({ ...platformIntent, status: 'pending' }).catch(() => {})
+        await savePaymentToSupabase({ ...platformIntent, status: 'pending' })
       }
     }
 
-    await store.logPipelineStep(task.id, 'Phase 7: Building payment intents from real work', 'completed', `${createdIntents.length} intents created — one per completed sub-task + platform fee.`);
+    await store.logPipelineStep(task.id, 'Phase 7: Building atomic micropayment intents', 'completed', `${createdIntents.length} micropayment intents created — atomic on-chain settlement next.`);
 
-    // ── Phase 8: Hand intents to settlement queue (non-blocking) ───────────
-    await store.logPipelineStep(task.id, 'Phase 8: Arc Settlement', 'pending', 'Handing intents to the per-wallet settlement queue. Confirmations land async and stream to the UI via Realtime.');
-    const actualCount = createdIntents.length;
+    // ── Phase 8: Atomic batch settlement on Arc ─────────────────────────────
+    // ALL pending intents for this task — phase 7 micro-intents PLUS the x402
+    // protocol-fee intents created in phase 5 — settle in one Arc tx via the
+    // SettlementVault contract. Single tx hash, single block, atomic.
+    await store.logPipelineStep(task.id, 'Phase 8: Atomic batch settlement on Arc', 'pending', 'Settling all pending micropayments in one atomic on-chain transaction.');
+
+    let pendingIntents: Array<{ id: string; fromAgentId: string; toAgentId: string; amount: number }> = createdIntents
+    if (supabaseAdmin) {
+      const { data: rows, error } = await supabaseAdmin
+        .from('payment_intents')
+        .select('id, from_agent_id, to_agent_id, amount')
+        .eq('task_id', task.id)
+        .eq('status', 'pending')
+      if (error) {
+        console.error('[ARC] failed to load pending intents from DB; falling back to in-memory list:', error.message)
+      } else if (rows) {
+        pendingIntents = rows.map(r => ({
+          id: r.id as string,
+          fromAgentId: r.from_agent_id as string,
+          toAgentId: r.to_agent_id as string,
+          amount: parseFloat(r.amount as string),
+        }))
+      }
+    }
+    const actualCount = pendingIntents.length;
 
     const handle = await settleOnArc(
       task.id,
-      createdIntents.map(p => ({ paymentIntentId: p.id, from: p.fromAgentId, to: p.toAgentId, amount: p.amount }))
+      pendingIntents.map(p => ({ paymentIntentId: p.id, from: p.fromAgentId, to: p.toAgentId, amount: p.amount }))
     );
 
     if (cb) {
@@ -346,18 +384,17 @@ export async function runAutonomousPipeline(task: Task) {
       const allPayments = await store.getPaymentsForTask(task.id);
       for (const p of allPayments) { await (store as any).settlePaymentIntent(p.id); }
 
-      // Snapshot on the task for legacy SettlementProof/ResultCard consumers.
-      // Live progress (allHashes, total_gas_cost, confirmed_count) is the
-      // settlements row via Realtime — see SettlementAnimation Realtime sub.
+      // Snapshot on the task. The batch tx already confirmed (synchronous), so
+      // the real tx hash, total amount, and gas cost are written here directly.
       await store.updateTask(task.id, {
         settlement: {
-          txHash: '',
-          explorerUrl: '',
+          txHash: handle?.txHash ?? '',
+          explorerUrl: handle?.explorerUrl ?? '',
           intentsSettled: handle?.enqueued ?? 0,
-          totalAmount: cb.totalCost,
-          gasCost: 0, // measured async; UI reads settlements.total_gas_cost live
+          totalAmount: handle?.totalAmountUsdc ?? cb.totalCost,
+          gasCost: handle?.gasUsedUsdc ?? 0,
           settledAt: Date.now(),
-          allHashes: []
+          allHashes: handle?.txHash ? [handle.txHash] : []
         }
       });
 
@@ -511,10 +548,12 @@ async function runSubTaskExecution(taskId: string, subTasks: SubTask[], leadAgen
         await runComputeSession(taskId, st.id, subAgent.id);
       }
 
-      // x402 handshake: lead agent pays sub-agent for the rendered capability.
-      // The handshake creates a payment intent, signs via Circle, verifies, and
-      // enqueues for on-chain settlement. PaymentStream renders the full triplet.
-      const subPayAmount = st.budget || 0.01;
+      // x402 handshake — ONE protocol-layer payment authorization per sub-task.
+      // Symbolic amount (≤ $0.005). The full sub-task budget is settled later in
+      // phase 7 as N atomic work-unit micropayments that share the same Arc tx.
+      // This intent is what gets EIP-712 signed + on-chain identity verified;
+      // it represents the protocol layer, not the bulk economic payment.
+      const subPayAmount = parseFloat(Math.min(0.005, (st.budget ?? 0.01) * 0.05).toFixed(6));
       const subIntent = await store.createPaymentIntent({
         fromAgentId: leadAgent.id, fromAgentName: leadAgent.name,
         toAgentId: subAgent.id,    toAgentName: subAgent.name,

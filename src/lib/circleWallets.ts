@@ -162,67 +162,245 @@ export async function preflightBalanceCheck(
   return { valid, skipped: insufficient.length }
 }
 
+export interface SettleResult {
+  enqueued: number
+  skipped: number
+  txHash?: string
+  blockNumber?: number
+  gasUsedUsdc?: number
+  totalAmountUsdc?: number
+  explorerUrl?: string
+}
+
 /**
- * Arm the settlement for a task and trigger the first drain pass.
+ * Atomic batch settlement via the on-chain SettlementVault.
  *
- * Architecture: queue state lives in `payment_intents.status` (DB).
- * Intents are already inserted by the pipeline before this is called
- * (status='pending'). We just need to:
- *   1. Create / update the `settlements` progress row.
- *   2. Trigger the first /api/settlement/drain invocation.
+ * USDC on Arc is the native gas token (no ERC-20). Per-intent transfers are
+ * one Circle createTransaction per micropayment — N round trips, N tx hashes,
+ * non-atomic. The SwarmPay vault custodies pre-deposited agent balances so a
+ * single platform-signed `settleBatch(taskId, Payment[])` call rebalances the
+ * internal ledger for ALL N intents in one Arc tx (one tx hash, atomic, N
+ * PaymentSettled events + 1 BatchSettled event).
  *
- * The drain endpoint (src/app/api/settlement/drain/route.ts) processes
- * a bounded batch via the `claim_pending_intents` RPC and self-recurses
- * via fire-and-forget HTTP if more remain. This survives Vercel
- * serverless function teardown — every drain invocation is a fresh
- * function with the queue state durable in Postgres.
+ * Lifecycle:
+ *   1. Resolve agent IDs → on-chain addresses.
+ *   2. Filter self-payments and dust (< $1e-6).
+ *   3. Pre-flight per-sender vault balances (revert here is cheaper than on-chain).
+ *   4. Upsert settlements row (status='in_progress', expected_count=N).
+ *   5. Submit settleBatch to the vault, await receipt.
+ *   6. Bulk-update payment_intents (status='settled', tx_hash=receipt.hash,
+ *      block_number, gas_cost_usdc share). Update settlements row to 'complete'.
+ *   7. Emit `payment:settled` per intent so PaymentStream renders the triplet.
  *
- * Returns the planned intent count; actual hashes land asynchronously
- * into `settlements.all_hashes` via the drain's RPC calls. The UI
- * subscribes to the settlements row via Supabase Realtime.
+ * On failure, intents and settlements row flip to 'failed' with the revert
+ * reason captured in error_message. Vault balance changes are atomic — a
+ * partial settlement is impossible.
  */
 export async function settleAllIntentsOnArc(
   taskId: string,
   intents: Array<{ paymentIntentId: string; fromAgentId: string; toAgentId: string; amount: number }>,
   taskBudget?: number
-): Promise<{ enqueued: number; skipped: number } | null> {
-  const circle = getCircleClient()
-  if (!circle) {
-    console.warn('[ARC] Circle unavailable; settlement skipped (mock mode)')
+): Promise<SettleResult | null> {
+  void taskBudget // pre-flight is now done against on-chain vault balance, not the in-process Circle balance
+  const { settleBatchOnVault, getVaultAddress, getVaultBalance, usdcToWei, weiToUsdc } = await import('./settlementVault')
+  const { supabaseAdmin } = await import('./supabase')
+  const { resolveAgentAddress } = await import('./agentIdentity')
+  const { pipelineEvents } = await import('./events')
+
+  if (!getVaultAddress()) {
+    console.warn('[ARC] SETTLEMENT_VAULT_ADDRESS not set; settlement skipped')
     return null
   }
 
-  // Pre-flight: reject intents where the source wallet can't cover the amount.
-  // This prevents the drain from burning Circle API calls on guaranteed failures.
-  const budget = taskBudget ?? intents.reduce((s, i) => s + i.amount, 0)
-  const { valid, skipped } = await preflightBalanceCheck(taskId, intents, budget)
+  // 1. Resolve agent → address (parallel). 'platform' maps to PLATFORM_WALLET_ADDRESS.
+  const platformAddr = process.env.PLATFORM_WALLET_ADDRESS ?? null
+  const uniqueAgentIds = Array.from(new Set(intents.flatMap(i => [i.fromAgentId, i.toAgentId])))
+  const addressEntries = await Promise.all(
+    uniqueAgentIds.map(async (id): Promise<[string, string | null]> => {
+      if (id === 'platform') return [id, platformAddr]
+      return [id, await resolveAgentAddress(id)]
+    })
+  )
+  const agentAddress = new Map(addressEntries)
 
-  const { supabaseAdmin } = await import('./supabase')
-  if (supabaseAdmin) {
-    const { error } = await supabaseAdmin
-      .from('settlements')
-      .upsert({
+  // 2. Build payments — filter self-pay and dust.
+  interface VaultIntent {
+    paymentIntentId: string
+    from: string
+    to: string
+    amountWei: bigint
+    amountUsdc: number
+  }
+  const payments: VaultIntent[] = []
+  const skippedIds: string[] = []
+  for (const i of intents) {
+    if (i.amount < 1e-6) { skippedIds.push(i.paymentIntentId); continue }
+    const from = agentAddress.get(i.fromAgentId) ?? null
+    const to = agentAddress.get(i.toAgentId) ?? null
+    if (!from || !to) {
+      console.warn(`[ARC] skip intent ${i.paymentIntentId} — unresolved address (from=${i.fromAgentId} to=${i.toAgentId})`)
+      skippedIds.push(i.paymentIntentId); continue
+    }
+    if (from.toLowerCase() === to.toLowerCase()) { skippedIds.push(i.paymentIntentId); continue }
+    payments.push({
+      paymentIntentId: i.paymentIntentId,
+      from, to,
+      amountWei: usdcToWei(i.amount),
+      amountUsdc: i.amount,
+    })
+  }
+
+  // 3. Pre-flight per-sender vault balance.
+  const totalsBySender = new Map<string, bigint>()
+  for (const p of payments) {
+    totalsBySender.set(p.from, (totalsBySender.get(p.from) ?? BigInt(0)) + p.amountWei)
+  }
+  const senderBalances = new Map<string, bigint>()
+  await Promise.all(
+    Array.from(totalsBySender.keys()).map(async addr => {
+      senderBalances.set(addr, await getVaultBalance(addr))
+    })
+  )
+  const insolventSenders: string[] = []
+  for (const [addr, owed] of totalsBySender) {
+    const have = senderBalances.get(addr) ?? BigInt(0)
+    if (have < owed) {
+      insolventSenders.push(addr)
+      console.error(`[ARC] insufficient vault balance for ${addr}: have $${weiToUsdc(have)} need $${weiToUsdc(owed)}`)
+    }
+  }
+  if (insolventSenders.length > 0) {
+    if (supabaseAdmin) {
+      await supabaseAdmin.from('settlements').upsert({
         task_id: taskId,
-        expected_count: valid.length,
+        expected_count: payments.length,
         confirmed_count: 0,
-        failed_count: skipped,
+        failed_count: payments.length,
         all_hashes: [],
-        status: valid.length > 0 ? 'in_progress' : 'complete',
+        status: 'failed',
         started_at: new Date().toISOString(),
-        intents_settled: valid.length
+        intents_settled: 0,
       }, { onConflict: 'task_id' })
-    if (error) console.error('[ARC] settlements row upsert failed:', error.message)
+      await supabaseAdmin
+        .from('payment_intents')
+        .update({ status: 'failed', error_message: `vault insolvent: ${insolventSenders.join(',')}` })
+        .in('id', payments.map(p => p.paymentIntentId))
+    }
+    return { enqueued: 0, skipped: intents.length }
   }
 
-  if (valid.length === 0) {
-    console.warn(`[ARC] All ${intents.length} intents failed preflight for task ${taskId}`)
-    return { enqueued: 0, skipped }
+  if (payments.length === 0) {
+    console.warn(`[ARC] no settleable payments for ${taskId} (skipped ${skippedIds.length})`)
+    if (supabaseAdmin) {
+      await supabaseAdmin.from('settlements').upsert({
+        task_id: taskId,
+        expected_count: 0,
+        confirmed_count: 0,
+        failed_count: 0,
+        all_hashes: [],
+        status: 'complete',
+        started_at: new Date().toISOString(),
+        completed_at: new Date().toISOString(),
+        intents_settled: 0,
+      }, { onConflict: 'task_id' })
+    }
+    return { enqueued: 0, skipped: skippedIds.length }
   }
 
-  const { triggerDrain } = await import('./settlementDrain')
-  triggerDrain(taskId)
-  console.log(`[ARC] settlement armed for ${valid.length} intents (${skipped} skipped) on task ${taskId}`)
-  return { enqueued: valid.length, skipped }
+  // 4. Mark settlements row in_progress.
+  if (supabaseAdmin) {
+    await supabaseAdmin.from('settlements').upsert({
+      task_id: taskId,
+      expected_count: payments.length,
+      confirmed_count: 0,
+      failed_count: 0,
+      all_hashes: [],
+      status: 'in_progress',
+      started_at: new Date().toISOString(),
+      intents_settled: 0,
+    }, { onConflict: 'task_id' })
+  }
+
+  // 5. Submit batch.
+  const result = await settleBatchOnVault(
+    taskId,
+    payments.map(p => ({ from: p.from, to: p.to, amount: p.amountWei }))
+  )
+
+  if (!result) {
+    if (supabaseAdmin) {
+      await supabaseAdmin.from('settlements')
+        .update({ status: 'failed', completed_at: new Date().toISOString() })
+        .eq('task_id', taskId)
+      await supabaseAdmin.from('payment_intents')
+        .update({ status: 'failed', error_message: 'settleBatch reverted or RPC error' })
+        .in('id', payments.map(p => p.paymentIntentId))
+    }
+    return { enqueued: 0, skipped: skippedIds.length }
+  }
+
+  // 6. Persist success — single tx hash across all intents.
+  const gasShareUsdc = result.totalGasCostUsdc / payments.length
+  if (supabaseAdmin) {
+    const { error: intentErr } = await supabaseAdmin.from('payment_intents')
+      .update({
+        status: 'settled',
+        tx_hash: result.txHash,
+        block_number: result.blockNumber,
+        gas_cost_usdc: gasShareUsdc,
+      })
+      .in('id', payments.map(p => p.paymentIntentId))
+    if (intentErr) {
+      console.error('[ARC] payment_intents bulk-update failed:', intentErr.message,
+        '— check that migration 012 (payment_intents.tx_hash) has been applied')
+    }
+
+    const { error: settlementErr } = await supabaseAdmin.from('settlements')
+      .update({
+        confirmed_count: payments.length,
+        all_hashes: [result.txHash],
+        tx_hash: result.txHash,
+        explorer_url: result.explorerUrl,
+        intents_settled: payments.length,
+        total_amount: result.totalAmountUsdc,
+        gas_cost: result.totalGasCostUsdc,
+        total_gas_cost: result.totalGasCostUsdc,
+        status: 'complete',
+        completed_at: new Date().toISOString(),
+      })
+      .eq('task_id', taskId)
+    if (settlementErr) console.error('[ARC] settlements update failed:', settlementErr.message)
+  }
+
+  // 7. Emit per-intent settled events for the live PaymentStream animation.
+  for (const p of payments) {
+    pipelineEvents.emit('payment:settled', {
+      taskId,
+      paymentIntentId: p.paymentIntentId,
+      fromAgentId: '',
+      toAgentId: '',
+      amount: p.amountUsdc,
+      txHash: result.txHash,
+      explorerUrl: result.explorerUrl,
+      timestamp: Date.now(),
+      batched: true,
+    })
+  }
+
+  console.log(
+    `[ARC] batch settled ${payments.length} intents in 1 tx ` +
+    `(${result.txHash}, gas $${result.totalGasCostUsdc.toFixed(6)}) for task ${taskId}`
+  )
+
+  return {
+    enqueued: payments.length,
+    skipped: skippedIds.length,
+    txHash: result.txHash,
+    blockNumber: result.blockNumber,
+    gasUsedUsdc: result.totalGasCostUsdc,
+    totalAmountUsdc: result.totalAmountUsdc,
+    explorerUrl: result.explorerUrl,
+  }
 }
 
 /** @deprecated kept for build compatibility — use settleAllIntentsOnArc */

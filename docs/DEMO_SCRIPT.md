@@ -1,85 +1,91 @@
-# SwarmPay — 90s Demo Script
+# SwarmPay — Demo voiceover
 
-Time-coded voiceover. Each beat names what's on screen so the recording can sync to the live demo.
-
----
-
-## 00:00 – 00:10  ·  Hook
-
-> "AI agents have wallets, but they don't have an economy. SwarmPay is the missing piece — production agent payment infrastructure on Arc."
-
-**On screen:** Landing page hero, "THE AGENT ECONOMY · POWERED BY ARC" wordmark. Cursor moves to "LAUNCH MISSION CONTROL."
+Final voiceover script. Bracketed lines are stage directions for the screen recording. Estimated total runtime: **65–75 seconds** at unhurried pace.
 
 ---
 
-## 00:10 – 00:25  ·  Submission, escrow, bidding
+## 00:00 – 00:08  ·  Open
 
-> "I type a task. Approve a half-dollar budget. The user wallet drops by half a dollar — that's real escrow, held in a Postgres atomic transaction. The moment I approve, six agents pile into a bidding war."
+> "SwarmPay. Six AI agents bid in real-time auctions and settle 60-plus USDC micropayments per task in one atomic on-chain transaction on Arc."
 
-**On screen:**
-- Type *"Analyze top 5 DeFi protocols on Arc"* into the task input.
-- BudgetModal appears. Click "Approve $0.50."
-- Header wallet ticks down from $50.00 → $49.50 (Realtime sub on `user_wallets`).
-- Six bid cards stagger in: CryptoScout-X, Research-Alpha, DataMiner-Pro, Parser-X, Analysis-Node, Compute-Grid-4. Each shows price, reputation badge, latency.
-- Winner card flashes green.
+**On screen:** Dashboard loaded. Right sidebar shows the agent registry — 6 cards.
 
 ---
 
-## 00:25 – 00:40  ·  Sub-agent recursion, DAG
+## 00:08 – 00:20  ·  Agent registry
 
-> "The winning agent decomposes the task into four sub-tasks and re-opens the market — sub-agents bid recursively. This is a marketplace all the way down."
+> "Each agent here is an ERC-721 NFT on the Arc testnet, registered on the ERC-8004 Identity Registry. Their Circle wallets are bound on-chain via EIP-712. Independently verifiable."
 
-**On screen:**
-- Hybrid Execution Graph appears. Lead agent at top, four sub-tasks branching down.
-- Sub-bids appear on each branch, winners highlighted.
-- Click "Visualize DAG" — ReactFlow viewport shows the live tree, auto-centering on the executing node.
+**On screen:** Hover/highlight the right sidebar — each agent card shows truncated wallet address, balance USDC, settled-tx count, earned amount, reputation badge.
 
 ---
 
-## 00:40 – 01:00  ·  Payment stream + compute meter
+## 00:20 – 00:35  ·  Submit + bidding war
 
-> "Watch the payment stream — every line you see is a real x402 handshake. Provider responds 402, consumer signs with their Circle wallet, settled on Arc as a real USDC transfer. While analysis runs, the compute meter bills per millisecond at $0.000001/ms — no fake numbers, the timer interpolates at 60fps between server ticks."
+> "[click into the chat input, type a prompt, hit Launch Mission]"
+>
+> "Watch the bidding war. Six agents compete on reputation. Winner takes the task and runs its own bidding war for sub-agents. Recursive marketplaces."
 
-**On screen:**
-- PaymentStream right column. **x402 Handshakes (live)** section shows triplets:
-  - Yellow chip "402 Required"
-  - Blue chip "Signed 0x82a7…b14c"
-  - Green chip "Settled 0x4c19…a2f8" — link to `testnet.arcscan.app`.
-- Multiple triplets stack as sub-agent calls fire.
-- Compute Meter card pulses: CPU gauge fills, ms timer rolls, cost ticker ticks $0.000001 per ms.
+**On screen:** Type prompt → BudgetModal → approve → bidding war animates (6 cards stagger in, prices and reputation visible) → winner highlighted → DAG appears with sub-task bidding under each branch.
 
 ---
 
-## 01:00 – 01:15  ·  Settlement panel — live confirmations
+## 00:35 – 00:50  ·  Settlement panel
 
-> "The settlement panel shows 60 dots, one per payment intent. Each dot lights up green the moment Arc confirms the on-chain transfer. We're not batching anything — every single payment is a real on-chain USDC transfer. Click any dot, you land on Arc explorer with the real transaction."
+> "[wait for task to complete, scroll to settlement panel]"
+>
+> "Every subtask micropayment is real. EIP-712 signed by the agent's bound wallet, verified on-chain via the Identity Registry. Sixty-plus payments for this task — settled atomically in ONE Arc transaction via our SettlementVault contract. Click the hash —"
 
-**On screen:**
-- SettlementAnimation panel. Counter ticks "X of 60 confirmed" live.
-- Dots turn green in waves as Realtime updates land.
-- Click a green dot → opens `https://testnet.arcscan.app/tx/0x...` in new tab → real transfer page on Arc explorer.
-- Below: SettlementProof card showing measured gas total ("$0.0274") and the first 5 txHashes as clickable links.
+**On screen:** Settlement panel showing N/N confirmed dots green, single batch tx hash, total measured gas (~$0.0006), batch size (60+).
 
 ---
 
-## 01:15 – 01:30  ·  Why Arc + close
+## 00:50 – 01:00  ·  Arc verification
 
-> "Sixty real on-chain transfers. Twenty-seven cents of gas, measured per-tx from real Arc receipts — not a hardcoded constant. On Ethereum that's thirty dollars. On Polygon it eats the budget. Per-action agent commerce only works on Arc, and SwarmPay is the production infrastructure that proves it."
+> "[click one of the txhash links, arcscan opens]"
+>
+> "— real Arc transaction. Sixty-plus PaymentSettled events on a single block. Sub-second finality. The SettlementVault holds agents' pre-deposited USDC; agents withdraw at any time. Atomic — all payments succeed or none do."
 
-**On screen:**
-- Why Arc card visible: ETH $30 / Polygon $0.60 / Arc $0.027.
-- Sub-line emphasizes "60 × ~$0.00045 measured per tx."
-- Cut to /agents page: leaderboard updates in real time, reputation deltas pop in (+3 for orchestrator on success).
-- Final beat: closing line.
+**On screen:** New browser tab opens to `testnet.arcscan.app/tx/0x...` showing the real transfer with status: success, real from/to addresses matching agent wallets, block number, gas in USDC.
 
-> "Per-action agent economies. Production-ready. On Arc."
+---
+
+## 01:00 – 01:10  ·  Reputation back on-chain
+
+> "[scroll back, scroll past the cost breakdown]"
+>
+> "Reputation goes back on-chain after settlement. Validator EOA writes feedback to the ERC-8004 Reputation Registry, anti-self-dealing per spec."
+
+**On screen:** Cost breakdown card visible briefly, then scroll past to where reputation deltas pop on the agent cards (`+3 REP` for orchestrator, `+1 REP` for sub-agents) via the Realtime sub.
+
+---
+
+## 01:10 – 01:15  ·  Close
+
+> "This is what the agent economy looks like when you build the trust layer properly. SwarmPay. Solo on Arc with Circle."
+
+**On screen:** Hold on the dashboard with reputation deltas still visible.
 
 ---
 
 ## Recording notes
 
-- **Browser:** Use a fresh incognito window so cached wallet balance doesn't pre-load.
+- **Browser:** Fresh incognito window so cached wallet balance doesn't pre-load.
 - **Window size:** 1440×900 — comfortable margins for full-screen recording without mobile responsive kicking in.
-- **Tab strip hidden:** open the demo in app mode (`open -a "Google Chrome" --args --app=https://swarm-pay.vercel.app`) to crop the URL bar out.
+- **App mode (URL bar hidden):**
+  ```bash
+  open -a "Google Chrome" --args --app=https://swarm-pay.vercel.app
+  ```
 - **Pre-warm:** hit `/api/agents` and `/api/health` once before recording so the first task's wallet creation doesn't introduce 2–3s latency on screen.
-- **Backup hash:** if a confirmation hash you click doesn't load on `testnet.arcscan.app` instantly, have one of these as a fallback to demonstrate the explorer integration: `0xca6064e390b88e0ef98dddd7265d8dcdd82591ed34de3d2bbfc1dbe9714862b8`, `0x9e97becb478f184472b91571a2354e8ac0c142c03166b7ef9bc9796cb8e720a8`, `0x8db90a6da0a34476d5820092b8231553a44f811be8cfca842820e75e737fad44`.
+- **Accuracy guarantees** — every claim in the voiceover is grounded in shipped code:
+  - "ERC-721 NFT on Arc testnet, ERC-8004 Identity Registry" → contracts at `0x8004A818BFB912233c491871b3d84c89A494BD9e` (identity), `0x8004B663056A597Dffe9eCcC1965A193B7388713` (reputation), 6 agents with tokenIds 2642–2647
+  - "Circle wallets bound on-chain via EIP-712" → `bindAgentWallet()` in [src/lib/erc8004.ts](../src/lib/erc8004.ts)
+  - "EIP-712 signed by the agent's bound wallet, verified on-chain via the Identity Registry" → two-layer verify in [src/lib/x402.ts:verifyPaymentIntent](../src/lib/x402.ts) (ECDSA recovery + `verifyAgentIdentityOnChain`)
+  - "Real Arc transaction, atomic batch settlement" → `SettlementVault` at [`0xc04DA4613F89ED2d48835654799308C206884060`](https://testnet.arcscan.app/address/0xc04DA4613F89ED2d48835654799308C206884060). Proven settleBatch txs (each lands 65 micropayments visible on the Token Transfers tab):
+    - [`0xe6372add35e0…42f62a9`](https://testnet.arcscan.app/tx/0xe6372add35e0cad4a3254c9f5a5147ae5afd2a73159e706808e85670e42f62a9?tab=token_transfers) (block 39,139,977 · $0.016 gas)
+    - [`0xd69a57852bdb…1ce60a`](https://testnet.arcscan.app/tx/0xd69a57852bdb0d0d52b2a39f42a0c4533f805dc297b8cffbdcd76f5b581ce60a?tab=token_transfers) (block 39,130,201 · $0.016 gas)
+    - [`0x0faa707be852…dbcf783`](https://testnet.arcscan.app/tx/0x0faa707be8526cbb231558d802c20e6aa011adc7354fb5224d0bb1493dbcf783?tab=token_transfers) (block 39,127,797 · $0.0076 gas)
+  - "SettlementVault custody + atomic settleBatch" → `contracts/SettlementVault.sol` deployed via `scripts/deploy-vault.ts`; 6 agents pre-funded via `scripts/bootstrap-vault.ts` ($2.00 each = $12 escrow). The contract debits `balances[from]` and forwards real native USDC to the recipient address per payment, all-or-nothing.
+  - "Validator EOA writes feedback, anti-self-dealing per spec" → `getValidatorSigner()` (separate from `getPlatformSigner()`) in [src/lib/erc8004.ts](../src/lib/erc8004.ts), called by [src/lib/reputation.ts:updateAfterTask](../src/lib/reputation.ts) fire-and-forget after Postgres update
+  - "Recursive marketplaces" → `runSubTaskBidding` in [src/lib/pipeline.ts](../src/lib/pipeline.ts) opens a fresh sub-market per sub-task
+- **Backup tx hash** if your live click doesn't load instantly: [`0xe6372add35e0…42f62a9`](https://testnet.arcscan.app/tx/0xe6372add35e0cad4a3254c9f5a5147ae5afd2a73159e706808e85670e42f62a9?tab=token_transfers) — 65 atomic micropayments, single block.

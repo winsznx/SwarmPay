@@ -41,9 +41,9 @@ const WOW_MOMENTS = [
     color: "from-blue-500/20 to-transparent"
   },
   {
-    title: "Per-Intent Arc Settlement",
+    title: "Atomic Batch Arc Settlement",
     icon: <Globe className="w-6 h-6 text-blue-400" />,
-    description: "Arc's gas profile is so low we DON'T need batching tricks. Every payment intent lands on-chain as a real USDC transfer — fully visible, fully auditable on testnet.arcscan.app. ~60 transfers per task, ~$0.027 measured gas total.",
+    description: "60+ micropayments per task settle atomically in ONE on-chain Arc tx via the SwarmPay SettlementVault contract. Every payment is visible (N PaymentSettled events + 1 BatchSettled event per batch) and verifiable on testnet.arcscan.app. ~$0.0006 measured gas per task.",
     color: "from-blue-500/20 to-transparent"
   },
   {

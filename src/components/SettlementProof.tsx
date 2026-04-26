@@ -119,13 +119,20 @@ export function SettlementProof({ task }: { task: Task }) {
       <div className="border-t border-green-900/30 pt-3">
         <div className="flex items-center justify-between mb-2">
           <p className="text-xs text-gray-500">
-            First {Math.min(5, allHashes.length)} of {allHashes.length} on-chain transactions
+            {allHashes.length > 0
+              ? (allHashes.length === 1 ? `Atomic batch transaction (${expected} micropayments)` : `On-chain transactions (${allHashes.length})`)
+              : status === 'failed' ? 'Batch reverted on-chain' : 'Awaiting tx confirmation'}
           </p>
           <span className={`text-[9px] font-black px-2 py-0.5 rounded border uppercase tracking-widest ${
-            status === 'complete' ? 'bg-blue-500/10 text-blue-400 border-blue-500/20'
+            status === 'complete' ? 'bg-green-500/10 text-green-400 border-green-500/20'
+            : status === 'failed'  ? 'bg-red-500/10 text-red-400 border-red-500/20'
+            : status === 'partial' ? 'bg-amber-500/10 text-amber-400 border-amber-500/20'
             : 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20 animate-pulse'
           }`}>
-            {status === 'complete' ? 'Verified On-Chain' : 'Confirming on Arc'}
+            {status === 'complete' ? 'Verified On-Chain'
+             : status === 'failed'  ? 'Settlement Failed'
+             : status === 'partial' ? 'Partial Settlement'
+             : 'Confirming on Arc'}
           </span>
         </div>
         <div className="space-y-1">
@@ -146,15 +153,22 @@ export function SettlementProof({ task }: { task: Task }) {
               + {allHashes.length - 5} more — view all in the audit panel below
             </p>
           )}
-          {allHashes.length === 0 && (
+          {allHashes.length === 0 && status !== 'failed' && (
             <p className="text-[10px] text-gray-600 italic">Awaiting first confirmation…</p>
+          )}
+          {allHashes.length === 0 && status === 'failed' && (
+            <p className="text-[10px] text-red-400/80 italic">Batch reverted before landing on-chain — no tx hash to verify. Check vault balance + retry.</p>
           )}
         </div>
       </div>
 
       <div className="mt-3 p-2 bg-gray-900/50 rounded-lg">
         <p className="text-xs text-gray-500 text-center">
-          {confirmed} of {expected} on-chain settlements on Arc · {gas != null ? `$${gas.toFixed(6)} total gas` : 'gas measuring'}
+          {status === 'complete'
+            ? `${expected} micropayments → 1 atomic Arc tx · ${gas != null ? `$${gas.toFixed(6)} gas` : 'gas measuring'}`
+            : status === 'failed'
+            ? `Batch of ${expected} reverted — refund issued, vault balances unchanged`
+            : `${confirmed} of ${expected} on-chain settlements on Arc · ${gas != null ? `$${gas.toFixed(6)} total gas` : 'gas measuring'}`}
         </p>
       </div>
     </div>

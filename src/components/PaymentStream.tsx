@@ -135,7 +135,7 @@ export const PaymentStream: React.FC<{ activeTaskId: string | null; task?: Task 
       {/* Footer Stats */}
       <div className="p-4 bg-slate-950/40 border-t border-white/5 flex items-center justify-between">
          <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest">
-           Live Intents: <span className="text-white ml-1">Showing {Math.min(20, payments.length)} of {task?.micropaymentCount ?? payments.length}</span>
+           Live Intents: <span className="text-white ml-1">Showing {Math.min(20, payments.length)} of {Math.max(payments.length, task?.micropaymentCount ?? 0)}</span>
          </div>
          <div className="text-[9px] font-bold text-slate-500 uppercase tracking-widest leading-none text-right">
            Aggregated<br />

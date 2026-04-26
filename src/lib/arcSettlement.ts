@@ -2,7 +2,12 @@ import { settleAllIntentsOnArc } from './circleWallets'
 
 export interface SettlementHandle {
   enqueued: number
-  /** UI reads gas/hashes/progress live from Supabase Realtime; this object only describes the start */
+  skipped: number
+  txHash?: string
+  blockNumber?: number
+  gasUsedUsdc?: number
+  totalAmountUsdc?: number
+  explorerUrl?: string
 }
 
 export async function settleOnArc(
@@ -20,13 +25,22 @@ export async function settleOnArc(
   )
 
   if (real) {
-    console.log(`[ARC] queue armed: ${real.enqueued} intents queued for task ${taskId}`)
-    return { enqueued: real.enqueued }
+    if (real.txHash) {
+      console.log(`[ARC] batch settled ${real.enqueued} intents in tx ${real.txHash}`)
+    } else {
+      console.log(`[ARC] batch returned no tx hash for task ${taskId} (enqueued=${real.enqueued} skipped=${real.skipped})`)
+    }
+    return {
+      enqueued: real.enqueued,
+      skipped: real.skipped,
+      txHash: real.txHash,
+      blockNumber: real.blockNumber,
+      gasUsedUsdc: real.gasUsedUsdc,
+      totalAmountUsdc: real.totalAmountUsdc,
+      explorerUrl: real.explorerUrl,
+    }
   }
 
-  // Mock mode (no Circle keys). Mark the settlement row complete with an empty
-  // result so the UI doesn't hang. No fake hashes, no fake gas — observably
-  // empty, observably-mock.
-  console.log('[ARC] mock mode (no Circle keys) — emitting empty settlement handle')
-  return { enqueued: 0 }
+  console.log('[ARC] settlement returned null (vault unconfigured or transient failure)')
+  return { enqueued: 0, skipped: paymentIntents.length }
 }

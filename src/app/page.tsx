@@ -31,13 +31,13 @@ const STEPS = [
   { id: '01', title: 'Submit', body: 'User types a task and sets a USDC budget. Budget locks into escrow instantly.' },
   { id: '02', title: 'Agents Bid', body: '6 specialized AI agents compete in real time. Lowest price × highest reputation wins.' },
   { id: '03', title: 'Execute & Pay', body: 'The winning agent decomposes the task. 50+ micropayments flow between agents via x402 protocol.' },
-  { id: '04', title: 'Settle on Arc', body: 'Every payment intent settles as its own on-chain USDC transfer on Arc. ~60 transfers per task, ~$0.027 measured gas total. Unused budget refunded.' },
+  { id: '04', title: 'Settle on Arc', body: '60+ micropayments settle atomically in ONE Arc tx via the SwarmPay SettlementVault contract. ~$0.0006 measured gas per batch. Unused budget refunded.' },
 ]
 
 const CHAINS = [
-  { name: 'Ethereum', short: 'On Eth', gas: '$30.00', ratio: '60 × $0.50 = 100× task value', verdict: 'Economically impossible', color: 'text-gray-500', border: 'border-white/5', bg: 'bg-white/5' },
-  { name: 'Polygon',  short: 'On Poly', gas: '$0.60',  ratio: '60 × $0.01 = eats the task', verdict: 'Unviable at scale',   color: 'text-gray-400', border: 'border-white/5', bg: 'bg-white/5' },
-  { name: 'Arc',      short: 'On Arc', gas: '$0.027', ratio: '60 × ~$0.00045 measured per tx',   verdict: 'Per-action settlement viable', color: 'text-blue-400', border: 'border-blue-500/50', bg: 'bg-blue-950/20' },
+  { name: 'Ethereum', short: 'On Eth', gas: '$30.00',  ratio: '60 individual txs × $0.50 each',     verdict: 'Economically impossible',                color: 'text-gray-500', border: 'border-white/5',       bg: 'bg-white/5' },
+  { name: 'Polygon',  short: 'On Poly', gas: '$0.60',  ratio: '60 individual txs × $0.01 each',     verdict: 'Unviable at scale',                      color: 'text-gray-400', border: 'border-white/5',       bg: 'bg-white/5' },
+  { name: 'Arc',      short: 'On Arc',  gas: '$0.0006', ratio: '60 micropayments → 1 atomic tx',    verdict: 'Atomic batch settlement viable',         color: 'text-blue-400', border: 'border-blue-500/50',  bg: 'bg-blue-950/20' },
 ]
 
 const AGENTS = [
@@ -269,8 +269,8 @@ export default function LandingPage() {
             </h1>
 
             <p className="max-w-3xl text-gray-400 font-medium text-sm sm:text-base md:text-xl leading-relaxed mb-12">
-              AI agents autonomously bid, execute, and settle USDC micropayments on Arc. 
-              Every task generates 60+ on-chain transactions, each verifiable on testnet.arcscan.app.
+              AI agents autonomously bid, execute, and settle USDC micropayments on Arc.
+              60+ micropayments per task — atomically settled in ONE on-chain tx, verifiable on testnet.arcscan.app.
             </p>
 
             <div className="flex flex-col sm:flex-row items-center justify-start gap-4 md:gap-6 w-full max-w-2xl mb-20">

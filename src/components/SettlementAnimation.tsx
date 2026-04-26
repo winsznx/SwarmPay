@@ -106,6 +106,47 @@ export const SettlementAnimation: React.FC<SettlementAnimationProps> = ({ task }
           </div>
         </div>
 
+        {/* Batch tx hash banner — prominent on success.
+            Vault.settleBatch lands ALL N micropayments in one Arc tx, so
+            allHashes is length-1 and that hash is the audit-link. */}
+        {status === 'complete' && allHashes[0] && (
+          <div className="bg-linear-to-br from-green-500/15 to-emerald-500/5 border border-green-500/30 rounded-2xl p-5">
+            <div className="text-[9px] font-black text-green-400 uppercase tracking-[0.3em] mb-2">Atomic batch settlement on Arc</div>
+            <div className="font-mono text-[11px] text-white/90 break-all leading-tight mb-3">
+              {allHashes[0]}
+            </div>
+            <div className="text-[10px] font-bold text-slate-400 mb-4">
+              {confirmed} micropayments · 1 atomic tx · {gas != null ? `$${gas.toFixed(4)} gas` : ''}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <a
+                href={`https://testnet.arcscan.app/tx/${allHashes[0]}?tab=token_transfers`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-green-300 hover:text-white bg-green-500/15 hover:bg-green-500/25 border border-green-500/30 rounded-lg px-3 py-2 transition-all"
+              >
+                View {confirmed} token transfers&nbsp;↗
+              </a>
+              <a
+                href={`https://testnet.arcscan.app/tx/${allHashes[0]}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-3 py-2 transition-all"
+              >
+                Tx details
+              </a>
+              <a
+                href={`https://testnet.arcscan.app/tx/${allHashes[0]}?tab=logs`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-300 hover:text-white bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg px-3 py-2 transition-all"
+              >
+                {confirmed} PaymentSettled events
+              </a>
+            </div>
+          </div>
+        )}
+
         {/* Dot grid */}
         <div className="grid grid-cols-10 sm:grid-cols-15 md:grid-cols-20 gap-1.5">
           {dots.length === 0 ? (

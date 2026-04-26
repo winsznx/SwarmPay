@@ -280,17 +280,16 @@ export async function verifyPaymentIntent(
 }
 
 /**
- * After verification, the signed intent is already persisted in
- * `payment_intents` (status='pending'). Trigger a drain invocation —
- * /api/settlement/drain will atomically claim it via the
- * `claim_pending_intents` RPC and ship it on-chain.
+ * No-op in batch-settlement mode.
  *
- * Replaces the prior in-memory enqueueIntents() which couldn't
- * survive a serverless function teardown.
+ * Verified intents stay in `payment_intents.status='pending'` until
+ * pipeline phase 8 calls `settleAllIntentsOnArc` which pulls every
+ * pending intent for the task into a single atomic SettlementVault
+ * `settleBatch` transaction on Arc. Triggering per-intent drain here
+ * would race with the batch and waste Circle API calls.
  */
-export async function submitForSettlement(signed: SignedPaymentIntent): Promise<void> {
-  const { triggerDrain } = await import('./settlementDrain')
-  triggerDrain(signed.intent.taskId)
+export async function submitForSettlement(_signed: SignedPaymentIntent): Promise<void> {
+  // no-op — phase 8 handles atomic settlement in one tx
 }
 
 /**

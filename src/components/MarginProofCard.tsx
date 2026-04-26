@@ -4,30 +4,31 @@ import React from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, XCircle } from 'lucide-react';
 
-// Math grounded in measured Arc per-tx gas (~$0.00045 measured from receipts)
-// times 60 individual on-chain settlements per task. Ethereum / Polygon
-// numbers are public mainnet averages × 60 transfers.
+// 60+ micropayments per task. On Eth/Polygon those are 60 individual txs.
+// On Arc, the SwarmPay SettlementVault batches all 60 into ONE atomic tx —
+// 60 PaymentSettled events emitted, 1 BatchSettled event, single block.
+// Measured cost: ~$0.0006 total gas per batch tx on Arc testnet.
 const chains = [
   {
     name: 'Ethereum',
     color: 'text-red-500',
-    gasPer60: '$30.00',
+    gas: '$30.00',
     viable: false,
-    note: '60 × $0.50 = 100× task value'
+    note: '60 individual txs × $0.50 each'
   },
   {
     name: 'Polygon',
     color: 'text-yellow-500',
-    gasPer60: '$0.60',
+    gas: '$0.60',
     viable: false,
-    note: '60 × $0.01 = eats the task'
+    note: '60 individual txs × $0.01 each'
   },
   {
     name: 'Arc Network',
     color: 'text-green-500',
-    gasPer60: '$0.027',
+    gas: '$0.0006',
     viable: true,
-    note: '60 × ~$0.00045 measured per tx'
+    note: '60 micropayments → 1 atomic tx'
   }
 ];
 
@@ -45,7 +46,7 @@ export const MarginProofCard: React.FC = () => {
       <div className="relative">
         <div className="mb-6">
           <h4 className="text-lg font-black text-white italic tracking-tight">Why Arc?</h4>
-          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">60 individual on-chain settlements. Per-tx cost comparison:</p>
+          <p className="text-[10px] font-bold text-slate-500 uppercase tracking-[0.2em]">60 micropayments per task. Per-task gas cost:</p>
         </div>
 
         <div className="space-y-4">
@@ -58,7 +59,7 @@ export const MarginProofCard: React.FC = () => {
               
               <div className="flex flex-col items-end gap-1">
                 <span className={`text-xl font-mono font-black ${chain.color}`}>
-                  {chain.gasPer60}
+                  {chain.gas}
                 </span>
                 <div className={`flex items-center gap-1.5 px-2 py-0.5 rounded-full border text-[9px] font-black uppercase
                   ${chain.viable 
@@ -85,7 +86,7 @@ export const MarginProofCard: React.FC = () => {
 
         <div className="mt-8 pt-4 border-t border-white/5 text-center">
             <p className="text-sm font-black text-white tracking-tight">
-                Arc lets every payment intent settle as a real on-chain transfer. <span className="text-slate-500">No batching tricks. Each tx auditable on Arc.</span>
+                60 micropayments → 1 atomic Arc tx via SwarmPay SettlementVault. <span className="text-slate-500">All-or-nothing. 60 PaymentSettled events on-chain.</span>
             </p>
         </div>
       </div>
