@@ -4,7 +4,7 @@ Self-contained instructions. You don't need any prior context — read this top 
 
 ## What you're applying
 
-7 numbered SQL migrations against the production Supabase project for SwarmPay. Each migration:
+10 numbered SQL migrations against the production Supabase project for SwarmPay. Each migration:
 
 - Is wrapped in `BEGIN; ... COMMIT;` — if any statement fails, the whole file rolls back, no partial state.
 - Is idempotent — re-runnable without error (uses `IF NOT EXISTS`, `IF EXISTS`, `ON CONFLICT DO NOTHING`, and `DO $$ ... EXCEPTION WHEN duplicate_object THEN NULL; END $$` for publication membership).
@@ -31,6 +31,7 @@ Apply in this exact order. Each is its own SQL Editor run.
 | 7 | `007_compute_sessions.sql` | compute_sessions table for per-ms billing audit | `007_compute_sessions_rollback.sql` |
 | 8 | `008_escrow_rpc.sql` | Defensive re-creation of all 6 RPCs (escrow + settlement + reputation) with `SECURITY DEFINER` and a `NOTIFY pgrst` cache reload — fixes "function not found in schema cache" 503s | `008_escrow_rpc_rollback.sql` |
 | 9 | `009_settlement_drain.sql` | Stateless settlement drain support: `claim_pending_intents` (FOR UPDATE SKIP LOCKED), `count_pending_intents`, `release_intent_to_pending`. Replaces the broken in-memory queue that died on Vercel serverless teardown. | `009_settlement_drain_rollback.sql` |
+| 10 | `010_agent_identity.sql` | Agent on-chain identity: `wallet_address`, `erc8004_token_id`, `erc8004_register_tx`, `erc8004_bind_tx` on `agents`. Payment cryptographic audit trail: `nonce`, `signature`, `signer_address` on `payment_intents`. Anti-replay partial unique index on `(task_id, nonce)` WHERE nonce IS NOT NULL. Fast wallet address lookup index. | `010_agent_identity_rollback.sql` |
 
 ## Step-by-step
 
@@ -45,12 +46,14 @@ Apply in this exact order. Each is its own SQL Editor run.
 3. Watch for the green success banner. If you see `RAISE NOTICE 'Migrated legacy completed status to settled'`, that's expected — existing rows were normalized.
 4. If anything errors: the `BEGIN/COMMIT` rolls back automatically. Do NOT re-paste blindly. Read the error, decide whether to investigate or run `001_phase_b_rollback.sql`.
 
-### 2. Apply 002 → 009
+### 2. Apply 002 → 010
 Repeat the same paste-and-run pattern for each file in numerical order. Each one is small (~50 lines) and idempotent.
 
 **008 is the safety net:** even if 002 / 005 / 006 already ran cleanly, 008 re-creates the same RPC functions with `SECURITY DEFINER` and forces a PostgREST schema-cache reload via `NOTIFY pgrst, 'reload schema'`. This is the surgical fix for the "Could not find the function … in the schema cache" 503 errors that hit prod after the production sprint deploy.
 
 **009 is the drain backbone:** adds three RPCs (`claim_pending_intents`, `count_pending_intents`, `release_intent_to_pending`) used by `/api/settlement/drain`. Without 009, the new stateless drain endpoint cannot atomically claim batches and the SettlementProof panel will stay at `0/N confirmed` indefinitely. Always run 009 after 008.
+
+**010 is the identity + audit trail layer:** adds on-chain identity columns to `agents` (ERC-8004 tokenId, wallet address, balance) and cryptographic audit columns to `payment_intents` (EIP-712 nonce, ECDSA signature, signer address). The anti-replay partial unique index on `(task_id, nonce) WHERE nonce IS NOT NULL` prevents x402 replay attacks at the DB layer. Without 010, `savePaymentToSupabase` will fail to write nonce/signature fields (column does not exist) and verifiers cannot check the on-chain proof.
 
 ### 3. Postflight
 1. Paste contents of `postflight_queries.sql`.
@@ -123,6 +126,26 @@ SELECT proname, pg_get_function_arguments(oid) AS signature
 SELECT indexname, indexdef FROM pg_indexes
  WHERE indexname = 'idx_payment_intents_pending_by_task';
 -- Expect 1 row with WHERE (status = 'pending'::text)
+
+-- 010 agent identity columns
+SELECT column_name FROM information_schema.columns
+ WHERE table_name = 'agents'
+   AND column_name IN (
+     'wallet_address','last_balance_usdc','last_balance_synced_at',
+     'erc8004_token_id','erc8004_register_tx','erc8004_bind_tx'
+   );
+-- Expect 6 rows.
+
+-- 010 payment intent crypto audit columns
+SELECT column_name FROM information_schema.columns
+ WHERE table_name = 'payment_intents'
+   AND column_name IN ('nonce','signature','signer_address');
+-- Expect 3 rows.
+
+-- 010 anti-replay index (partial — only when nonce IS NOT NULL)
+SELECT indexname, indexdef FROM pg_indexes
+ WHERE indexname = 'idx_payment_intents_nonce_task';
+-- Expect 1 row. indexdef must contain WHERE (nonce IS NOT NULL).
 ```
 
 **If `/api/escrow/hold` still returns 503 after 008 lands**, force the cache reload by hand:
@@ -147,11 +170,12 @@ You generally **do not** want to rollback past 001 once tasks have been complete
 
 `002_settlement_progress_rollback.sql` resets the `settlements.status` CHECK back to the original `('pending','broadcast','confirmed','failed')`. Any rows currently in `'in_progress'` / `'complete'` / `'partial'` will violate the old CHECK. Either fix those rows manually first or rollback 002 only when settlements is empty.
 
-## After all 7 are applied + verified
+## After all 10 are applied + verified
 
 1. The PR is safe to merge.
 2. Vercel will redeploy automatically.
-3. New tasks will write through the full Phase B stack: subtasks/subtask_bids in their own tables, x402 events into task_events, reputation deltas into reputation_events, escrow lifecycle into user_wallets/escrow_holds, compute sessions into compute_sessions, and gas measurements landing on payment_intents and rolling up into settlements.total_gas_cost.
+3. New tasks will write through the full stack: subtasks/subtask_bids in their own tables, x402 events into task_events, EIP-712 nonce+signature+signerAddress into payment_intents, reputation deltas into reputation_events, escrow lifecycle into user_wallets/escrow_holds, compute sessions into compute_sessions, and gas measurements landing on payment_intents and rolling up into settlements.total_gas_cost.
+4. After deploy, call `POST /api/admin/bootstrap` with `Authorization: Bearer <ADMIN_SECRET>` to register all 6 agents in the ERC-8004 Identity Registry on Sepolia and bind their Circle wallet addresses on-chain. Requires `PLATFORM_PRIVATE_KEY` (Sepolia EOA) and `SEPOLIA_RPC_URL` in Vercel env. This is idempotent — safe to re-run.
 
 ## Known migration-touches-shared-table notes
 

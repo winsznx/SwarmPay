@@ -1,49 +1,53 @@
 import { NextResponse } from 'next/server';
 import { store } from '@/lib/store';
-import { Agent, AgentRole } from '@/types';
+import { supabaseAdmin } from '@/lib/supabase';
+import { resolveAllAgentIdentities, getAgentSettledTxCount } from '@/lib/agentIdentity';
+import { getAgentWallets } from '@/lib/circleWallets';
+
+const ARC_EXPLORER = 'https://testnet.arcscan.app';
 
 export async function GET() {
-  // Sync real Circle balances if keys are present
-  if (process.env.CIRCLE_API_KEY && process.env.CIRCLE_ENTITY_SECRET) {
-    try {
-      await store.refreshAgentWallets();
-    } catch (e) {
-      console.error('[API] Failed to refresh balances:', e);
-    }
-  }
-  
-  const agents = await store.getAgents();
-  return NextResponse.json(agents);
-}
+  const [memAgents, identities] = await Promise.all([
+    store.getAgents(),
+    resolveAllAgentIdentities()
+  ])
 
-export async function POST(request: Request) {
-  try {
-    const body = await request.json();
-    const { name, role, capabilities = [] } = body;
+  const identityMap = new Map(identities.map(i => [i.agentId, i]))
 
-    if (!name || !role) {
-      return NextResponse.json({ error: 'Name and role are required' }, { status: 400 });
-    }
+  const enrichedAgents = await Promise.all(
+    memAgents.map(async (agent: any) => {
+      const identity = identityMap.get(agent.id)
+      const txCount = await getAgentSettledTxCount(agent.id)
 
-    const newAgent: Agent = {
-      id: crypto.randomUUID(),
-      name,
-      role: role as AgentRole,
-      capabilities,
-      walletAddress: `0x${Math.random().toString(16).slice(2, 42)}`, // Mock Circle wallet
-      wallet: 0,
-      reputation: 90, // Start with a decent reputation
-      totalEarned: 0,
-      tasksCompleted: 0,
-      avgResponseTimeMs: 0,
-      memory: { pastTasks: [], pastResults: [], successCount: 0, failureCount: 0 },
-    };
+      let dbReputation: number | null = null
+      if (supabaseAdmin) {
+        const { data } = await supabaseAdmin
+          .from('agents')
+          .select('reputation, tasks_completed, wallet_address, last_balance_usdc, last_balance_synced_at')
+          .eq('id', agent.id)
+          .single()
+        if (data) {
+          dbReputation = data.reputation
+        }
+      }
 
-    await store.addAgent(newAgent);
+      return {
+        id: agent.id,
+        name: agent.name,
+        role: agent.role,
+        capabilities: agent.capabilities,
+        reputation: dbReputation ?? agent.reputation,
+        totalEarned: agent.totalEarned ?? agent.earned ?? 0,
+        tasksCompleted: agent.tasksCompleted ?? 0,
+        walletId: getAgentWallets()[agent.id] ?? null,
+        walletAddress: identity?.address ?? null,
+        balanceUsdc: identity?.balanceUsdc ?? null,
+        settledTxCount: txCount,
+        arcExplorerUrl: identity ? `${ARC_EXPLORER}/address/${identity.address}` : null,
+        isOnChain: !!identity?.address,
+      }
+    })
+  )
 
-    return NextResponse.json(newAgent, { status: 201 });
-  } catch (error) {
-    console.error('Error creating agent:', error);
-    return NextResponse.json({ error: 'Internal Server Error' }, { status: 500 });
-  }
+  return NextResponse.json(enrichedAgents)
 }

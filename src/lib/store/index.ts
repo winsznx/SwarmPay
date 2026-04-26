@@ -20,9 +20,13 @@ class MemoryStore {
   private pipelineSteps: any[] = [];
 
   constructor() {
+    // wallet_address is intentionally null here — it gets populated from Circle
+    // API via agentIdentity.resolveAgentAddress() and persisted in Supabase
+    // agents.wallet_address. Never generate random addresses: they would be
+    // different on every cold start and are cryptographically meaningless.
     this.agents = SEED_AGENTS.map(a => ({
       ...a,
-      wallet_address: `0x${Math.random().toString(16).slice(2, 42)}`,
+      wallet_address: null,
       wallet: a.balance,
       tasksCompleted: 0,
       totalEarned: 0,

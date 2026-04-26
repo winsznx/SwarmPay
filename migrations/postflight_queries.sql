@@ -98,3 +98,36 @@ SELECT column_name, column_default, is_nullable, data_type
   FROM information_schema.columns
  WHERE table_name = 'settlements' AND column_name = 'gas_cost';
 -- Expected: column_default = NULL (or empty), data_type = numeric.
+
+-- ── Migration 010 checks (agent identity + payment audit trail) ──────────
+
+-- 11. Agent on-chain identity columns exist
+--     Expect six rows.
+SELECT column_name
+  FROM information_schema.columns
+ WHERE table_name = 'agents'
+   AND column_name IN (
+     'wallet_address','last_balance_usdc','last_balance_synced_at',
+     'erc8004_token_id','erc8004_register_tx','erc8004_bind_tx'
+   )
+ ORDER BY column_name;
+
+-- 12. Payment intent cryptographic audit columns exist
+--     Expect three rows.
+SELECT column_name
+  FROM information_schema.columns
+ WHERE table_name = 'payment_intents'
+   AND column_name IN ('nonce','signature','signer_address')
+ ORDER BY column_name;
+
+-- 13. Anti-replay unique index exists and is partial
+--     Expect one row. indexdef must include WHERE (nonce IS NOT NULL).
+SELECT indexname, indexdef
+  FROM pg_indexes
+ WHERE indexname = 'idx_payment_intents_nonce_task';
+
+-- 14. Fast wallet address lookup index exists
+--     Expect one row.
+SELECT indexname
+  FROM pg_indexes
+ WHERE indexname = 'idx_agents_wallet_address';
